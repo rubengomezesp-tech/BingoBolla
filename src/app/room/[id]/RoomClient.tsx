@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   COLS_75, ballClass, ballLetter, ball90Class, checkCardStatus,
-  type Card as CardType, type Variant,
+  type Card as CardType,
 } from "@/lib/game/engine";
-import { isMuted, setMuted, playBallCalled, playOneToGo, playWin, playPurchase, playGameStart } from "@/lib/sounds";
-import type { Profile, RoomLive } from "@/lib/supabase/types";
+import { isMuted, setMuted, playBallCalled, playOneToGo, playWin, playPurchase } from "@/lib/sounds";
+import type { Profile } from "@/lib/supabase/types";
 import { NumberMarker, Confetti } from "@/components/Marker";
 import Link from "next/link";
 
@@ -16,24 +16,29 @@ type MyCard = { id: string; game_id: string; card_data: CardType; currency: "gol
 type ChatMsg = { id: string; player_id: string | null; is_mc: boolean; message: string; created_at: string; username?: string };
 
 type RoomState = {
-  room: any;
+  room: {
+    id: string; name: string; variant: string;
+    ticket_gold: number; ticket_sweeps: number;
+    max_cards_per_player: number; rtp: number;
+    ball_interval_ms: number; schedule_interval_seconds: number;
+  };
   playing_game: {
     id: string;
-    pot_gold: number;
-    pot_sweeps: number;
-    balls_count: number;
+    pot_gold: number; pot_sweeps: number;
     line_won_by: string | null;
     two_lines_won_by: string | null;
     full_house_won_by: string | null;
+    starts_at: string;
+    balls: Ball[];
   } | null;
   waiting_game: {
     id: string;
-    pot_gold: number;
-    pot_sweeps: number;
+    pot_gold: number; pot_sweeps: number;
     starts_at: string;
   } | null;
-  my_cards_playing: number;
-  my_cards_waiting: number;
+  my_cards_playing: MyCard[];
+  my_cards_waiting: MyCard[];
+  chat: ChatMsg[];
   purchase_open: boolean;
   purchase_closes_in_s: number;
 };
@@ -41,113 +46,75 @@ type RoomState = {
 const CHAT_SHORTCUTS = ["GL all 🍀", "1TG 🎯", "2TG 👀", "WTG 🎉", "TY 💚", "GG 🤝"];
 
 export default function RoomClient({
-  initialRoom,
+  initialState,
   initialProfile,
   userId,
 }: {
-  initialRoom: RoomLive & { variant: Variant };
+  initialState: RoomState;
   initialProfile: Profile;
   userId: string;
 }) {
   const supabase = createClient();
-  const [room] = useState(initialRoom);
+  const room = initialState.room;
   const isB90 = room.variant === "bingo90";
   const [profile, setProfile] = useState(initialProfile);
-  const [state, setState] = useState<RoomState | null>(null);
-  const [myCardsPlaying, setMyCardsPlaying] = useState<MyCard[]>([]);
-  const [myCardsWaiting, setMyCardsWaiting] = useState<MyCard[]>([]);
-  const [balls, setBalls] = useState<Ball[]>([]);
-  const [chat, setChat] = useState<ChatMsg[]>([]);
+  const [state, setState] = useState<RoomState>(initialState);
   const [chatInput, setChatInput] = useState("");
   const [buying, setBuying] = useState(false);
   const [buyingStrip, setBuyingStrip] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [winFlash, setWinFlash] = useState<{ pattern: string; amount: number } | null>(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
-  const [muted, setMutedState] = useState(isMuted());
+  const [muted, setMutedState] = useState(false);
   const [countdownPlay, setCountdownPlay] = useState<number | null>(null);
   const [countdownClose, setCountdownClose] = useState<number | null>(null);
   const [justMarked, setJustMarked] = useState<Set<string>>(new Set());
   const chatRef = useRef<HTMLDivElement>(null);
-  const prevBallsLen = useRef(0);
+  const prevBallsLen = useRef(state.playing_game?.balls.length ?? 0);
   const prev1TG = useRef<Set<string>>(new Set());
   const tickIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const refetchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const playingGameId = state?.playing_game?.id ?? null;
-  const waitingGameId = state?.waiting_game?.id ?? null;
+  const playingGameId = state.playing_game?.id ?? null;
+  const waitingGameId = state.waiting_game?.id ?? null;
+  const balls = state.playing_game?.balls ?? [];
 
   const calledSet = useMemo(() => new Set(balls.map((b) => b.ball_number)), [balls]);
   const lastBall = balls.length ? balls[balls.length - 1] : null;
 
   const cardStatuses = useMemo(() => {
     const m: Record<string, ReturnType<typeof checkCardStatus>> = {};
-    for (const c of myCardsPlaying) m[c.id] = checkCardStatus(c.card_data, calledSet);
+    for (const c of state.my_cards_playing) m[c.id] = checkCardStatus(c.card_data, calledSet);
     return m;
-  }, [myCardsPlaying, calledSet]);
+  }, [state.my_cards_playing, calledSet]);
 
-  // ============ LOAD ROOM STATE ============
-  async function loadRoomState() {
+  // Initialize mute state from localStorage
+  useEffect(() => { setMutedState(isMuted()); }, []);
+
+  // Refetch state from server
+  async function refetch() {
     const { data, error } = await supabase.rpc("get_room_state", { p_room_id: room.id });
-    if (error || !data) return;
-    setState(data as RoomState);
-    const s = data as RoomState;
-
-    // Load cards in playing game
-    if (s.playing_game) {
-      const { data: cards } = await supabase
-        .from("cards").select("*").eq("game_id", s.playing_game.id).eq("player_id", userId);
-      setMyCardsPlaying((cards as any) ?? []);
-
-      const { data: bs } = await supabase
-        .from("balls_called").select("*").eq("game_id", s.playing_game.id).order("sequence");
-      setBalls((bs as Ball[]) ?? []);
-    } else {
-      setMyCardsPlaying([]);
-      setBalls([]);
-    }
-
-    // Load cards in waiting game
-    if (s.waiting_game) {
-      const { data: cards } = await supabase
-        .from("cards").select("*").eq("game_id", s.waiting_game.id).eq("player_id", userId);
-      setMyCardsWaiting((cards as any) ?? []);
-    } else {
-      setMyCardsWaiting([]);
-    }
+    if (!error && data) setState(data as RoomState);
   }
 
-  useEffect(() => {
-    loadRoomState();
-    const interval = setInterval(loadRoomState, 8000);  // periodic refresh as fallback
-    return () => clearInterval(interval);
-  }, [room.id]);
-
-  // ============ REALTIME ============
+  // ============ REALTIME — escuchamos eventos y refetcheamos ============
   useEffect(() => {
     const channel = supabase
       .channel(`room:${room.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "games", filter: `room_id=eq.${room.id}` },
-        () => loadRoomState()
+        () => { scheduleRefetch(100); }
       )
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "balls_called" },
         (p) => {
           const b = p.new as Ball & { game_id: string };
-          if (b.game_id === playingGameId) {
-            setBalls((prev) => prev.some((x) => x.sequence === b.sequence) ? prev : [...prev, b]);
-          }
+          if (b.game_id === playingGameId) scheduleRefetch(50);
         }
       )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "cards" },
+        () => { scheduleRefetch(200); }
+      )
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" },
-        async (p) => {
-          const m = p.new as any;
-          if (m.game_id !== playingGameId && m.game_id !== waitingGameId) return;
-          if (m.is_mc) {
-            setChat((prev) => [...prev, { ...m, username: m.message.split(":")[0] }]);
-          } else {
-            const { data } = await supabase.from("profiles").select("username").eq("id", m.player_id).single();
-            setChat((prev) => [...prev, { ...m, username: (data as any)?.username ?? "?" }]);
-          }
-        }
+        () => { scheduleRefetch(100); }
       )
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "claims" },
         (p) => {
@@ -158,34 +125,29 @@ export default function RoomClient({
             setConfettiTrigger(Date.now());
             playWin();
             setTimeout(() => setWinFlash(null), 5000);
-            supabase.from("profiles").select("*").eq("id", userId).single<Profile>().then(({ data }) => {
-              if (data) setProfile(data);
-            });
           }
+          scheduleRefetch(100);
         }
       )
       .subscribe();
+
+    function scheduleRefetch(delay: number) {
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+      refetchTimerRef.current = setTimeout(refetch, delay);
+    }
+
     return () => { supabase.removeChannel(channel); };
-  }, [room.id, playingGameId, waitingGameId]);
+  }, [room.id, playingGameId, userId]);
 
-  // ============ Load chat for current playing/waiting game ============
+  // Polling de respaldo cada 8s
   useEffect(() => {
-    const gameId = playingGameId ?? waitingGameId;
-    if (!gameId) { setChat([]); return; }
-    supabase.from("chat_messages")
-      .select("*, profiles(username)")
-      .eq("game_id", gameId)
-      .order("created_at", { ascending: true })
-      .limit(80)
-      .then(({ data }) => {
-        if (data) setChat((data as any[]).map((m) => ({ ...m, username: m.profiles?.username ?? "MC" })));
-      });
-  }, [playingGameId, waitingGameId]);
+    const id = setInterval(refetch, 8000);
+    return () => clearInterval(id);
+  }, [room.id]);
 
-  // ============ TICK (client-driven ball drops) ============
+  // Tick client-driven cada 3s
   useEffect(() => {
     if (!playingGameId && !waitingGameId) return;
-
     const tick = async () => {
       const targetId = playingGameId ?? waitingGameId;
       if (!targetId) return;
@@ -197,20 +159,19 @@ export default function RoomClient({
         });
       } catch {}
     };
-
     tickIntervalRef.current = setInterval(tick, 3000);
     tick();
     return () => { if (tickIntervalRef.current) clearInterval(tickIntervalRef.current); };
   }, [playingGameId, waitingGameId]);
 
-  // Ball sound + 1TG detection
+  // Sonido de bola nueva + flash de marcado + 1TG
   useEffect(() => {
     if (balls.length > prevBallsLen.current) {
       const newBall = balls[balls.length - 1];
       if (newBall) {
         playBallCalled(newBall.ball_number);
         const newMarks = new Set<string>();
-        for (const c of myCardsPlaying) {
+        for (const c of state.my_cards_playing) {
           for (let r = 0; r < c.card_data.length; r++) {
             for (let cc = 0; cc < c.card_data[r].length; cc++) {
               if (c.card_data[r][cc] === newBall.ball_number) newMarks.add(`${c.id}-${r}-${cc}`);
@@ -226,7 +187,7 @@ export default function RoomClient({
     prevBallsLen.current = balls.length;
 
     const new1TG = new Set<string>();
-    for (const c of myCardsPlaying) {
+    for (const c of state.my_cards_playing) {
       const s = cardStatuses[c.id];
       if (s && s.to_line === 1) new1TG.add(c.id);
     }
@@ -234,34 +195,40 @@ export default function RoomClient({
       if (!prev1TG.current.has(id)) { playOneToGo(); break; }
     }
     prev1TG.current = new1TG;
-  }, [balls, myCardsPlaying, cardStatuses]);
+  }, [balls, state.my_cards_playing, cardStatuses]);
 
-  // Countdown to play start
+  // Countdowns
   useEffect(() => {
-    if (!state?.waiting_game) { setCountdownPlay(null); setCountdownClose(null); return; }
+    if (!state.waiting_game) { setCountdownPlay(null); setCountdownClose(null); return; }
     const target = new Date(state.waiting_game.starts_at).getTime();
     const tick = () => {
       const ms = target - Date.now();
       setCountdownPlay(Math.max(0, Math.floor(ms / 1000)));
-      setCountdownClose(Math.max(0, Math.floor((ms - 5000) / 1000)));  // 5s before play
+      setCountdownClose(Math.max(0, Math.floor((ms - 5000) / 1000)));
     };
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [state?.waiting_game]);
+  }, [state.waiting_game]);
 
   useEffect(() => {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
-  }, [chat]);
+  }, [state.chat]);
+
+  // Update profile balance after purchases (refresh from server)
+  async function refreshProfile() {
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single<Profile>();
+    if (data) setProfile(data);
+  }
 
   // ============ MODE DETECTION ============
-  const playing = !!state?.playing_game;
-  const waiting = !!state?.waiting_game;
-  const hasPlayingCards = (state?.my_cards_playing ?? 0) > 0;
-  const hasWaitingCards = (state?.my_cards_waiting ?? 0) > 0;
-  const purchaseOpen = state?.purchase_open && !!waiting;
+  const playing = !!state.playing_game;
+  const waiting = !!state.waiting_game;
+  const hasPlayingCards = state.my_cards_playing.length > 0;
+  const hasWaitingCards = state.my_cards_waiting.length > 0;
+  const purchaseOpen = state.purchase_open && !!waiting;
 
-  let mode: "live" | "spectator-queue" | "spectator-locked" | "buy" | "wait-with-cards" = "buy";
+  let mode: "live" | "spectator-queue" | "spectator-locked" | "buy" | "wait-with-cards";
   if (playing && hasPlayingCards) mode = "live";
   else if (playing && waiting && purchaseOpen) mode = "spectator-queue";
   else if (playing && (!waiting || !purchaseOpen)) mode = "spectator-locked";
@@ -280,10 +247,8 @@ export default function RoomClient({
     }
     if (data) {
       playPurchase();
-      const { data: p } = await supabase.from("profiles").select("*").eq("id", userId).single<Profile>();
-      if (p) setProfile(p);
-      await loadRoomState();
-      setToast({ ok: true, text: "✅ Cartón comprado para la siguiente ronda" });
+      await Promise.all([refetch(), refreshProfile()]);
+      setToast({ ok: true, text: "✅ Cartón comprado" });
       setTimeout(() => setToast(null), 3000);
     }
   }
@@ -299,10 +264,8 @@ export default function RoomClient({
     }
     if (data) {
       playPurchase();
-      const { data: p } = await supabase.from("profiles").select("*").eq("id", userId).single<Profile>();
-      if (p) setProfile(p);
-      await loadRoomState();
-      setToast({ ok: true, text: "🎫 Tira de 6 cartones comprada · -15%" });
+      await Promise.all([refetch(), refreshProfile()]);
+      setToast({ ok: true, text: "🎫 Tira de 6 cartones · -15%" });
       setTimeout(() => setToast(null), 4000);
     }
   }
@@ -319,6 +282,8 @@ export default function RoomClient({
     const v = !muted; setMuted(v); setMutedState(v);
   }
 
+  const totalBalls = isB90 ? 90 : 75;
+
   // ============ RENDER ============
   return (
     <div className="min-h-screen bg-[var(--color-bg)] grain">
@@ -334,10 +299,12 @@ export default function RoomClient({
             <button onClick={toggleMute} className="w-8 h-8 rounded-full glass flex items-center justify-center text-sm hover:bg-white/10 transition-colors">
               {muted ? "🔇" : "🔊"}
             </button>
-            <div className="glass rounded-full px-3 py-1.5 font-mono text-xs whitespace-nowrap">🪙 {profile.gold_coins.toLocaleString()}</div>
-            <div className="rounded-full px-3 py-1.5 bg-[var(--color-magenta)]/15 border border-[var(--color-magenta)]/30 font-mono text-xs whitespace-nowrap">
+            <Link href="/store" className="glass rounded-full px-3 py-1.5 font-mono text-xs whitespace-nowrap hover:bg-white/10 transition-colors">
+              🪙 {profile.gold_coins.toLocaleString()}
+            </Link>
+            <Link href="/store" className="rounded-full px-3 py-1.5 bg-[var(--color-magenta)]/15 border border-[var(--color-magenta)]/30 font-mono text-xs whitespace-nowrap hover:bg-[var(--color-magenta)]/25 transition-colors">
               💎 {profile.sweeps_coins.toFixed(2)}
-            </div>
+            </Link>
           </div>
         </div>
       </header>
@@ -363,10 +330,15 @@ export default function RoomClient({
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6 grid lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
         <div className="space-y-4">
-          {/* ============ MODE BANNER ============ */}
-          <ModeBanner mode={mode} countdownPlay={countdownPlay} countdownClose={countdownClose} hasWaitingCards={hasWaitingCards} myCardsWaiting={state?.my_cards_waiting ?? 0} />
+          {/* MODE BANNER */}
+          <ModeBanner
+            mode={mode}
+            countdownPlay={countdownPlay}
+            countdownClose={countdownClose}
+            myCardsWaiting={state.my_cards_waiting.length}
+          />
 
-          {/* ============ GAME STATE — only if playing or waiting exists ============ */}
+          {/* GAME STATE + CALLER */}
           {(playing || waiting) && (
             <div className="card p-5 md:p-7 bb-prize-ribbon">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -383,12 +355,12 @@ export default function RoomClient({
                       </span>
                     )}
                     {playing && (
-                      <span className="text-xs font-mono text-[var(--color-fg-muted)]">{balls.length}/{isB90 ? 90 : 75}</span>
+                      <span className="text-xs font-mono text-[var(--color-fg-muted)]">{balls.length}/{totalBalls}</span>
                     )}
                   </div>
 
                   {/* Prize indicators */}
-                  {playing && state?.playing_game && (
+                  {playing && state.playing_game && (
                     <div className="grid grid-cols-3 gap-2">
                       <PrizeIndicator label="Línea" won={!!state.playing_game.line_won_by} active={!state.playing_game.line_won_by} />
                       {isB90 && <PrizeIndicator label="Doble" won={!!state.playing_game.two_lines_won_by} active={!!state.playing_game.line_won_by && !state.playing_game.two_lines_won_by} />}
@@ -417,7 +389,7 @@ export default function RoomClient({
               {/* Recent balls */}
               {playing && (
                 <div className="mt-5 md:mt-6 pt-5 border-t border-[var(--color-border)]">
-                  <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-2.5">Últimas 12 bolas</div>
+                  <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-2.5">Últimas bolas</div>
                   <div className="flex flex-wrap gap-1.5 min-h-[40px]">
                     {balls.slice(-12).reverse().map((b) => (
                       <div key={b.sequence} className={`bb-ball-3d ${isB90 ? ball90Class(b.ball_number) : ballClass(b.ball_number)} w-10 h-10 md:w-11 md:h-11`}>
@@ -433,19 +405,19 @@ export default function RoomClient({
             </div>
           )}
 
-          {/* ============ BUY SECTION ============ */}
-          {(mode === "buy" || mode === "spectator-queue" || mode === "wait-with-cards") && state?.waiting_game && (
+          {/* BUY SECTION */}
+          {(mode === "buy" || mode === "spectator-queue" || mode === "wait-with-cards") && state.waiting_game && (
             <div className={`card p-4 md:p-5 ${purchaseOpen ? "border-[var(--color-magenta)]/30" : "border-[var(--color-gold)]/30 bg-[var(--color-gold)]/5"}`}>
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <div className="font-display text-lg md:text-xl">
-                    {hasWaitingCards ? "Comprar más cartones" : "Comprar cartón para la siguiente ronda"}
+                    {hasWaitingCards ? "Comprar más cartones" : "Comprar cartón"}
                   </div>
                   <div className="text-xs md:text-sm text-[var(--color-fg-dim)]">
-                    {hasWaitingCards && `${state.my_cards_waiting} en cola`}
+                    {hasWaitingCards && `${state.my_cards_waiting.length}/${room.max_cards_per_player} en cola`}
                     {!purchaseOpen && (
                       <span className="text-[var(--color-gold)] font-medium">
-                        {hasWaitingCards ? " · " : ""}⏰ Ventana cerrada — próxima ronda empieza en {formatCountdown(countdownPlay)}
+                        {hasWaitingCards ? " · " : ""}⏰ Ventana cerrada · {formatCountdown(countdownPlay)}
                       </span>
                     )}
                     {purchaseOpen && (countdownClose ?? 99) < 10 && (
@@ -462,7 +434,7 @@ export default function RoomClient({
                   </button>
                 </div>
               </div>
-              {isB90 && purchaseOpen && (state.my_cards_waiting + 6) <= (room.max_cards_per_player ?? 6) && (
+              {isB90 && purchaseOpen && (state.my_cards_waiting.length + 6) <= room.max_cards_per_player && (
                 <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <div className="text-sm font-medium flex items-center gap-1.5">
@@ -476,19 +448,27 @@ export default function RoomClient({
                   </div>
                 </div>
               )}
+              {/* No tienes coins? */}
+              {(profile.gold_coins < room.ticket_gold && profile.sweeps_coins < room.ticket_sweeps) && (
+                <div className="mt-3 text-center">
+                  <Link href="/store" className="text-xs text-[var(--color-cyan)] hover:underline">
+                    Te faltan coins · Visita la tienda →
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ============ MY CARDS IN WAITING ============ */}
-          {myCardsWaiting.length > 0 && (
+          {/* MY CARDS IN WAITING */}
+          {state.my_cards_waiting.length > 0 && (
             <div className="card p-4 md:p-5 border-[var(--color-cyan)]/30 bg-[var(--color-cyan)]/5">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-cyan)] mb-1">
-                    ⏱️ En cola para la siguiente ronda
+                    ⏱️ En cola
                   </div>
                   <div className="font-display text-lg">
-                    {myCardsWaiting.length} {myCardsWaiting.length === 1 ? "cartón" : "cartones"} listos
+                    {state.my_cards_waiting.length} {state.my_cards_waiting.length === 1 ? "cartón" : "cartones"} listos
                   </div>
                 </div>
                 <div className="text-right">
@@ -496,8 +476,8 @@ export default function RoomClient({
                   <div className="font-mono text-2xl">{formatCountdown(countdownPlay)}</div>
                 </div>
               </div>
-              <div className={`grid ${myCardsWaiting.length === 1 ? "" : isB90 ? "" : "md:grid-cols-2"} gap-3 opacity-70`}>
-                {myCardsWaiting.slice(0, 4).map((card, idx) => (
+              <div className={`grid ${state.my_cards_waiting.length === 1 ? "" : isB90 ? "" : "md:grid-cols-2"} gap-3 opacity-70`}>
+                {state.my_cards_waiting.slice(0, 4).map((card, idx) => (
                   isB90 ? (
                     <Card90 key={card.id} card={card} status={undefined} calledSet={new Set()} index={idx} justMarked={new Set()} />
                   ) : (
@@ -505,16 +485,16 @@ export default function RoomClient({
                   )
                 ))}
               </div>
-              {myCardsWaiting.length > 4 && (
-                <div className="text-center mt-3 text-sm text-[var(--color-fg-dim)]">+{myCardsWaiting.length - 4} más</div>
+              {state.my_cards_waiting.length > 4 && (
+                <div className="text-center mt-3 text-sm text-[var(--color-fg-dim)]">+{state.my_cards_waiting.length - 4} más</div>
               )}
             </div>
           )}
 
-          {/* ============ MY CARDS PLAYING (live) ============ */}
-          {myCardsPlaying.length > 0 && (
-            <div className={`grid ${myCardsPlaying.length === 1 ? "" : isB90 ? "" : "md:grid-cols-2"} gap-3 md:gap-4`}>
-              {myCardsPlaying.map((card, idx) => (
+          {/* MY CARDS PLAYING (live) */}
+          {state.my_cards_playing.length > 0 && (
+            <div className={`grid ${state.my_cards_playing.length === 1 ? "" : isB90 ? "" : "md:grid-cols-2"} gap-3 md:gap-4`}>
+              {state.my_cards_playing.map((card, idx) => (
                 isB90 ? (
                   <Card90 key={card.id} card={card} status={cardStatuses[card.id]} calledSet={calledSet} index={idx} justMarked={justMarked} />
                 ) : (
@@ -526,46 +506,35 @@ export default function RoomClient({
 
           {/* Mobile chat */}
           <aside className="card overflow-hidden flex flex-col h-[400px] lg:hidden">
-            <ChatPanel chat={chat} chatRef={chatRef} chatInput={chatInput} setChatInput={setChatInput} onSend={sendChat} />
+            <ChatPanel chat={state.chat} chatRef={chatRef} chatInput={chatInput} setChatInput={setChatInput} onSend={sendChat} />
           </aside>
         </div>
 
         <aside className="card overflow-hidden flex-col h-[640px] lg:sticky lg:top-20 hidden lg:flex">
-          <ChatPanel chat={chat} chatRef={chatRef} chatInput={chatInput} setChatInput={setChatInput} onSend={sendChat} />
+          <ChatPanel chat={state.chat} chatRef={chatRef} chatInput={chatInput} setChatInput={setChatInput} onSend={sendChat} />
         </aside>
       </main>
     </div>
   );
 }
 
-// ============ MODE BANNER ============
-function ModeBanner({ mode, countdownPlay, countdownClose, hasWaitingCards, myCardsWaiting }: {
+// ============ BANNER ============
+function ModeBanner({ mode, countdownPlay, countdownClose, myCardsWaiting }: {
   mode: string;
   countdownPlay: number | null;
   countdownClose: number | null;
-  hasWaitingCards: boolean;
   myCardsWaiting: number;
 }) {
   const content = (() => {
     switch (mode) {
       case "live":
-        return { emoji: "🎯", title: "¡Tu partida está en curso!", subtitle: "Las bolas marcadas son las que salen", color: "emerald" };
+        return { emoji: "🎯", title: "¡Tu partida está en curso!", subtitle: "Las bolas se marcan automáticamente", color: "emerald" };
       case "spectator-queue":
-        return {
-          emoji: "👀",
-          title: "Mirando la partida actual",
-          subtitle: `Compra ahora para la siguiente · Ventana cierra ${countdownClose != null ? `en ${countdownClose}s` : "pronto"}`,
-          color: "cyan",
-        };
+        return { emoji: "👀", title: "Mirando partida en curso", subtitle: `Compra para la siguiente · Ventana cierra en ${countdownClose ?? "?"}s`, color: "cyan" };
       case "spectator-locked":
-        return {
-          emoji: "⏰",
-          title: "Ventana de compra cerrada",
-          subtitle: `Próxima ronda empieza en ${formatCountdown(countdownPlay)} · Espera para comprar`,
-          color: "gold",
-        };
+        return { emoji: "⏰", title: "Ventana cerrada", subtitle: `Próxima ronda en ${formatCountdown(countdownPlay)}`, color: "gold" };
       case "wait-with-cards":
-        return { emoji: "⏱️", title: `${myCardsWaiting} cartones listos`, subtitle: `La ronda empieza en ${formatCountdown(countdownPlay)}`, color: "cyan" };
+        return { emoji: "⏱️", title: `${myCardsWaiting} cartones listos`, subtitle: `Empieza en ${formatCountdown(countdownPlay)}`, color: "cyan" };
       case "buy":
       default:
         return { emoji: "🎫", title: "Compra tu cartón", subtitle: `La ronda empieza en ${formatCountdown(countdownPlay)}`, color: "magenta" };
@@ -590,7 +559,6 @@ function ModeBanner({ mode, countdownPlay, countdownClose, hasWaitingCards, myCa
   );
 }
 
-// ============ PRIZE INDICATOR ============
 function PrizeIndicator({ label, won, active }: { label: string; won: boolean; active: boolean }) {
   return (
     <div className={`text-center p-2 rounded-lg border transition-all ${
@@ -606,7 +574,7 @@ function PrizeIndicator({ label, won, active }: { label: string; won: boolean; a
   );
 }
 
-// ============ CARDS (same as v12) ============
+// ============ CARDS ============
 function Card75({ card, status, calledSet, index, justMarked }: any) {
   const toLine = status?.to_line ?? 99;
   const won = status?.full_house;
@@ -718,7 +686,7 @@ function ChatPanel({ chat, chatRef, chatInput, setChatInput, onSend }: any) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className={`text-[11px] font-medium mb-0.5 ${m.is_mc ? "text-[var(--color-magenta)]" : "text-[var(--color-cyan)]"}`}>
-                  {m.is_mc ? "🎤 " + (m.username?.replace(/^[^A-Za-z]+/, "") ?? "MC") : m.username}
+                  {m.is_mc ? "🎤 MC" : m.username}
                 </div>
                 <div className="text-[var(--color-fg-dim)] break-words leading-snug">{m.message}</div>
               </div>
@@ -757,10 +725,10 @@ function getBallColor(n: number, is90: boolean): string {
 
 function errorLabel(msg: string): string {
   const map: Record<string, string> = {
-    purchase_window_closed: "⏰ Ventana cerrada. Espera la próxima ronda.",
+    purchase_window_closed: "⏰ Ventana cerrada. Espera próxima ronda.",
     insufficient_funds: "Te faltan monedas. Visita la tienda.",
     kyc_required: "Completa la verificación primero.",
-    state_excluded: "Tu estado no permite usar Sweeps Coins.",
+    state_excluded: "Tu estado no permite Sweeps Coins.",
     max_cards_reached: "Máximo de cartones alcanzado.",
     game_not_active: "La partida ya no está activa.",
     account_banned: "Cuenta suspendida.",

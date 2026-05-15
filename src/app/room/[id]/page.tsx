@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import RoomClient from "./RoomClient";
-import type { Profile, RoomLive } from "@/lib/supabase/types";
+import type { Profile } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,15 +12,22 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Asegura que hay un waiting_game (idempotente — si ya hay uno activo, no hace nada)
+  // Asegura que existe un waiting_game (idempotente)
   await supabase.rpc("ensure_waiting_game", { p_room_id: id });
 
-  const [{ data: profile }, { data: room }] = await Promise.all([
+  // Estado COMPLETO de la sala (todo en una sola query)
+  const [{ data: profile }, { data: state }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single<Profile>(),
-    supabase.from("rooms_live").select("*").eq("id", id).single<RoomLive>(),
+    supabase.rpc("get_room_state", { p_room_id: id }),
   ]);
 
-  if (!room) notFound();
+  if (!state || (state as any).error) notFound();
 
-  return <RoomClient initialRoom={room} initialProfile={profile!} userId={user.id} />;
+  return (
+    <RoomClient
+      initialState={state}
+      initialProfile={profile!}
+      userId={user.id}
+    />
+  );
 }
