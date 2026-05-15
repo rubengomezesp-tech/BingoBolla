@@ -145,24 +145,26 @@ export default function RoomClient({
     return () => clearInterval(id);
   }, [room.id]);
 
-  // Tick client-driven cada 3s
+  // ============ TICK CADA 3 SEGUNDOS (AHORA ENVÍA room_id) ============
   useEffect(() => {
-    if (!playingGameId && !waitingGameId) return;
+    // Función que llama al tick con el room_id (para activar/avanzar el juego de esta sala)
     const tick = async () => {
-      const targetId = playingGameId ?? waitingGameId;
-      if (!targetId) return;
       try {
         await fetch("/api/game/tick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ game_id: targetId }),
+          body: JSON.stringify({ room_id: room.id }),  // Cambiado: ahora envía room_id
         });
-      } catch {}
+      } catch (err) {
+        console.error("Tick error:", err);
+      }
     };
     tickIntervalRef.current = setInterval(tick, 3000);
-    tick();
-    return () => { if (tickIntervalRef.current) clearInterval(tickIntervalRef.current); };
-  }, [playingGameId, waitingGameId]);
+    tick(); // llamada inmediata
+    return () => {
+      if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
+    };
+  }, [room.id]); // Depende solo de room.id
 
   // Sonido de bola nueva + flash de marcado + 1TG
   useEffect(() => {
