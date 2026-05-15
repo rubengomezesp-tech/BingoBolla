@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuroraBackground, FloatingBubbles } from "@/components/FloatingBubbles";
 
 export const metadata: Metadata = {
   title: "BingoBolla — Bingo reimagined for America",
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuroraBackground />
+        <FloatingBubbles count={12} />
+        {children}
+      </body>
     </html>
   );
 }

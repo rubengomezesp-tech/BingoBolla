@@ -1,8 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/tick",
-      "schedule": "* * * * *"
-    }
-  ]
+  "buildCommand": "next build",
+  "framework": "nextjs"
 }

@@ -1,66 +1,116 @@
-# BingoBolla v13 — Spectator Mode
+# BingoBolla v14 — Final Fix Bundle
 
-## ¿Qué hace?
+## El diagnóstico real
 
-Estilo tombola.es. Entras a una sala con partida ya empezada:
+Después de revisar TODO tu stack:
 
-- **Ves las bolas saliendo en tiempo real** (espectador)
-- **No puedes comprar cartones** para la partida en curso
-- Puedes **comprar para la siguiente ronda** mientras miras
-- A **<5 segundos** del comienzo: ventana cerrada, espera la próxima
-- Cuando la partida actual termina y empieza la siguiente: tus cartones en cola se activan automáticamente
+| Síntoma | Causa real |
+|---|---|
+| "La ronda empieza en —" sin contador | No había `waiting_game` en la sala. El RoomClient esperaba uno que nunca se creaba. |
+| No salía botón "comprar cartón" | Mismo problema: sin waiting_game, no hay nada que mostrar. |
+| `/forgot-password` → 404 | La página nunca se creó en v11. |
+| UI "anticuada" | Las animaciones premium estaban en CSS pero faltaba: aurora background, burbujas flotantes, glass morphism reforzado. |
 
-## 5 modos del UI según estado
+## Lo que arregla v14
 
-| Modo | Cuándo | Banner |
-|---|---|---|
-| `live` | Tu cartón jugando | 🎯 ¡Tu partida está en curso! |
-| `spectator-queue` | Mirando + ventana compra abierta | 👀 Compra para la siguiente · cierra en Xs |
-| `spectator-locked` | Mirando + <5s para empezar | ⏰ Ventana cerrada · espera próxima |
-| `wait-with-cards` | Tus cartones en cola, sin partida activa | ⏱️ X cartones listos · empieza en X:XX |
-| `buy` | Solo waiting game, ventana abierta | 🎫 Compra tu cartón · empieza en X:XX |
+### 1. Auto-create waiting_game al entrar a sala
+- **SQL nuevo**: `ensure_waiting_game(room_id)` — idempotente
+- **page.tsx actualizado**: llama RPC al entrar
+- Resultado: **al entrar a CUALQUIER sala, si no hay game activo, se crea uno automáticamente**
+
+### 2. `/forgot-password` + `/auth/reset` reales
+- `/forgot-password`: form para pedir enlace de recuperación
+- `/auth/reset`: form para setear nueva contraseña tras click en enlace
+- Validación de token automática vía Supabase
+
+### 3. Aurora + Bubbles UI premium
+- **AuroraBackground**: 3 blobs gradient animados (magenta + cyan + violet) drifting infinitamente
+- **FloatingBubbles**: 10-12 burbujas decorativas subiendo de fondo con colores tematicos
+- **Glass-premium**: backdrop-filter blur 24px + saturate 180% (look "frosted glass" real)
+- **Gradient-border**: borde rainbow animado para elementos destacados
+- **Magnetic buttons**: hover lift + spring easing
+- **Text gradient rainbow**: animado horizontal
+- **Loader orbit**: 2 anillos contra-rotando
 
 ## Aplicación
 
+### 1. SQL: ejecutar migración 011
+
 ```bash
 cd ~/bingobolla
-tar -xzf ~/Downloads/bingobolla-v13-spectator-mode.tar.gz
-
-# Migración SQL
-cat supabase/migrations/010_spectator_mode.sql | pbcopy
-# → Supabase SQL Editor → Run
-
-# Reemplaza el RoomClient
-# (sobrescribe el existente en src/app/room/[id]/RoomClient.tsx)
-
-git add .
-git commit -m "feat(v13): spectator mode + 5s purchase cutoff + queue"
-git push origin main
+tar -xzf ~/Downloads/bingobolla-v14-final-fix.tar.gz
+cat supabase/migrations/011_ensure_waiting_game.sql | pbcopy
 ```
 
-## Cambios SQL críticos
+→ Supabase SQL Editor → **Run**.
 
-1. **`buy_ticket` y `buy_strip`** ahora rechazan si la waiting game empieza en <5s con error `purchase_window_closed`
-2. **`tick_waiting_game`** defiere arranque si hay otra partida `playing` en la misma sala
-3. **`get_room_state(p_room_id)`** nuevo RPC que devuelve playing + waiting + flags en una sola llamada
-4. **`schedule_interval_seconds`** ajustado por variante:
-   - lite: 30s
-   - bingo75: 45s
-   - bingo90 / pulse / cinco: 60s
+Verifica:
+```sql
+select proname from pg_proc where proname = 'ensure_waiting_game';
+-- Debe devolver 1 fila
+```
 
-## Test post-deploy
+### 2. Añadir CSS premium a globals.css
 
-1. Abre 2 navegadores incógnito con 2 cuentas distintas
-2. **Cuenta A** entra a London 90, compra cartón → empieza la partida
-3. **Cuenta B** entra a London 90 (con partida ya empezando) → debe ver:
-   - Banner "👀 Mirando la partida actual"
-   - Bolas saliendo en tiempo real
-   - Botón "Comprar para la siguiente ronda"
-4. Cuenta B compra → banner cambia a "X cartones en cola"
-5. Cuando la partida de A termina → la nueva ronda empieza con cartones de B activos
-6. Cuenta C entra justo cuando faltan 3s → ve "⏰ Ventana cerrada"
+```bash
+cat src/styles/aurora-premium.css >> src/app/globals.css
+```
 
-## Limitaciones
+### 3. Verifica integración FloatingBubbles en layout
 
-- El refresh del estado (`get_room_state`) se hace cada 8s + realtime de games. Cambios de estado del juego pueden tardar hasta 8s en aparecer en clientes sin actividad.
-- Si dos jugadores compran en el mismo instante a 5.1s del comienzo, uno puede entrar y otro recibir `purchase_window_closed`. Es el comportamiento esperado.
+Para que las burbujas aparezcan en TODA la app, edita `src/app/layout.tsx`. Busca el `<body>` y añade los componentes:
+
+```tsx
+import { AuroraBackground, FloatingBubbles } from "@/components/FloatingBubbles";
+
+// Dentro del <body>:
+<body className={...}>
+  <AuroraBackground />
+  <FloatingBubbles count={12} />
+  {children}
+</body>
+```
+
+(Si prefieres burbujas solo en login/lobby, no en `room`, déjalas dentro de cada página que las quiera.)
+
+### 4. Build + deploy
+
+```bash
+npm run build
+# Si pasa:
+vercel --prod
+```
+
+### 5. Limpieza inicial de games huérfanos (una sola vez)
+
+Si ves que en tu lobby algunas salas aparecen siempre "playing" pero sin actividad:
+
+```sql
+update games set status = 'finished'
+where status in ('waiting','playing')
+  and created_at < now() - interval '15 minutes';
+```
+
+## Test después de deploy
+
+1. Hard refresh: **Cmd+Shift+R** en bingobolla.com
+2. Login con tu cuenta
+3. Entra a **London 90**
+4. **Resultado esperado**:
+   - Banner "🎫 Compra tu cartón · empieza en 0:59" (contador real descontando)
+   - Botones "🪙 100" y "💎 $1" visibles
+   - Aurora animado de fondo (gradientes drifting)
+   - 12 burbujas flotando suavemente de abajo a arriba
+5. Compra 1 cartón → debe verse en grid 3×9
+6. Espera ~3s → bolas empiezan a caer
+7. Cuando una bola marca tu número → círculo SVG dibujado animado
+
+## Si algo NO funciona
+
+| Problema | Solución |
+|---|---|
+| Burbujas no se ven | Falta integrar `<FloatingBubbles />` en layout.tsx o en cada página |
+| Aurora no se ve | Verifica `cat src/app/globals.css | grep aurora-bg` → debe haber matches |
+| Contador no aparece | La migración 011 no se aplicó. Verifica con la query del paso 1 |
+| Bolas no salen | Lee `Vercel → Functions → Logs` → busca `/api/game/tick` para ver si hay errores |
+| Forgot password redirige a 404 después de email | Faltó configurar redirect URL en Supabase: Auth Settings → URL Configuration → añade `https://bingobolla.com/auth/reset` a redirect URLs |

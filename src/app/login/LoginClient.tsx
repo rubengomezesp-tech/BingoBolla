@@ -40,7 +40,9 @@ export default function LoginClient() {
     setError(null);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     setLoading(false);
     if (error) {
@@ -74,11 +76,14 @@ export default function LoginClient() {
             </div>
           )}
 
+          {/* Tabs */}
           <div className="flex gap-1 mb-6 p-1 rounded-lg bg-[var(--color-surface-2)]">
             <button
               onClick={() => { setMode("password"); setError(null); setMagicSent(false); }}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-                mode === "password" ? "bg-[var(--color-surface)] text-white" : "text-[var(--color-fg-dim)] hover:text-white"
+                mode === "password"
+                  ? "bg-[var(--color-surface)] text-white"
+                  : "text-[var(--color-fg-dim)] hover:text-white"
               }`}
             >
               Contraseña
@@ -86,7 +91,9 @@ export default function LoginClient() {
             <button
               onClick={() => { setMode("magic"); setError(null); }}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-                mode === "magic" ? "bg-[var(--color-surface)] text-white" : "text-[var(--color-fg-dim)] hover:text-white"
+                mode === "magic"
+                  ? "bg-[var(--color-surface)] text-white"
+                  : "text-[var(--color-fg-dim)] hover:text-white"
               }`}
             >
               Magic Link
@@ -107,34 +114,84 @@ export default function LoginClient() {
           ) : mode === "password" ? (
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <label className="block">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1.5">Email</div>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="tu@email.com" autoComplete="email" className="input" />
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1.5">
+                  Email
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="tu@email.com"
+                  autoComplete="email"
+                  className="input"
+                />
               </label>
+
               <label className="block">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)]">Contraseña</span>
-                  <Link href="/forgot-password" className="text-[10px] text-[var(--color-cyan)] hover:underline">¿Olvidaste?</Link>
+                  <Link href="/forgot-password" className="text-[10px] text-[var(--color-cyan)] hover:underline">
+                    ¿Olvidaste?
+                  </Link>
                 </div>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} placeholder="••••••••" autoComplete="current-password" className="input" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="input"
+                />
               </label>
+
               {error && <div className="text-sm text-[var(--color-magenta)] py-2">{error}</div>}
-              <button type="submit" disabled={loading || !email || !password} className="btn btn-primary w-full disabled:opacity-50">
+
+              <button
+                type="submit"
+                disabled={loading || !email || !password}
+                className="btn btn-primary w-full disabled:opacity-50"
+              >
                 {loading ? "Entrando..." : "Iniciar sesión"}
               </button>
+
               <div className="text-center text-sm text-[var(--color-fg-dim)] pt-2">
                 ¿Sin cuenta?{" "}
-                <Link href="/signup" className="text-[var(--color-cyan)] hover:underline font-medium">Regístrate</Link>
+                <Link href="/signup" className="text-[var(--color-cyan)] hover:underline font-medium">
+                  Regístrate
+                </Link>
               </div>
             </form>
           ) : (
             <form onSubmit={handleMagicLink} className="space-y-4">
               <label className="block">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1.5">Email</div>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="tu@email.com" autoComplete="email" className="input" />
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1.5">
+                  Email
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="tu@email.com"
+                  autoComplete="email"
+                  className="input"
+                />
               </label>
-              <p className="text-xs text-[var(--color-fg-muted)]">Te enviaremos un enlace para iniciar sesión sin contraseña.</p>
+
+              <p className="text-xs text-[var(--color-fg-muted)]">
+                Te enviaremos un enlace para iniciar sesión sin contraseña.
+              </p>
+
               {error && <div className="text-sm text-[var(--color-magenta)]">{error}</div>}
-              <button type="submit" disabled={loading || !email} className="btn btn-primary w-full disabled:opacity-50">
+
+              <button
+                type="submit"
+                disabled={loading || !email}
+                className="btn btn-primary w-full disabled:opacity-50"
+              >
                 {loading ? "Enviando..." : "Enviar enlace"}
               </button>
             </form>
@@ -143,7 +200,8 @@ export default function LoginClient() {
 
         <p className="text-center text-xs text-[var(--color-fg-muted)] mt-6 leading-relaxed">
           Al iniciar sesión aceptas nuestros{" "}
-          <Link href="/terms" className="underline hover:text-white">Términos</Link>{" "}y{" "}
+          <Link href="/terms" className="underline hover:text-white">Términos</Link>
+          {" "}y{" "}
           <Link href="/privacy" className="underline hover:text-white">Privacidad</Link>.
         </p>
       </div>
