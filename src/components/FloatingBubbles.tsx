@@ -1,29 +1,44 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+
+type Bubble = {
+  size: number;
+  left: number;
+  delay: number;
+  duration: number;
+  drift: number;
+  color: string;
+};
 
 /**
- * Burbujas flotantes decorativas que ascienden de fondo.
- * Se renderizan una vez, sin re-renders.
+ * Burbujas flotantes decorativas.
+ * IMPORTANTE: el random se genera SOLO en cliente (useEffect) para evitar
+ * hydration mismatch (React error #418). En SSR no renderiza nada.
  */
 export function FloatingBubbles({ count = 12 }: { count?: number }) {
-  const bubbles = useMemo(() => {
+  const [bubbles, setBubbles] = useState<Bubble[]>([]);
+
+  useEffect(() => {
     const colors = [
       "rgba(255,61,127,0.08)",
       "rgba(0,229,255,0.08)",
       "rgba(255,217,61,0.08)",
       "rgba(179,136,255,0.08)",
     ];
-    return Array.from({ length: count }, (_, i) => {
-      const size = 20 + Math.random() * 80;
-      const left = Math.random() * 100;
-      const delay = Math.random() * 20;
-      const duration = 18 + Math.random() * 12;
-      const drift = (Math.random() - 0.5) * 200;
-      const color = colors[i % colors.length];
-      return { size, left, delay, duration, drift, color };
-    });
+    const generated: Bubble[] = Array.from({ length: count }, (_, i) => ({
+      size: 20 + Math.random() * 80,
+      left: Math.random() * 100,
+      delay: Math.random() * 20,
+      duration: 18 + Math.random() * 12,
+      drift: (Math.random() - 0.5) * 200,
+      color: colors[i % colors.length],
+    }));
+    setBubbles(generated);
   }, [count]);
+
+  // SSR + primer paint: nada (evita mismatch)
+  if (bubbles.length === 0) return <div className="bubble-field" />;
 
   return (
     <div className="bubble-field">
@@ -47,8 +62,7 @@ export function FloatingBubbles({ count = 12 }: { count?: number }) {
 }
 
 /**
- * Fondo aurora con tres blobs animados.
- * Se renderiza una vez. Coloca en el layout root o por página.
+ * Fondo aurora con blobs animados. Estático (CSS puro), seguro en SSR.
  */
 export function AuroraBackground() {
   return (
