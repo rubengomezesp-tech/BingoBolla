@@ -2,9 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/supabase/types";
+import DailyBonus from "./DailyBonus";
 import RoomCard, { type RoomCardData } from "./RoomCard";
-import DailyBonusButton from "@/components/DailyBonusButton";
-import { SlotsAccessCard, SiteFooter } from "@/components/LobbyExtras";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +14,14 @@ export default async function LobbyPage() {
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single<Profile>();
   if (!profile?.kyc_status || profile.kyc_status === "unverified") redirect("/onboarding");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: bonus } = await supabase
+    .from("daily_bonuses_claimed")
+    .select("claimed_date")
+    .eq("player_id", user.id)
+    .eq("claimed_date", today)
+    .maybeSingle();
 
   const { data: excluded } = await supabase.from("excluded_states").select("state").eq("blocks_sweeps", true);
   const excludedSet = new Set(excluded?.map((e: any) => e.state) ?? []);
@@ -39,6 +46,7 @@ export default async function LobbyPage() {
   // Map: roomId → next_starts_at
   const gameByRoom: Record<string, { starts_at: string; status: string }> = {};
   for (const g of (activeGames as any[]) ?? []) {
+    // Si hay playing y waiting, preferimos waiting para el contador (la siguiente ronda)
     const existing = gameByRoom[g.room_id];
     if (!existing || (existing.status === "playing" && g.status === "waiting")) {
       gameByRoom[g.room_id] = { starts_at: g.starts_at, status: g.status };
@@ -111,7 +119,7 @@ export default async function LobbyPage() {
               Hola, <span className="italic-serif">{profile.username}</span>
             </h1>
           </div>
-          <DailyBonusButton />
+          {!bonus && <DailyBonus />}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
@@ -134,14 +142,10 @@ export default async function LobbyPage() {
           {roomsForCards.map((room) => <RoomCard key={room.id} room={room} />)}
         </div>
 
-        <SlotsAccessCard />
-
         <div className="mt-10 text-center text-xs text-[var(--color-fg-muted)] leading-relaxed max-w-2xl mx-auto">
           Cada sala muestra su <strong className="text-white">RTP</strong> (Return To Player). Los premios no entregados en una ronda se acumulan al <strong className="text-[var(--color-gold)]">jackpot 🔥</strong> de la siguiente. Juego transparente, ganancias reales.
         </div>
       </main>
-
-      <SiteFooter />
     </div>
   );
 }
