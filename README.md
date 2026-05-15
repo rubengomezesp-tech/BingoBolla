@@ -1,82 +1,135 @@
-# BingoBolla v10 — Tombola Edition
+# BingoBolla v12 — Visual Revolution + Fixes
 
-## ¿Qué hay en este drop?
+## ¿Qué arregla?
 
-### 1. Bingo 90 propio (estilo tombola.es)
-- Cartones 3×9 con **exactamente 15 números** (5 por fila)
-- Columnas con rangos correctos: 1-9, 10-19, ..., 80-90
-- Números dentro de cada columna ordenados ascendente
-- Generador SQL `generate_bingo90_card()` reescrito
+### 1. ❌ → ✅ Error SQL `coin_packages does not exist`
+La migración 009 crea la tabla si no existe + re-inserta los Diamond packages.
 
-### 2. Tres premios por partida
-| Patrón | % del player pool | Cuándo |
-|---|---|---|
-| Línea | 15% | Primera fila completa |
-| **Doble línea** ✨ NUEVO | 25% | Dos filas completas |
-| Bingo completo | 60% | Cartón entero |
+### 2. ❌ → ✅ Bolas no salían en producción
+**Causa raíz**: el caller.mjs corría en tu Mac. En producción no había nadie llamando bolas.
+**Solución MVP**: **Client-driven ticks**. Cada cliente conectado a una sala llama `/api/game/tick` cada 3 segundos. El backend SQL tiene rate-limiting interno (1 ball por interval_ms), así que si 10 clientes están viendo la misma sala, solo cae 1 bola cada 3s exactos.
 
-Total: 100% del player pool. Tu RTP 85% se aplica al pot total → 85% va a jugadores, 15% house.
+Ventajas:
+- Bingo 100% activo mientras alguien esté mirando
+- No requiere servidor 24/7 ($0 extra)
+- Cuando nadie mira, el juego pausa (eficiente)
+- Funciona perfecto en Vercel hobby
 
-### 3. Tiras (compra de 6 cartones)
-- Función `buy_strip()` compra 6 cartones de bingo 90 a la vez
-- Descuento **15% por tira** (incentivo)
-- Bloquea para variantes != bingo90
+### 3. ❌ → ✅ Bingo 90 renderizaba como 5x5
+El RoomClient ahora **detecta `room.variant`** y renderiza:
+- **Bingo 75** → grid 5×5 con headers BINGO + FREE center
+- **Bingo 90** → grid 3×9 sin headers, con celdas vacías visibles
 
-### 4. Vercel Cron — caller en producción
-- `/api/cron/tick` endpoint que hace lo que hace `caller.mjs`
-- Programado cada **1 minuto** via `vercel.json`
-- Dropea hasta 20 bolas por tick (catch-up mode)
-- Limpia ghost games, programa rondas, posts MC messages
-- **MVP**: 1 min granularidad → bingo será más lento que ideal. Para producción real → Railway.
+### 4. 🎨 Visual revolution (lo que pediste)
 
-### 5. Engine TypeScript actualizado
-- Soporta Bingo 75 + 90 unificado
-- Calcula `to_line`, `to_two_lines`, `to_full_house`
-- Helper `ball90Class()` para colorear bolas 1-90
+#### Marker animado tipo "rotulador"
+Cuando una bola sale y marca un número en tu cartón:
+- Aparece un **círculo SVG dibujándose** sobre el número (stroke animado)
+- Doble trazo con leve rotación → look "hecho a mano"
+- Color del marker = color de columna
+- Glow drop-shadow del color
+- El número pasa a fondo gradient + sombra
 
-## Cómo aplicar
+#### Bola mega-3D
+- Highlight especular arriba izquierda
+- Sombra interna abajo (volumen)
+- Glow exterior del color
+- **Entrada animada**: cae con bounce, escala, rotación
+- **Pulse ring** mientras está activa
+
+#### Confetti CSS-puro al ganar
+60 partículas de 5 colores cayendo del techo cuando ganas (línea/doble/bingo).
+
+#### 3 indicadores de premio visibles
+Banda superior muestra los 3 patrones (Línea, Doble Línea, Bingo) con estado:
+- Pendiente: `—`
+- Activo: `...` con glow magenta
+- Ganado: `✓` verde
+
+#### "Just marked" spark
+Cuando una bola te marca un número, ese celda **chispea** con un anillo amarillo que se expande.
+
+### 5. 🎫 Tiras de 6 cartones (Bingo 90)
+Botón "Tira de 6 cartones · -15%" en salas Bingo 90. Compra los 6 de una vez con descuento.
+
+---
+
+## Aplicación
+
+### 1. Migración 009
 
 ```bash
 cd ~/bingobolla
-tar -xzf ~/Downloads/bingobolla-v10-tombola.tar.gz
+tar -xzf ~/Downloads/bingobolla-v12-visual-revolution.tar.gz
+cat supabase/migrations/009_fixes_and_tick.sql | pbcopy
+```
 
-# 1. Migración
-cat supabase/migrations/007_bingo90_tombola_edition.sql | pbcopy
-# → Supabase SQL Editor → Run
+→ Supabase SQL Editor → Run.
 
-# 2. Verifica que el AUDIT.md está bien
-cat AUDIT.md
+### 2. Añadir CSS a globals.css
 
-# 3. Commit y push (auto-deploy a Vercel)
+**IMPORTANTE**: Hay un archivo nuevo `src/styles/premium-animations.css`. Tienes 2 opciones:
+
+**Opción A (simple)**: copia su contenido al final de `src/app/globals.css`:
+```bash
+cat src/styles/premium-animations.css >> src/app/globals.css
+```
+
+**Opción B**: importa desde el layout. En `src/app/layout.tsx` añade:
+```tsx
+import "@/styles/premium-animations.css";
+```
+
+### 3. Commit + push
+
+```bash
 git add .
-git commit -m "feat(v10): Bingo 90 proper, two_lines pattern, strips, cron endpoint"
+git commit -m "feat(v12): visual revolution, marker animation, bingo 90 fix, client tick"
 git push origin main
 ```
 
-## Después del push
+Vercel auto-deploya en ~2 min.
 
-### Configurar CRON_SECRET en Vercel
-1. https://vercel.com/discipline1/bingobolla/settings/environment-variables
-2. Add **`CRON_SECRET`** = (genera con: `openssl rand -hex 32`)
-3. Redeploy
+### 4. Test
 
-### Verifica que cron está activo
-1. https://vercel.com/discipline1/bingobolla/settings/cron-jobs
-2. Debes ver "1 cron job" con path `/api/cron/tick`
-3. Espera 1 min → click "View Logs" → debe ejecutarse y devolver `{ok: true, stats: {...}}`
+1. Abre `bingobolla.com/room/<id de London 90>` en incógnito
+2. Compra un cartón (debe verse **3x9** correctamente)
+3. Las bolas deben empezar a caer cada ~3s (porque tu cliente está pinging)
+4. Cuando una bola marca tu número → **círculo SVG se dibuja** + chispa
+5. Si llegas a "1TG" → sonido tenso + tag animada gradient
+6. Cuando ganas → CONFETTI + flash "¡BINGO!"
 
-### Detener el caller local
-Ya no necesitas `npm run caller` en tu Mac. El cron de Vercel se encarga.
+---
 
-## Limitaciones del cron de 1 min
+## Cosas que ahora se sienten "2026 AI-era"
 
-- Bolas tardan ~3s en producción ideal → con cron 1/min, parece pausa larga entre bolas (catch-up)
-- Para experiencia fluida tipo tombola: hay que pasar a Railway/Fly ($5/mes) o pg_cron en Supabase Pro
+| Antes | Ahora |
+|---|---|
+| Cuadritos planos con fondo gradient | SVG draws hand-drawn circle on top |
+| Bolas planas con color sólido | 3D specular + inner shadow + drop glow |
+| Bola actual quieta | Drop animation + pulse ring continuo |
+| Sin feedback al marcar | Chispa amarilla en cell + animación pop |
+| Sin celebración | 60-piece confetti CSS-puro |
+| Premio "Línea" o "Bingo" texto | 3 indicators con estado visual claro |
+| Bingo 90 roto | Bingo 90 3x9 correcto con tiras |
 
-## Siguiente sprint (v11)
+---
 
-- UI nueva sala con layout tipo tombola (caller central grande, 3 indicadores de premios visibles)
-- Mini-juegos entre partidas (slots simples)
-- Concursos chat
-- Patrones especiales Bingo 75 (cruz, X, T, L)
-- Sistema de niveles + XP
+## Limitaciones honestas
+
+1. **El cliente-driven tick necesita al menos 1 jugador activo en la sala**. Si NADIE entra, la sala se queda esperando. Para "atraer" — el lobby muestra "X jugadores" + countdown.
+
+2. **`/api/game/tick` se llama cada 3s mientras estés en una sala**. En tu Vercel hobby (100GB bandwidth/mes), eso son ~28k requests/mes por usuario activo. Si tienes 100 usuarios concurrentes durante 1h → 360k requests/hora. Vercel hobby tiene 100k requests/día. **Limit alcanzable si tienes >50 concurrent users sostenidos**. Solución cuando llegues: Vercel Pro ($20/mes) o Railway con caller.mjs.
+
+3. **El confetti es CSS-puro** → 60 divs por ganador. No tan bonito como canvas-confetti pero zero deps.
+
+---
+
+## Siguiente sprint (v13) — me dices cuando estés listo
+
+- **Sala VIP Diamond Royale** (acceso solo con Diamonds, RTP 92%, jackpots big)
+- **Mini-juegos entre rondas** (slot quick spin entre partidas de bingo)
+- **Niveles + XP** sistema progresivo
+- **Patrones especiales Bingo 75** (cruz, X, T, L)
+- **Stripe webhook actualizado** para diamonds purchases
+- **Mejora del lobby** para destacar las salas con jackpot acumulado más alto

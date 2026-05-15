@@ -1,0 +1,294 @@
+/* ============================================================================
+   BingoBolla — Premium Animations (add to globals.css)
+   ============================================================================ */
+
+/* ============ MARKER (rotulador) effect ============ */
+/* The marker draws an organic circle over called numbers. Uses two SVG circles
+   for layered depth: outer thick + inner thin offset rotation. */
+.bb-marker-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+@keyframes bb-marker-draw {
+  0% {
+    stroke-dashoffset: 220;
+    opacity: 0;
+  }
+  20% { opacity: 1; }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes bb-marker-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.bb-marker-circle {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+  animation: bb-marker-draw 0.55s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  filter: drop-shadow(0 0 12px currentColor);
+}
+
+.bb-marker-cell {
+  animation: bb-marker-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ============ BALL — premium 3D effect ============ */
+.bb-ball-3d {
+  position: relative;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  font-weight: 700;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 35%),
+    radial-gradient(circle at 50% 50%, var(--ball-color, #FF3D7F) 0%, color-mix(in srgb, var(--ball-color, #FF3D7F) 60%, #000) 100%);
+  box-shadow:
+    inset 0 -8px 20px rgba(0,0,0,0.4),
+    inset 0 4px 8px rgba(255,255,255,0.3),
+    0 8px 32px color-mix(in srgb, var(--ball-color, #FF3D7F) 50%, transparent),
+    0 2px 8px rgba(0,0,0,0.3);
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+.bb-ball-3d::before {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 22%;
+  width: 35%;
+  height: 25%;
+  background: radial-gradient(ellipse, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.bb-ball--b { --ball-color: #FF3D7F; }
+.bb-ball--i { --ball-color: #FFD93D; color: #1a1a1a !important; text-shadow: 0 1px 2px rgba(255,255,255,0.2); }
+.bb-ball--n { --ball-color: #00E5FF; }
+.bb-ball--g { --ball-color: #B388FF; }
+.bb-ball--o { --ball-color: #00E676; }
+
+/* ============ BALL ENTRANCE — big animated drop ============ */
+@keyframes bb-ball-drop {
+  0% {
+    transform: translateY(-100px) scale(0.3) rotate(-180deg);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(0) scale(1.15) rotate(0deg);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(-10px) scale(0.95);
+  }
+  80% {
+    transform: translateY(0) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bb-ball-drop {
+  animation: bb-ball-drop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bb-ball-orbit {
+  0% { transform: rotate(0deg) translateX(0); }
+  100% { transform: rotate(360deg) translateX(0); }
+}
+
+@keyframes bb-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.bb-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--ball-color, #FF3D7F);
+  animation: bb-pulse-ring 1.5s ease-out infinite;
+}
+
+/* ============ CONFETTI on win ============ */
+@keyframes bb-confetti-fall {
+  0% {
+    transform: translateY(-20vh) rotate(0deg) scale(0);
+    opacity: 0;
+  }
+  10% {
+    transform: translateY(-15vh) rotate(45deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120vh) rotate(720deg) scale(1);
+    opacity: 0;
+  }
+}
+
+.bb-confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.bb-confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 14px;
+  top: -20px;
+  animation: bb-confetti-fall 3.5s linear forwards;
+}
+
+/* ============ WIN CELEBRATION ============ */
+@keyframes bb-win-text {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.bb-win-text {
+  animation: bb-win-text 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes bb-glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px var(--glow-color, rgba(255, 217, 61, 0.6)); }
+  50% { box-shadow: 0 0 60px var(--glow-color, rgba(255, 217, 61, 1)); }
+}
+
+.bb-winning-card {
+  --glow-color: rgba(255, 217, 61, 0.6);
+  animation: bb-glow-pulse 1.5s ease-in-out infinite;
+}
+
+/* ============ NUMBER cell premium look ============ */
+.bb-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--color-fg);
+  transition: all 0.3s ease;
+  overflow: visible;
+}
+
+.bb-cell--marked {
+  background: linear-gradient(135deg, rgba(255,61,127,0.18), rgba(179,136,255,0.12));
+  border-color: rgba(255,61,127,0.4);
+  color: white;
+}
+
+@keyframes bb-cell-spark {
+  0% { box-shadow: 0 0 0 0 rgba(255,217,61,0); }
+  50% { box-shadow: 0 0 0 8px rgba(255,217,61,0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(255,217,61,0); }
+}
+
+.bb-cell--just-marked {
+  animation: bb-cell-spark 0.6s ease-out;
+}
+
+/* ============ 1TG / 2TG INDICATOR ============ */
+@keyframes bb-1tg-pulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.04); filter: brightness(1.2); }
+}
+
+.bb-1tg {
+  animation: bb-1tg-pulse 1s ease-in-out infinite;
+  background: linear-gradient(90deg, #FF3D7F 0%, #FFD93D 50%, #FF3D7F 100%);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  animation: bb-1tg-pulse 1s ease-in-out infinite, bb-gradient-shift 2s linear infinite;
+}
+
+@keyframes bb-gradient-shift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* ============ PRIZE INDICATORS row ============ */
+.bb-prize-ribbon {
+  position: relative;
+  overflow: hidden;
+}
+
+.bb-prize-ribbon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.08) 50%,
+    transparent 100%);
+  transform: translateX(-100%);
+  animation: bb-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes bb-shimmer {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+/* ============ CARD entrance ============ */
+@keyframes bb-card-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bb-card-in {
+  animation: bb-card-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* ============ Bingo 90 layout overrides ============ */
+.bb-card-90 {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+}
+
+.bb-card-90 .bb-cell {
+  font-size: 0.95rem;
+  border-radius: 8px;
+}
+
+.bb-card-90 .bb-cell--empty {
+  background: transparent;
+  border: 1px dashed rgba(255,255,255,0.05);
+}
+
+@media (min-width: 768px) {
+  .bb-card-90 .bb-cell {
+    font-size: 1.125rem;
+  }
+}
