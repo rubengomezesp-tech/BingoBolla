@@ -3,33 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/supabase/types";
 import DailyBonus from "./DailyBonus";
+import RoomCard, { type RoomCardData } from "./RoomCard";
 
 export const dynamic = "force-dynamic";
-
-const variantMeta: Record<string, { emoji: string; label: string; accent: string }> = {
-  bingo75: { emoji: "🎯", label: "Bingo 75", accent: "#FF3D7F" },
-  bingo90: { emoji: "🇬🇧", label: "Bingo 90", accent: "#00E5FF" },
-  lite: { emoji: "⚡", label: "Speedy Lite", accent: "#FFD93D" },
-  cinco: { emoji: "✨", label: "Cinco", accent: "#B388FF" },
-  pulse: { emoji: "💫", label: "Pulse", accent: "#00E676" },
-};
-
-type RoomRow = {
-  id: string;
-  name: string;
-  variant: string;
-  ticket_gold: number;
-  ticket_sweeps: number;
-  rtp: number;
-  rollover_sweeps: number;
-  rollover_gold: number;
-  game_status: string | null;
-  pot_sweeps: number | null;
-  pot_gold: number | null;
-  effective_pot_sweeps: number;
-  effective_pot_gold: number;
-  players_in_play: number;
-};
 
 export default async function LobbyPage() {
   const supabase = await createClient();
@@ -51,10 +27,46 @@ export default async function LobbyPage() {
   const excludedSet = new Set(excluded?.map((e: any) => e.state) ?? []);
   const stateExcluded = profile.state && excludedSet.has(profile.state);
 
+  // Fetch rooms
   const { data: rooms } = await supabase
     .from("rooms_live")
     .select("*")
     .order("ticket_sweeps", { ascending: true });
+
+  // Fetch active games (waiting or playing) for each room
+  const roomIds = (rooms ?? []).map((r: any) => r.id);
+  const { data: activeGames } = roomIds.length > 0
+    ? await supabase
+        .from("games")
+        .select("id, room_id, status, starts_at")
+        .in("room_id", roomIds)
+        .in("status", ["waiting", "playing"])
+    : { data: [] };
+
+  // Map: roomId → next_starts_at
+  const gameByRoom: Record<string, { starts_at: string; status: string }> = {};
+  for (const g of (activeGames as any[]) ?? []) {
+    // Si hay playing y waiting, preferimos waiting para el contador (la siguiente ronda)
+    const existing = gameByRoom[g.room_id];
+    if (!existing || (existing.status === "playing" && g.status === "waiting")) {
+      gameByRoom[g.room_id] = { starts_at: g.starts_at, status: g.status };
+    }
+  }
+
+  // Build room cards data
+  const roomsForCards: RoomCardData[] = ((rooms as any[]) ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    variant: r.variant,
+    ticket_gold: r.ticket_gold,
+    ticket_sweeps: r.ticket_sweeps,
+    rtp: r.rtp,
+    rollover_sweeps: r.rollover_sweeps,
+    game_status: r.game_status,
+    effective_pot_sweeps: r.effective_pot_sweeps,
+    players_in_play: r.players_in_play,
+    next_starts_at: gameByRoom[r.id]?.starts_at ?? null,
+  }));
 
   const { data: stats } = await supabase
     .from("player_stats")
@@ -127,74 +139,7 @@ export default async function LobbyPage() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 stagger">
-          {(rooms as RoomRow[] | null)?.map((room) => {
-            const meta = variantMeta[room.variant] ?? variantMeta.bingo75;
-            const players = room.players_in_play ?? 0;
-            const effectivePot = Number(room.effective_pot_sweeps ?? 0);
-            const rollover = Number(room.rollover_sweeps ?? 0);
-            const isPlaying = room.game_status === "playing";
-            const hasJackpot = rollover > 0;
-
-            return (
-              <Link
-                key={room.id}
-                href={`/room/${room.id}`}
-                className="room-card p-5 anim-slide-up group relative"
-                style={{ ['--accent' as any]: meta.accent }}
-              >
-                {hasJackpot && (
-                  <div className="absolute -top-2 -right-2 font-mono text-[10px] px-2 py-1 rounded-md bg-[var(--color-gold)] text-bb-ink chunky shadow-lg shadow-[var(--color-gold)]/50">
-                    🔥 JACKPOT +${rollover.toFixed(2)}
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-3xl">{meta.emoji}</div>
-                  {isPlaying ? (
-                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--color-emerald)]/15 text-[var(--color-emerald)] border border-[var(--color-emerald)]/30 flex items-center gap-1">
-                      <span className="w-1 h-1 rounded-full bg-[var(--color-emerald)] anim-blink" />
-                      LIVE
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--color-gold)]/15 text-[var(--color-gold)] border border-[var(--color-gold)]/30">
-                      EMPIEZA PRONTO
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
-                  {meta.label} · RTP {(Number(room.rtp) * 100).toFixed(0)}%
-                </div>
-                <div className="font-display text-2xl mb-4">{room.name}</div>
-
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[var(--color-border)]">
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-0.5">
-                      {hasJackpot ? "Pozo total" : "Pozo"}
-                    </div>
-                    <div className="font-display text-xl shimmer-gold">${effectivePot.toFixed(2)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-0.5">
-                      Cartón
-                    </div>
-                    <div className="font-mono text-base">${room.ticket_sweeps}</div>
-                    <div className="font-mono text-[10px] text-[var(--color-fg-muted)]">{room.ticket_gold} 🪙</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs text-[var(--color-fg-dim)]">
-                    <span className="w-1 h-1 rounded-full bg-[var(--color-emerald)]" />
-                    {players} jugando
-                  </div>
-                  <div className="text-xs font-medium text-[var(--color-fg-dim)] group-hover:text-white transition-colors">
-                    Entrar →
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          {roomsForCards.map((room) => <RoomCard key={room.id} room={room} />)}
         </div>
 
         <div className="mt-10 text-center text-xs text-[var(--color-fg-muted)] leading-relaxed max-w-2xl mx-auto">
