@@ -10,23 +10,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "game_id required" });
     }
 
-    // Service role: tick_game es security_definer pero usamos service role
-    // para garantizar que siempre puede escribir aunque la sesión expire
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     );
 
-    // tick_game maneja TODO internamente:
-    // - Si waiting + starts_at pasó + hay cartones → arranca (status playing)
-    // - Si playing → sortea siguiente bola (rate-limited)
-    // - Si no toca todavía → throttled
     const { data, error } = await sb.rpc("tick_game", { p_game_id: game_id });
 
     if (error) {
       console.warn("tick_game RPC error:", error.message);
-      // Devolvemos 200 con error en body para NO spammear la consola del navegador
       return NextResponse.json({ ok: false, error: error.message });
     }
 
