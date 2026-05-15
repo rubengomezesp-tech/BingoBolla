@@ -4,10 +4,10 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-const THEME_META: Record<string, { tag: string; grad: string }> = {
-  "neon-777": { tag: "CLÁSICA · SYNTHWAVE", grad: "from-[#FF3D7F] to-[#00E5FF]" },
-  "aztec-gold": { tag: "AVENTURA · FREE SPINS", grad: "from-[#C8941A] to-[#00E676]" },
-  "diamond-royale": { tag: "VIP · MULTIPLICADORES", grad: "from-[#B388FF] to-[#FFD93D]" },
+const THEME_META: Record<string, { emoji: string; tag: string; grad: string }> = {
+  "neon-777": { emoji: "🎰", tag: "CLÁSICA · SYNTHWAVE", grad: "from-[#FF3D7F] to-[#00E5FF]" },
+  "aztec-gold": { emoji: "🗿", tag: "AVENTURA · FREE SPINS", grad: "from-[#C8941A] to-[#00E676]" },
+  "diamond-royale": { emoji: "💎", tag: "VIP · MULTIPLICADORES", grad: "from-[#B388FF] to-[#FFD93D]" },
 };
 
 export default async function SlotsLobby() {
@@ -16,7 +16,7 @@ export default async function SlotsLobby() {
   if (!user) redirect("/login");
 
   const [{ data: machines }, { data: profile }] = await Promise.all([
-    supabase.from("slot_machines").select("*").eq("active", true).order("display_order"),
+    supabase.from("slot_machines").select("*").eq("active", true).order("rtp"),
     supabase.from("profiles").select("gold_coins, sweeps_coins, diamonds").eq("id", user.id).single(),
   ]);
 
@@ -41,34 +41,31 @@ export default async function SlotsLobby() {
 
         <div className="grid md:grid-cols-3 gap-5">
           {(machines ?? []).map((m: any, i: number) => {
-            const meta = THEME_META[m.slug] ?? { tag: m.slug, grad: "from-[#FF3D7F] to-[#00E5FF]" };
-            const cur = m.currency ?? "gold";
-            const curEmoji = cur === "gold" ? "🪙" : cur === "sweeps" ? "💎" : "✨";
-            const minBet = cur === "gold" ? m.min_bet_gold : cur === "sweeps" ? m.min_bet_sweeps : 1;
-            const maxBet = cur === "gold" ? m.max_bet_gold : cur === "sweeps" ? m.max_bet_sweeps : 50;
+            const meta = THEME_META[m.id] ?? { emoji: "🎰", tag: m.theme, grad: "from-[#FF3D7F] to-[#00E5FF]" };
+            const curEmoji = m.currency === "gold" ? "🪙" : m.currency === "sweeps" ? "💎" : "✨";
             return (
               <Link
-                key={m.slug}
-                href={`/slots/${m.slug}`}
+                key={m.id}
+                href={`/slots/${m.id}`}
                 className="card p-6 card-lift relative overflow-hidden group anim-slide-up"
                 style={{ animationDelay: `${i * 0.1}s` }}
               >
                 <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${meta.grad} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`} />
-                <div className="text-5xl mb-4">{m.emoji ?? "🎰"}</div>
+                <div className="text-5xl mb-4">{meta.emoji}</div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">{meta.tag}</div>
                 <div className="font-display text-2xl mb-4">{m.name}</div>
                 <div className="flex items-center justify-between text-sm">
                   <div>
                     <div className="text-[10px] font-mono uppercase text-[var(--color-fg-muted)]">RTP</div>
-                    <div className="font-mono text-[var(--color-emerald)]">{(Number(m.rtp) * 100).toFixed(0)}%</div>
+                    <div className="font-mono text-[var(--color-emerald)]">{(m.rtp * 100).toFixed(0)}%</div>
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] font-mono uppercase text-[var(--color-fg-muted)]">Apuesta</div>
-                    <div className="font-mono">{curEmoji} {minBet}–{maxBet}</div>
+                    <div className="font-mono">{curEmoji} {m.min_bet}–{m.max_bet}</div>
                   </div>
                 </div>
                 <div className={`mt-4 text-sm font-medium bg-gradient-to-r ${meta.grad} bg-clip-text text-transparent`}>
-                  {m.reels_count ?? 5}×{m.rows_count ?? 3} · {m.paylines ?? 20} líneas · Jugar →
+                  {m.reels}×{m.rows} · {m.paylines} líneas · Jugar →
                 </div>
               </Link>
             );
