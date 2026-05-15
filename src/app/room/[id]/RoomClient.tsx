@@ -21,7 +21,7 @@ type RoomState = {
     ticket_gold: number; ticket_sweeps: number;
     max_cards_per_player: number; rtp: number;
     ball_interval_ms: number; schedule_interval_seconds: number;
-  };
+  } | null;
   playing_game: {
     id: string;
     pot_gold: number; pot_sweeps: number;
@@ -56,7 +56,7 @@ export default function RoomClient({
 }) {
   const supabase = createClient();
   const room = initialState.room;
-  const isB90 = room.variant === "bingo90";
+  const isB90 = room?.variant === "bingo90";
   const [profile, setProfile] = useState(initialProfile);
   const [state, setState] = useState<RoomState>(initialState);
   const [chatInput, setChatInput] = useState("");
@@ -70,7 +70,7 @@ export default function RoomClient({
   const [countdownClose, setCountdownClose] = useState<number | null>(null);
   const [justMarked, setJustMarked] = useState<Set<string>>(new Set());
   const chatRef = useRef<HTMLDivElement>(null);
-  const prevBallsLen = useRef(state.playing_game?.balls.length ?? 0);
+  const prevBallsLen = useRef(state.playing_game?.balls?.length ?? 0);
   const prev1TG = useRef<Set<string>>(new Set());
   const tickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const refetchTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -84,21 +84,23 @@ export default function RoomClient({
 
   const cardStatuses = useMemo(() => {
     const m: Record<string, ReturnType<typeof checkCardStatus>> = {};
-    for (const c of state.my_cards_playing) m[c.id] = checkCardStatus(c.card_data, calledSet);
+    for (const c of state.my_cards_playing ?? []) {
+      m[c.id] = checkCardStatus(c.card_data, calledSet);
+    }
     return m;
   }, [state.my_cards_playing, calledSet]);
 
-  // Initialize mute state from localStorage
   useEffect(() => { setMutedState(isMuted()); }, []);
 
-  // Refetch state from server
   async function refetch() {
+    if (!room?.id) return;
     const { data, error } = await supabase.rpc("get_room_state", { p_room_id: room.id });
     if (!error && data) setState(data as RoomState);
   }
 
-  // ============ REALTIME — escuchamos eventos y refetcheamos ============
+  // Realtime
   useEffect(() => {
+    if (!room?.id) return;
     const channel = supabase
       .channel(`room:${room.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "games", filter: `room_id=eq.${room.id}` },
@@ -137,43 +139,42 @@ export default function RoomClient({
     }
 
     return () => { supabase.removeChannel(channel); };
-  }, [room.id, playingGameId, userId]);
+  }, [room?.id, playingGameId, userId]);
 
-  // Polling de respaldo cada 8s
+  // Polling de respaldo
   useEffect(() => {
+    if (!room?.id) return;
     const id = setInterval(refetch, 8000);
     return () => clearInterval(id);
-  }, [room.id]);
+  }, [room?.id]);
 
-  // ============ TICK CADA 3 SEGUNDOS (AHORA ENVÍA room_id) ============
+  // TICK cada 3 segundos (envía room_id)
   useEffect(() => {
-    // Función que llama al tick con el room_id (para activar/avanzar el juego de esta sala)
+    if (!room?.id) return;
     const tick = async () => {
       try {
         await fetch("/api/game/tick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ room_id: room.id }),  // Cambiado: ahora envía room_id
+          body: JSON.stringify({ room_id: room.id }),
         });
       } catch (err) {
         console.error("Tick error:", err);
       }
     };
     tickIntervalRef.current = setInterval(tick, 3000);
-    tick(); // llamada inmediata
-    return () => {
-      if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
-    };
-  }, [room.id]); // Depende solo de room.id
+    tick();
+    return () => { if (tickIntervalRef.current) clearInterval(tickIntervalRef.current); };
+  }, [room?.id]);
 
-  // Sonido de bola nueva + flash de marcado + 1TG
+  // Sonidos y marcado visual
   useEffect(() => {
     if (balls.length > prevBallsLen.current) {
       const newBall = balls[balls.length - 1];
       if (newBall) {
         playBallCalled(newBall.ball_number);
         const newMarks = new Set<string>();
-        for (const c of state.my_cards_playing) {
+        for (const c of state.my_cards_playing ?? []) {
           for (let r = 0; r < c.card_data.length; r++) {
             for (let cc = 0; cc < c.card_data[r].length; cc++) {
               if (c.card_data[r][cc] === newBall.ball_number) newMarks.add(`${c.id}-${r}-${cc}`);
@@ -189,7 +190,7 @@ export default function RoomClient({
     prevBallsLen.current = balls.length;
 
     const new1TG = new Set<string>();
-    for (const c of state.my_cards_playing) {
+    for (const c of state.my_cards_playing ?? []) {
       const s = cardStatuses[c.id];
       if (s && s.to_line === 1) new1TG.add(c.id);
     }
@@ -217,17 +218,15 @@ export default function RoomClient({
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [state.chat]);
 
-  // Update profile balance after purchases (refresh from server)
   async function refreshProfile() {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single<Profile>();
     if (data) setProfile(data);
   }
 
-  // ============ MODE DETECTION ============
   const playing = !!state.playing_game;
   const waiting = !!state.waiting_game;
-  const hasPlayingCards = state.my_cards_playing.length > 0;
-  const hasWaitingCards = state.my_cards_waiting.length > 0;
+  const hasPlayingCards = (state.my_cards_playing?.length ?? 0) > 0;
+  const hasWaitingCards = (state.my_cards_waiting?.length ?? 0) > 0;
   const purchaseOpen = state.purchase_open && !!waiting;
 
   let mode: "live" | "spectator-queue" | "spectator-locked" | "buy" | "wait-with-cards";
@@ -237,8 +236,8 @@ export default function RoomClient({
   else if (!playing && hasWaitingCards) mode = "wait-with-cards";
   else mode = "buy";
 
-  // ============ ACTIONS ============
   async function buyTicket(currency: "gold" | "sweeps") {
+    if (!room?.id) return;
     setBuying(true);
     const { data, error } = await supabase.rpc("buy_ticket", { p_room_id: room.id, p_currency: currency });
     setBuying(false);
@@ -256,6 +255,7 @@ export default function RoomClient({
   }
 
   async function buyStrip(currency: "gold" | "sweeps") {
+    if (!room?.id) return;
     setBuyingStrip(true);
     const { data, error } = await supabase.rpc("buy_strip", { p_room_id: room.id, p_currency: currency });
     setBuyingStrip(false);
@@ -286,11 +286,11 @@ export default function RoomClient({
 
   const totalBalls = isB90 ? 90 : 75;
 
-  // ============ RENDER ============
+  if (!room) return <div className="p-8 text-center">Cargando sala...</div>;
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)] grain">
       {confettiTrigger > 0 && <Confetti trigger={confettiTrigger} />}
-
       <header className="sticky top-0 z-30 bg-[var(--color-bg)]/85 backdrop-blur-xl border-b border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-2">
           <Link href="/lobby" className="text-sm text-[var(--color-fg-dim)] hover:text-white flex items-center gap-1.5">
@@ -332,15 +332,13 @@ export default function RoomClient({
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6 grid lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
         <div className="space-y-4">
-          {/* MODE BANNER */}
           <ModeBanner
             mode={mode}
             countdownPlay={countdownPlay}
             countdownClose={countdownClose}
-            myCardsWaiting={state.my_cards_waiting.length}
+            myCardsWaiting={state.my_cards_waiting?.length ?? 0}
           />
 
-          {/* GAME STATE + CALLER */}
           {(playing || waiting) && (
             <div className="card p-5 md:p-7 bb-prize-ribbon">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -361,7 +359,6 @@ export default function RoomClient({
                     )}
                   </div>
 
-                  {/* Prize indicators */}
                   {playing && state.playing_game && (
                     <div className="grid grid-cols-3 gap-2">
                       <PrizeIndicator label="Línea" won={!!state.playing_game.line_won_by} active={!state.playing_game.line_won_by} />
@@ -372,7 +369,6 @@ export default function RoomClient({
                   )}
                 </div>
 
-                {/* MEGA BALL */}
                 {lastBall ? (
                   <div key={lastBall.sequence} className="relative flex-shrink-0">
                     <div className="bb-pulse-ring" style={{ "--ball-color": getBallColor(lastBall.ball_number, isB90) } as any} />
@@ -388,7 +384,6 @@ export default function RoomClient({
                 )}
               </div>
 
-              {/* Recent balls */}
               {playing && (
                 <div className="mt-5 md:mt-6 pt-5 border-t border-[var(--color-border)]">
                   <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-2.5">Últimas bolas</div>
@@ -407,7 +402,6 @@ export default function RoomClient({
             </div>
           )}
 
-          {/* BUY SECTION */}
           {(mode === "buy" || mode === "spectator-queue" || mode === "wait-with-cards") && state.waiting_game && (
             <div className={`card p-4 md:p-5 ${purchaseOpen ? "border-[var(--color-magenta)]/30" : "border-[var(--color-gold)]/30 bg-[var(--color-gold)]/5"}`}>
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -450,7 +444,6 @@ export default function RoomClient({
                   </div>
                 </div>
               )}
-              {/* No tienes coins? */}
               {(profile.gold_coins < room.ticket_gold && profile.sweeps_coins < room.ticket_sweeps) && (
                 <div className="mt-3 text-center">
                   <Link href="/store" className="text-xs text-[var(--color-cyan)] hover:underline">
@@ -461,24 +454,19 @@ export default function RoomClient({
             </div>
           )}
 
-          {/* MY CARDS IN WAITING */}
-          {state.my_cards_waiting.length > 0 && (
+          {state.my_cards_waiting?.length > 0 && (
             <div className="card p-4 md:p-5 border-[var(--color-cyan)]/30 bg-[var(--color-cyan)]/5">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-cyan)] mb-1">
-                    ⏱️ En cola
-                  </div>
-                  <div className="font-display text-lg">
-                    {state.my_cards_waiting.length} {state.my_cards_waiting.length === 1 ? "cartón" : "cartones"} listos
-                  </div>
+                  <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-cyan)] mb-1">⏱️ En cola</div>
+                  <div className="font-display text-lg">{state.my_cards_waiting.length} cartones listos</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-fg-muted)]">Empieza en</div>
                   <div className="font-mono text-2xl">{formatCountdown(countdownPlay)}</div>
                 </div>
               </div>
-              <div className={`grid ${state.my_cards_waiting.length === 1 ? "" : isB90 ? "" : "md:grid-cols-2"} gap-3 opacity-70`}>
+              <div className="grid gap-3">
                 {state.my_cards_waiting.slice(0, 4).map((card, idx) => (
                   isB90 ? (
                     <Card90 key={card.id} card={card} status={undefined} calledSet={new Set()} index={idx} justMarked={new Set()} />
@@ -487,15 +475,12 @@ export default function RoomClient({
                   )
                 ))}
               </div>
-              {state.my_cards_waiting.length > 4 && (
-                <div className="text-center mt-3 text-sm text-[var(--color-fg-dim)]">+{state.my_cards_waiting.length - 4} más</div>
-              )}
+              {state.my_cards_waiting.length > 4 && <div className="text-center mt-3 text-sm">+{state.my_cards_waiting.length - 4} más</div>}
             </div>
           )}
 
-          {/* MY CARDS PLAYING (live) */}
-          {state.my_cards_playing.length > 0 && (
-            <div className={`grid ${state.my_cards_playing.length === 1 ? "" : isB90 ? "" : "md:grid-cols-2"} gap-3 md:gap-4`}>
+          {state.my_cards_playing?.length > 0 && (
+            <div className="grid gap-3 md:gap-4">
               {state.my_cards_playing.map((card, idx) => (
                 isB90 ? (
                   <Card90 key={card.id} card={card} status={cardStatuses[card.id]} calledSet={calledSet} index={idx} justMarked={justMarked} />
@@ -505,14 +490,9 @@ export default function RoomClient({
               ))}
             </div>
           )}
-
-          {/* Mobile chat */}
-          <aside className="card overflow-hidden flex flex-col h-[400px] lg:hidden">
-            <ChatPanel chat={state.chat} chatRef={chatRef} chatInput={chatInput} setChatInput={setChatInput} onSend={sendChat} />
-          </aside>
         </div>
 
-        <aside className="card overflow-hidden flex-col h-[640px] lg:sticky lg:top-20 hidden lg:flex">
+        <aside className="card overflow-hidden flex flex-col h-[640px] lg:sticky lg:top-20 hidden lg:flex">
           <ChatPanel chat={state.chat} chatRef={chatRef} chatInput={chatInput} setChatInput={setChatInput} onSend={sendChat} />
         </aside>
       </main>
@@ -520,223 +500,83 @@ export default function RoomClient({
   );
 }
 
-// ============ BANNER ============
-function ModeBanner({ mode, countdownPlay, countdownClose, myCardsWaiting }: {
-  mode: string;
-  countdownPlay: number | null;
-  countdownClose: number | null;
-  myCardsWaiting: number;
-}) {
+function ModeBanner({ mode, countdownPlay, countdownClose, myCardsWaiting }: any) {
   const content = (() => {
     switch (mode) {
-      case "live":
-        return { emoji: "🎯", title: "¡Tu partida está en curso!", subtitle: "Las bolas se marcan automáticamente", color: "emerald" };
-      case "spectator-queue":
-        return { emoji: "👀", title: "Mirando partida en curso", subtitle: `Compra para la siguiente · Ventana cierra en ${countdownClose ?? "?"}s`, color: "cyan" };
-      case "spectator-locked":
-        return { emoji: "⏰", title: "Ventana cerrada", subtitle: `Próxima ronda en ${formatCountdown(countdownPlay)}`, color: "gold" };
-      case "wait-with-cards":
-        return { emoji: "⏱️", title: `${myCardsWaiting} cartones listos`, subtitle: `Empieza en ${formatCountdown(countdownPlay)}`, color: "cyan" };
-      case "buy":
-      default:
-        return { emoji: "🎫", title: "Compra tu cartón", subtitle: `La ronda empieza en ${formatCountdown(countdownPlay)}`, color: "magenta" };
+      case "live": return { emoji: "🎯", title: "¡Tu partida está en curso!", subtitle: "Las bolas se marcan automáticamente", color: "emerald" };
+      case "spectator-queue": return { emoji: "👀", title: "Mirando partida en curso", subtitle: `Compra para la siguiente · Ventana cierra en ${countdownClose ?? "?"}s`, color: "cyan" };
+      case "spectator-locked": return { emoji: "⏰", title: "Ventana cerrada", subtitle: `Próxima ronda en ${formatCountdown(countdownPlay)}`, color: "gold" };
+      case "wait-with-cards": return { emoji: "⏱️", title: `${myCardsWaiting} cartones listos`, subtitle: `Empieza en ${formatCountdown(countdownPlay)}`, color: "cyan" };
+      default: return { emoji: "🎫", title: "Compra tu cartón", subtitle: `La ronda empieza en ${formatCountdown(countdownPlay)}`, color: "magenta" };
     }
   })();
-
-  const colorMap: Record<string, string> = {
-    emerald: "border-[var(--color-emerald)]/30 bg-[var(--color-emerald)]/5",
-    cyan: "border-[var(--color-cyan)]/30 bg-[var(--color-cyan)]/5",
-    gold: "border-[var(--color-gold)]/30 bg-[var(--color-gold)]/5",
-    magenta: "border-[var(--color-magenta)]/30 bg-[var(--color-magenta)]/5",
-  };
-
-  return (
-    <div className={`card p-4 ${colorMap[content.color]} flex items-center gap-3 anim-slide-up`}>
-      <div className="text-2xl">{content.emoji}</div>
-      <div className="flex-1 min-w-0">
-        <div className="font-display text-base md:text-lg">{content.title}</div>
-        <div className="text-xs text-[var(--color-fg-dim)]">{content.subtitle}</div>
-      </div>
-    </div>
-  );
+  const colorMap: any = { emerald: "border-emerald-500/30 bg-emerald-500/5", cyan: "border-cyan-500/30 bg-cyan-500/5", gold: "border-amber-500/30 bg-amber-500/5", magenta: "border-pink-500/30 bg-pink-500/5" };
+  return <div className={`card p-4 ${colorMap[content.color]} flex items-center gap-3`}>
+    <div className="text-2xl">{content.emoji}</div>
+    <div><div className="font-display text-base md:text-lg">{content.title}</div><div className="text-xs text-[var(--color-fg-dim)]">{content.subtitle}</div></div>
+  </div>;
 }
 
-function PrizeIndicator({ label, won, active }: { label: string; won: boolean; active: boolean }) {
-  return (
-    <div className={`text-center p-2 rounded-lg border transition-all ${
-      won ? "bg-[var(--color-emerald)]/15 border-[var(--color-emerald)]/40" :
-      active ? "bg-[var(--color-magenta)]/10 border-[var(--color-magenta)]/40" :
-      "border-[var(--color-border)]"
-    }`}>
-      <div className={`text-[10px] font-mono uppercase tracking-wider ${won ? "text-[var(--color-emerald)]" : active ? "text-[var(--color-magenta)]" : "text-[var(--color-fg-muted)]"}`}>
-        {label}
-      </div>
-      <div className="text-base mt-0.5">{won ? "✓" : active ? "..." : "—"}</div>
-    </div>
-  );
+function PrizeIndicator({ label, won, active }: any) {
+  return <div className={`text-center p-2 rounded-lg border ${won ? "bg-emerald-500/15 border-emerald-500/40" : active ? "bg-pink-500/10 border-pink-500/40" : "border-gray-700"}`}>
+    <div className="text-[10px] font-mono uppercase">{label}</div>
+    <div className="text-base mt-0.5">{won ? "✓" : active ? "..." : "—"}</div>
+  </div>;
 }
 
-// ============ CARDS ============
 function Card75({ card, status, calledSet, index, justMarked }: any) {
   const toLine = status?.to_line ?? 99;
   const won = status?.full_house;
-  const tag = (() => {
-    if (won) return { text: "¡BINGO!", color: "from-[#FFD93D] to-[#FF3D7F]" };
-    if (status?.line) return { text: "Línea ✓", color: "from-[#00E676] to-[#00E5FF]" };
-    if (toLine === 1) return { text: "1TG", color: "from-[#FF3D7F] to-[#FFD93D]", anim: true };
-    if (toLine === 2) return { text: "2TG", color: "from-[#B388FF] to-[#FF3D7F]" };
-    return null;
-  })();
-  const headerCls: Record<string, string> = { B: "bb-ball--b", I: "bb-ball--i", N: "bb-ball--n", G: "bb-ball--g", O: "bb-ball--o" };
-
-  return (
-    <div className={`card p-4 relative bb-card-in ${won ? "bb-winning-card border-[var(--color-gold)]/50" : ""}`} style={{ animationDelay: `${index * 0.08}s` }}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-display text-lg">Cartón #{index + 1}</div>
-        {tag && (
-          <div className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gradient-to-r ${tag.color} text-white ${tag.anim ? "bb-1tg" : ""}`}>{tag.text}</div>
-        )}
-      </div>
-      <div className="grid grid-cols-5 gap-1.5 mb-2">
-        {COLS_75.map((l) => (
-          <div key={l} className={`bb-ball-3d ${headerCls[l]} aspect-square text-xl md:text-2xl`}>
-            <span className="font-display">{l}</span>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-5 gap-1.5">
-        {card.card_data.flatMap((row: any[], r: number) =>
-          row.map((val: any, c: number) => {
-            const isMarked = val === "FREE" || (typeof val === "number" && calledSet.has(val));
-            const key = `${card.id}-${r}-${c}`;
-            const isJust = justMarked.has(key);
-            const colorByCol = ["#FF3D7F", "#FFD93D", "#00E5FF", "#B388FF", "#00E676"][c];
-            return (
-              <div key={key} className={`bb-cell ${isMarked ? "bb-cell--marked" : ""} ${isJust ? "bb-cell--just-marked" : ""}`}>
-                <span className={isMarked && val !== "FREE" ? "relative z-10 text-white font-bold" : ""}>
-                  {val === "FREE" ? <span className="text-[9px] font-mono uppercase">FREE</span> : val}
-                </span>
-                <NumberMarker color={colorByCol} visible={!!isMarked && val !== "FREE"} />
-              </div>
-            );
-          })
-        )}
-      </div>
+  const tag = won ? { text: "¡BINGO!", color: "from-amber-400 to-pink-500" } : status?.line ? { text: "Línea ✓", color: "from-green-500 to-cyan-400" } : toLine === 1 ? { text: "1TG", color: "from-pink-500 to-amber-400", anim: true } : toLine === 2 ? { text: "2TG", color: "from-purple-400 to-pink-500" } : null;
+  const headerCls: any = { B: "bb-ball--b", I: "bb-ball--i", N: "bb-ball--n", G: "bb-ball--g", O: "bb-ball--o" };
+  return <div className="card p-4 relative" style={{ animationDelay: `${index * 0.08}s` }}>
+    <div className="flex justify-between mb-3"><div className="font-display text-lg">Cartón #{index + 1}</div>{tag && <div className={`text-[10px] font-mono font-bold uppercase px-2 py-1 rounded-full bg-gradient-to-r ${tag.color} text-white ${tag.anim ? "animate-pulse" : ""}`}>{tag.text}</div>}</div>
+    <div className="grid grid-cols-5 gap-1.5 mb-2">{COLS_75.map(l => <div key={l} className={`bb-ball-3d ${headerCls[l]} aspect-square text-xl`}><span className="font-display">{l}</span></div>)}</div>
+    <div className="grid grid-cols-5 gap-1.5">
+      {card.card_data.flatMap((row: any[], r: number) => row.map((val: any, c: number) => {
+        const isMarked = val === "FREE" || (typeof val === "number" && calledSet.has(val));
+        const key = `${card.id}-${r}-${c}`;
+        const isJust = justMarked.has(key);
+        const color = ["#FF3D7F", "#FFD93D", "#00E5FF", "#B388FF", "#00E676"][c];
+        return <div key={key} className={`bb-cell ${isMarked ? "bb-cell--marked" : ""} ${isJust ? "bb-cell--just-marked" : ""}`}>
+          <span className={isMarked && val !== "FREE" ? "relative z-10 text-white font-bold" : ""}>{val === "FREE" ? <span className="text-[9px] font-mono">FREE</span> : val}</span>
+          <NumberMarker color={color} visible={!!isMarked && val !== "FREE"} />
+        </div>;
+      }))}
     </div>
-  );
+  </div>;
 }
 
 function Card90({ card, status, calledSet, index, justMarked }: any) {
   const toLine = status?.to_line ?? 99;
   const won = status?.full_house;
-  const tag = (() => {
-    if (won) return { text: "¡BINGO!", color: "from-[#FFD93D] to-[#FF3D7F]" };
-    if (status?.two_lines) return { text: "Doble ✓", color: "from-[#00E5FF] to-[#B388FF]" };
-    if (status?.line) return { text: "Línea ✓", color: "from-[#00E676] to-[#00E5FF]" };
-    if (toLine === 1) return { text: "1TG", color: "from-[#FF3D7F] to-[#FFD93D]", anim: true };
-    if (toLine === 2) return { text: "2TG", color: "from-[#B388FF] to-[#FF3D7F]" };
-    return null;
-  })();
-  return (
-    <div className={`card p-3 md:p-4 relative bb-card-in ${won ? "bb-winning-card border-[var(--color-gold)]/50" : ""}`} style={{ animationDelay: `${index * 0.05}s` }}>
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="font-display text-base md:text-lg">Cartón #{index + 1}</div>
-        {tag && <div className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r ${tag.color} text-white ${tag.anim ? "bb-1tg" : ""}`}>{tag.text}</div>}
-      </div>
-      <div className="bb-card-90">
-        {card.card_data.flatMap((row: any[], r: number) =>
-          row.map((val: any, c: number) => {
-            const isEmpty = val == null;
-            const isMarked = !isEmpty && typeof val === "number" && calledSet.has(val);
-            const key = `${card.id}-${r}-${c}`;
-            const isJust = justMarked.has(key);
-            const colorByCol = ["#FF3D7F", "#FFD93D", "#00E5FF", "#B388FF", "#00E676", "#FF3D7F", "#FFD93D", "#00E5FF", "#B388FF"][c];
-            return (
-              <div key={key} className={`bb-cell ${isEmpty ? "bb-cell--empty" : ""} ${isMarked ? "bb-cell--marked" : ""} ${isJust ? "bb-cell--just-marked" : ""}`}>
-                {!isEmpty && (
-                  <>
-                    <span className={isMarked ? "relative z-10 text-white font-bold" : ""}>{val}</span>
-                    <NumberMarker color={colorByCol} visible={isMarked} />
-                  </>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
+  const tag = won ? { text: "¡BINGO!", color: "from-amber-400 to-pink-500" } : status?.two_lines ? { text: "Doble ✓", color: "from-cyan-400 to-purple-400" } : status?.line ? { text: "Línea ✓", color: "from-green-500 to-cyan-400" } : toLine === 1 ? { text: "1TG", color: "from-pink-500 to-amber-400", anim: true } : toLine === 2 ? { text: "2TG", color: "from-purple-400 to-pink-500" } : null;
+  return <div className="card p-3 relative" style={{ animationDelay: `${index * 0.05}s` }}>
+    <div className="flex justify-between mb-2"><div className="font-display text-base">Cartón #{index + 1}</div>{tag && <div className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-gradient-to-r ${tag.color} text-white ${tag.anim ? "animate-pulse" : ""}`}>{tag.text}</div>}</div>
+    <div className="bb-card-90 grid grid-cols-9 gap-1">
+      {card.card_data.flatMap((row: any[], r: number) => row.map((val: any, c: number) => {
+        const isEmpty = val == null;
+        const isMarked = !isEmpty && typeof val === "number" && calledSet.has(val);
+        const key = `${card.id}-${r}-${c}`;
+        const isJust = justMarked.has(key);
+        const color = ["#FF3D7F","#FFD93D","#00E5FF","#B388FF","#00E676","#FF3D7F","#FFD93D","#00E5FF","#B388FF"][c];
+        return <div key={key} className={`bb-cell ${isEmpty ? "bg-transparent" : ""} ${isMarked ? "bb-cell--marked" : ""} ${isJust ? "bb-cell--just-marked" : ""}`}>
+          {!isEmpty && <><span className={isMarked ? "text-white font-bold" : ""}>{val}</span><NumberMarker color={color} visible={isMarked} /></>}
+        </div>;
+      }))}
     </div>
-  );
+  </div>;
 }
 
 function ChatPanel({ chat, chatRef, chatInput, setChatInput, onSend }: any) {
-  return (
-    <>
-      <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center justify-between">
-        <div className="font-medium text-sm flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-emerald)] anim-blink" />Chat
-        </div>
-        <div className="font-mono text-xs text-[var(--color-fg-muted)]">{chat.length}</div>
-      </div>
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-3 space-y-2.5">
-        {chat.length === 0 ? (
-          <div className="text-center text-[var(--color-fg-muted)] text-sm py-8 italic-serif">Sé el primero en saludar 👋</div>
-        ) : (
-          chat.map((m: ChatMsg) => (
-            <div key={m.id} className="flex items-start gap-2 text-sm">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${m.is_mc ? "bg-[var(--color-magenta)]" : "bg-gradient-to-br from-[#00E5FF] to-[#B388FF]"} text-white`}>
-                {m.is_mc ? "M" : (m.username?.[0]?.toUpperCase() ?? "?")}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className={`text-[11px] font-medium mb-0.5 ${m.is_mc ? "text-[var(--color-magenta)]" : "text-[var(--color-cyan)]"}`}>
-                  {m.is_mc ? "🎤 MC" : m.username}
-                </div>
-                <div className="text-[var(--color-fg-dim)] break-words leading-snug">{m.message}</div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="px-3 py-2 border-t border-[var(--color-border)] flex flex-wrap gap-1.5">
-        {CHAT_SHORTCUTS.map((s) => (
-          <button key={s} onClick={() => onSend(s)} className="text-[11px] font-mono px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-[var(--color-fg-dim)] hover:text-white transition-colors">{s}</button>
-        ))}
-      </div>
-      <form onSubmit={(e) => { e.preventDefault(); onSend(); }} className="p-3 border-t border-[var(--color-border)] flex gap-2">
-        <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Escribe..." maxLength={200} className="input text-sm py-2" />
-        <button type="submit" className="btn btn-primary px-3 text-sm">→</button>
-      </form>
-    </>
-  );
+  return <>
+    <div className="px-4 py-3 border-b flex justify-between"><div className="font-medium text-sm flex gap-2"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />Chat</div><div className="text-xs text-gray-500">{chat?.length ?? 0}</div></div>
+    <div ref={chatRef} className="flex-1 overflow-y-auto p-3 space-y-2.5">{!chat || chat.length === 0 ? <div className="text-center text-gray-500 text-sm py-8">Sé el primero en saludar 👋</div> : chat.map((m: any) => <div key={m.id} className="flex gap-2 text-sm"><div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-purple-400 flex items-center justify-center text-[10px] font-bold text-white">{m.username?.[0]?.toUpperCase() ?? "?"}</div><div><div className="text-[11px] font-medium text-cyan-400">{m.username}</div><div className="text-gray-300 break-words">{m.message}</div></div></div>)}</div>
+    <div className="px-3 py-2 border-t flex flex-wrap gap-1.5">{CHAT_SHORTCUTS.map(s => <button key={s} onClick={() => onSend(s)} className="text-[11px] font-mono px-2 py-1 rounded-md bg-white/5 hover:bg-white/10">{s}</button>)}</div>
+    <form onSubmit={(e) => { e.preventDefault(); onSend(); }} className="p-3 border-t flex gap-2"><input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Escribe..." maxLength={200} className="input text-sm py-2" /><button type="submit" className="btn btn-primary px-3">→</button></form>
+  </>;
 }
 
-function formatCountdown(s: number | null) {
-  if (s == null) return "—";
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-}
-
-function getBallColor(n: number, is90: boolean): string {
-  if (is90) {
-    if (n <= 9) return "#FF3D7F"; if (n <= 19) return "#FFD93D"; if (n <= 29) return "#00E5FF";
-    if (n <= 39) return "#B388FF"; if (n <= 49) return "#00E676"; if (n <= 59) return "#FF3D7F";
-    if (n <= 69) return "#FFD93D"; if (n <= 79) return "#00E5FF"; return "#B388FF";
-  }
-  return n <= 15 ? "#FF3D7F" : n <= 30 ? "#FFD93D" : n <= 45 ? "#00E5FF" : n <= 60 ? "#B388FF" : "#00E676";
-}
-
-function errorLabel(msg: string): string {
-  const map: Record<string, string> = {
-    purchase_window_closed: "⏰ Ventana cerrada. Espera próxima ronda.",
-    insufficient_funds: "Te faltan monedas. Visita la tienda.",
-    kyc_required: "Completa la verificación primero.",
-    state_excluded: "Tu estado no permite Sweeps Coins.",
-    max_cards_reached: "Máximo de cartones alcanzado.",
-    game_not_active: "La partida ya no está activa.",
-    account_banned: "Cuenta suspendida.",
-    self_excluded: "Estás auto-excluido.",
-    strips_only_for_bingo90: "Las tiras solo están en Bingo 90.",
-  };
-  for (const k of Object.keys(map)) if (msg.includes(k)) return map[k];
-  return msg;
-}
+function formatCountdown(s: number | null) { if (s == null) return "—"; const m = Math.floor(s / 60); const sec = s % 60; return `${m}:${sec.toString().padStart(2, "0")}`; }
+function getBallColor(n: number, is90: boolean): string { if (is90) { if (n <= 9) return "#FF3D7F"; if (n <= 19) return "#FFD93D"; if (n <= 29) return "#00E5FF"; if (n <= 39) return "#B388FF"; if (n <= 49) return "#00E676"; if (n <= 59) return "#FF3D7F"; if (n <= 69) return "#FFD93D"; if (n <= 79) return "#00E5FF"; return "#B388FF"; } return n <= 15 ? "#FF3D7F" : n <= 30 ? "#FFD93D" : n <= 45 ? "#00E5FF" : n <= 60 ? "#B388FF" : "#00E676"; }
+function errorLabel(msg: string): string { const map: any = { purchase_window_closed: "⏰ Ventana cerrada", insufficient_funds: "Te faltan monedas", kyc_required: "Verificación pendiente", state_excluded: "Estado no permitido", max_cards_reached: "Máximo cartones", game_not_active: "Partida no activa", account_banned: "Cuenta suspendida", self_excluded: "Autoexcluido", strips_only_for_bingo90: "Solo Bingo 90" }; for (const k of Object.keys(map)) if (msg.includes(k)) return map[k]; return msg; }
