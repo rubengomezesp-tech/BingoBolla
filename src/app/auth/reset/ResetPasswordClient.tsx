@@ -6,8 +6,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AuroraBackground, FloatingBubbles } from "@/components/FloatingBubbles";
 
-export const dynamic = "force-dynamic";
-
 export default function ResetPasswordClient() {
   const router = useRouter();
   const supabase = createClient();
@@ -16,13 +14,37 @@ export default function ResetPasswordClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Supabase auto-detects the recovery token from URL on page load
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-      else setError("Enlace inválido o expirado. Pide uno nuevo.");
+    // Listen for PASSWORD_RECOVERY event from URL hash params
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        setReady(true);
+        setChecking(false);
+      } else if (event === "INITIAL_SESSION") {
+        // Check if we have a session at all (token in URL may already be processed)
+        if (session) {
+          setReady(true);
+        } else {
+          setError("Enlace inválido o expirado. Pide uno nuevo.");
+        }
+        setChecking(false);
+      }
     });
+
+    // Fallback: check session after 1.5s in case event already fired
+    const timer = setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) setReady(true);
+      else if (!error) setError("Enlace inválido o expirado. Pide uno nuevo.");
+      setChecking(false);
+    }, 1500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -73,11 +95,16 @@ export default function ResetPasswordClient() {
               Crea una nueva contraseña segura.
             </p>
 
-            {!ready ? (
+            {checking ? (
+              <div className="text-center py-8">
+                <div className="loader-orbit mx-auto mb-3" />
+                <div className="text-sm text-[var(--color-fg-dim)]">Validando enlace...</div>
+              </div>
+            ) : !ready ? (
               <div className="card p-5 border-[var(--color-magenta)]/40 bg-[var(--color-magenta)]/5 text-center">
                 <div className="text-3xl mb-2">⚠️</div>
                 <div className="text-sm text-[var(--color-magenta)] mb-3">
-                  {error ?? "Validando enlace..."}
+                  {error ?? "Enlace inválido o expirado"}
                 </div>
                 <Link href="/forgot-password" className="inline-block text-sm text-[var(--color-cyan)] hover:underline">
                   Pedir nuevo enlace →
