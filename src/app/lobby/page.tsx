@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/supabase/types";
 import DailyBonus from "./DailyBonus";
 import RoomCard, { type RoomCardData } from "./RoomCard";
+import DailyBonusButton from "@/components/DailyBonusButton";
+import { SlotsAccessCard, SiteFooter } from "@/components/LobbyExtras";
 
 export const dynamic = "force-dynamic";
 
