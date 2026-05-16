@@ -85,7 +85,7 @@ export default function StoreClient({
       {/* GOLD COINS */}
       <Section
         title="Gold Coins"
-        subtitle="Compra Gold para jugar · Recibe Sweeps de REGALO gratis"
+        subtitle="Diversión sin riesgo · Solo para jugar"
         emoji="🪙"
         color="#FFD93D"
       >
@@ -97,7 +97,6 @@ export default function StoreClient({
               loading={loading === p.id}
               onBuy={() => handleBuy(p.id)}
               amountLabel={`${p.gold_coins.toLocaleString()} 🪙`}
-              freeBonus={Number((p as any).sweeps_bonus ?? 0)}
               isPopular={i === 1}
               accent="#FFD93D"
             />
@@ -105,8 +104,32 @@ export default function StoreClient({
         </div>
       </Section>
 
-      {/* Sweeps directos eliminados: modelo legal no purchase necessary */}
-{/* DIAMONDS */}
+      {/* SWEEPS COINS */}
+      <Section
+        title="Sweeps Coins"
+        subtitle="Para premios reales · Canjeables por USD"
+        emoji="💎"
+        color="#FF3D7F"
+      >
+        <div className="grid sm:grid-cols-3 gap-3">
+          {sweepsPackages.map((p, i) => (
+            <PackageCard
+              key={p.id}
+              pkg={p}
+              loading={loading === p.id}
+              onBuy={() => handleBuy(p.id)}
+              amountLabel={`💎 ${Number(p.sweeps_coins).toFixed(0)} SC`}
+              isPopular={i === 1}
+              accent="#FF3D7F"
+            />
+          ))}
+        </div>
+        <div className="mt-3 text-xs text-[var(--color-fg-muted)] text-center">
+          ⚠️ Sweeps Coins requieren verificación KYC para canjear · Sólo disponible en estados habilitados
+        </div>
+      </Section>
+
+      {/* DIAMONDS */}
       <Section
         title="BingoBolla Diamonds"
         subtitle="Moneda premium · Acceso a salas VIP · Multiplicadores X2"
@@ -133,7 +156,7 @@ export default function StoreClient({
       </Section>
 
       <div className="mt-12 text-center text-xs text-[var(--color-fg-muted)] leading-relaxed max-w-2xl mx-auto">
-        🔒 Pagos seguros con Stripe · 🎁 Sweeps Coins son promocionales y se obtienen GRATIS (con compras de Gold o jugando) · No purchase necessary · Sweeps no se venden · 🎮 Juego responsable · 21+
+        🔒 Pagos seguros con Stripe · 🇺🇸 Disponible en 45 estados · 🎮 Juego responsable · 21+
         <br />
         <Link href="/account/exclude" className="underline text-[var(--color-cyan)] hover:text-white mt-2 inline-block">
           ¿Necesitas auto-excluirte? →
@@ -171,7 +194,7 @@ function Section({ title, subtitle, emoji, color, children }: {
   );
 }
 
-function PackageCard({ pkg, loading, onBuy, amountLabel, isPopular, accent, bonus, freeBonus }: {
+function PackageCard({ pkg, loading, onBuy, amountLabel, isPopular, accent, bonus }: {
   pkg: CoinPackage;
   loading: boolean;
   onBuy: () => void;
@@ -179,7 +202,6 @@ function PackageCard({ pkg, loading, onBuy, amountLabel, isPopular, accent, bonu
   isPopular: boolean;
   accent: string;
   bonus?: number;
-  freeBonus?: number;
 }) {
   return (
     <div
@@ -202,15 +224,9 @@ function PackageCard({ pkg, loading, onBuy, amountLabel, isPopular, accent, bonu
       <div className="text-xs font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
         {pkg.name}
       </div>
-      <div className="font-display text-xl md:text-2xl mb-1 shimmer-gold">
+      <div className="font-display text-xl md:text-2xl mb-3 shimmer-gold">
         {amountLabel}
       </div>
-      {freeBonus !== undefined && freeBonus > 0 && (
-        <div className="mb-3 text-xs font-medium px-2 py-1 rounded-md inline-block"
-          style={{ background: "#FF3D7F20", color: "#FF3D7F", border: "1px solid #FF3D7F40" }}>
-          + {freeBonus} 💎 Sweeps GRATIS de regalo
-        </div>
-      )}
       <button
         onClick={onBuy}
         disabled={loading}
