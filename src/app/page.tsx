@@ -14,31 +14,28 @@ export default function Home() {
         ))}
       </div>
 
-      {/* ===== Nav ===== */}
       <nav className="ld-nav">
         <Link href="/" className="ld-logo">
           <span className="ld-logoB">BINGO</span><span className="ld-logoO">BOLLA</span>
         </Link>
         <div className="ld-navlinks">
-          {["Home", "Games", "Live Rooms", "Promotions", "Bolla Pass", "Winners", "Community", "Support"].map((l) => (
+          {["Inicio", "Juegos", "Salas en vivo", "Cómo funciona", "Comunidad", "Soporte"].map((l) => (
             <a key={l} href="#" className="ld-navlink">{l}</a>
           ))}
         </div>
         <div className="ld-navcta">
-          <Link href="/login" className="ld-login">Log in</Link>
-          <Link href="/signup" className="ld-signup">Sign up</Link>
+          <Link href="/login" className="ld-login">Entrar</Link>
+          <Link href="/signup" className="ld-signup">Registrarse</Link>
         </div>
       </nav>
 
-      {/* ===== Stat bar ===== */}
       <div className="ld-statbar">
-        <div className="ld-sb"><span className="ld-sbDot" /><b>24,532</b> JUGADORES ONLINE</div>
-        <div className="ld-sb">🏆 <b>$48,290</b> GANADO ESTA SEMANA</div>
-        <div className="ld-sb">⚡ SALAS EN VIVO <b>CADA MINUTO</b></div>
-        <div className="ld-sb">🇺🇸 DISPONIBLE EN <b>45 ESTADOS</b></div>
+        <div className="ld-sb">🎁 <b>5.000 Gold + 5 Sweeps</b> GRATIS al registro</div>
+        <div className="ld-sb">🇺🇸 Modelo sweepstakes <b>100% legal</b></div>
+        <div className="ld-sb">💚 Donamos <b>1%</b> a investigación del Alzheimer</div>
+        <div className="ld-sb">💳 Pagos vía <b>PayPal</b></div>
       </div>
 
-      {/* ===== Hero ===== */}
       <section className="ld-hero">
         <div className="ld-heroL">
           <div className="ld-crown">👑</div>
@@ -48,137 +45,150 @@ export default function Home() {
             <span className="ld-h1accent">BINGO</span>
           </h1>
           <p className="ld-sub">
-            Bingo en vivo. Jugadores reales. Premios enormes.
-            La nueva generación del juego social está aquí.
-            <strong> ¡Únete al movimiento!</strong>
+            Bingo en vivo de verdad. Sube de nivel, gana premios y descubre
+            un mundo de juego que <strong>crece cada semana</strong>.
+            Gratis, legal y con corazón.
           </p>
           <div className="ld-cta">
             <Link href="/signup" className="ld-ctaMain">
-              EMPIEZA GRATIS <span className="ld-ctaArrow">→</span>
+              REGÍSTRATE GRATIS <span className="ld-ctaArrow">→</span>
             </Link>
-            <Link href="/login" className="ld-ctaGhost">▶ VER SALAS EN VIVO</Link>
+            <Link href="/login" className="ld-ctaGhost">▶ VER SALAS</Link>
           </div>
           <div className="ld-trust">
             <span className="ld-tb">🛡️ 18+ Verificado</span>
             <span className="ld-tb">🔒 100% Legal</span>
-            <span className="ld-tb">✓ Seguro</span>
-            <span className="ld-tb ld-tbPay">💳 Pagos vía PayPal</span>
+            <span className="ld-tb">✓ No compra necesaria</span>
+            <span className="ld-tb ld-tbPay">💳 PayPal</span>
           </div>
         </div>
 
         <div className="ld-heroR">
-          {/* Floating 3D balls */}
           <div className="ld-ball ld-ball1">90</div>
           <div className="ld-ball ld-ball2">33</div>
           <div className="ld-ball ld-ball3">12</div>
           <div className="ld-ball ld-ball4">7</div>
           <div className="ld-bingoText">¡BINGO!</div>
 
-          {/* Live chat card */}
           <div className="ld-chatcard">
             <div className="ld-ccHd">
-              <span>LIVE CHAT</span><span className="ld-ccOnline">● 234</span>
+              <span>CHAT EN VIVO</span><span className="ld-ccOnline">● en sala</span>
             </div>
             <div className="ld-ccMsg"><span className="ld-ccAv">L</span><div><b>Lucky77</b> ¡Vamos! 🔥</div></div>
             <div className="ld-ccMsg"><span className="ld-ccAv">B</span><div><b>BingoQueen</b> ¡Buena! 💜</div></div>
             <div className="ld-ccMsg"><span className="ld-ccAv">S</span><div><b>BingoStar</b> Esta sala arde! 🙌</div></div>
             <div className="ld-ccMsg"><span className="ld-ccAv">K</span><div><b>KingBolla</b> ¡Una más! 🎉</div></div>
-            <div className="ld-ccInput"><span>Di algo...</span><span className="ld-ccSend">→</span></div>
+            <div className="ld-ccInput"><span>Únete y saluda...</span><span className="ld-ccSend">→</span></div>
           </div>
         </div>
       </section>
 
-      {/* ===== Big stats ===== */}
-      <section className="ld-bigstats">
-        <div className="ld-bs"><div className="ld-bsV">2M+</div><div className="ld-bsL">PARTIDAS JUGADAS</div></div>
-        <div className="ld-bs"><div className="ld-bsV">150K+</div><div className="ld-bsL">GANADORES DIARIOS</div></div>
-        <div className="ld-bs"><div className="ld-bsV">1000+</div><div className="ld-bsL">SALAS EN VIVO</div></div>
-        <div className="ld-bs"><div className="ld-bsV">$10M+</div><div className="ld-bsL">PAGADO</div></div>
-        <div className="ld-jackpot">
-          <div className="ld-jpL">🔥 HOT JACKPOT</div>
-          <div className="ld-jpV">$250,000</div>
-          <Link href="/signup" className="ld-jpBtn">JUGAR PARA GANAR</Link>
+      <section className="ld-welcome">
+        <div className="ld-wcGlow" />
+        <div className="ld-wcInner">
+          <div className="ld-wcBadge">🎁 REGALO DE BIENVENIDA</div>
+          <div className="ld-wcMain">
+            <span className="ld-wcGold">5.000</span> Gold Coins
+            <span className="ld-wcPlus">+</span>
+            <span className="ld-wcSweeps">5</span> Sweeps Coins
+          </div>
+          <div className="ld-wcSub">Gratis al crear tu cuenta · Sin compra necesaria · Empieza a jugar al instante</div>
+          <Link href="/signup" className="ld-wcBtn">RECLAMAR MI REGALO →</Link>
         </div>
       </section>
 
-      {/* ===== Games ===== */}
-      <section className="ld-games">
-        <h2 className="ld-secTitle">👑 EXPLORA NUESTROS JUEGOS</h2>
-        <div className="ld-gameGrid">
-          <GameCard emoji="🎱" name="LIVE BINGO" players="8,432" c="#9a4ad0" />
-          <GameCard emoji="⚔️" name="BINGO BATTLE" players="3,219" c="#3d7aff" />
-          <GameCard emoji="🎡" name="LUCKY WHEEL" players="5,887" c="#ffb02e" />
-          <GameCard emoji="🎟️" name="SCRATCH & WIN" players="4,102" c="#3ddc6a" />
-          <GameCard emoji="💎" name="DAILY PUZZLES" players="2,943" c="#ff4d9a" />
-          <div className="ld-event">
-            <div className="ld-evNew">¡NUEVO EVENTO!</div>
-            <div className="ld-evName">BOLLA BASH</div>
-            <div className="ld-evBadge">B</div>
-            <div className="ld-evTimer">
-              <div className="ld-evT"><b>02</b><span>DÍAS</span></div>
-              <div className="ld-evT"><b>16</b><span>HRS</span></div>
-              <div className="ld-evT"><b>48</b><span>MIN</span></div>
-              <div className="ld-evT"><b>53</b><span>SEG</span></div>
+      <section className="ld-pillars">
+        <div className="ld-pil"><div className="ld-pilIc">🎮</div><div className="ld-pilT">Gratis para jugar</div><div className="ld-pilD">Coins de bienvenida y sin compra obligatoria, nunca.</div></div>
+        <div className="ld-pil"><div className="ld-pilIc">⚖️</div><div className="ld-pilT">Modelo legal</div><div className="ld-pilD">Sweepstakes conforme a la ley de EE.UU.</div></div>
+        <div className="ld-pil"><div className="ld-pilIc">🔍</div><div className="ld-pilT">Juego transparente</div><div className="ld-pilD">RNG verificable y reglas claras.</div></div>
+        <div className="ld-pil"><div className="ld-pilIc">💚</div><div className="ld-pilT">Con propósito</div><div className="ld-pilD">1% de ingresos al Cure Alzheimer's Fund.</div></div>
+      </section>
+
+      <section className="ld-world">
+        <div className="ld-worldHd">
+          <h2 className="ld-secTitle">🌍 MÁS QUE BINGO</h2>
+          <p className="ld-worldSub">El bingo es el corazón. Alrededor construimos un mundo que crece cada semana: niveles, energía, misiones y minijuegos.</p>
+        </div>
+
+        <div className="ld-levelcard">
+          <div className="ld-lvTop">
+            <div className="ld-lvBadge">★</div>
+            <div className="ld-lvInfo">
+              <div className="ld-lvName">Sistema de niveles</div>
+              <div className="ld-lvDesc">Gana EXP jugando bingo, ganando premios y entrando cada día</div>
             </div>
-            <Link href="/signup" className="ld-evBtn">UNIRME AHORA</Link>
+            <div className="ld-lvSoon">PRÓXIMAMENTE</div>
           </div>
+          <div className="ld-xpbar"><div className="ld-xpfill" /></div>
+          <div className="ld-xpLabels"><span>Nivel 1</span><span>Sube ganando</span><span>Nivel 2</span></div>
         </div>
+
+        <div className="ld-worldGrid">
+          <WorldCard emoji="🎱" name="Bingo en vivo" tag="⭐ Disponible ya" desc="Salas 75 y 90 bolas, premios reales, chat en vivo." c="#9a4ad0" live />
+          <WorldCard emoji="🎰" name="Slots" tag="⭐ Disponible ya" desc="Tragamonedas Hold & Win con jackpots." c="#ff4d9a" live />
+          <WorldCard emoji="⚡" name="Energía y misiones" tag="Próximamente" desc="Completa retos diarios y gana recompensas." c="#ffb02e" />
+          <WorldCard emoji="🎡" name="Lucky Wheel" tag="Próximamente" desc="Gira la rueda de la suerte cada día." c="#3ddc6a" />
+          <WorldCard emoji="🎟️" name="Rasca y gana" tag="Próximamente" desc="Cartones de rasca con premios al instante." c="#3d7aff" />
+          <WorldCard emoji="💎" name="Minijuegos" tag="Próximamente" desc="Puzzles y retos para ganar EXP y coins." c="#c8264f" />
+        </div>
+        <div className="ld-buildNote">🔨 Construimos algo nuevo cada semana — únete y crece con la plataforma desde el día uno.</div>
       </section>
 
-      {/* ===== Features ===== */}
+      <section className="ld-cause">
+        <div className="ld-causeHeart">💚</div>
+        <h2 className="ld-causeTitle">Jugamos con propósito</h2>
+        <p className="ld-causeP">
+          Desde el primer día, <strong>el 1% de nuestros ingresos</strong> se dona al
+          <strong> Cure Alzheimer's Fund</strong> — una organización con 4 estrellas en Charity Navigator
+          que financia investigación para acabar con el Alzheimer.
+          Cada partida que juegas aporta a la causa.
+        </p>
+        <div className="ld-causeBadge">★★★★ Charity Navigator · Cure Alzheimer's Fund</div>
+      </section>
+
       <section className="ld-features">
-        <Feature icon="👥" title="JUEGA EN GRUPO" desc="Miles de jugadores en tiempo real." />
-        <Feature icon="🎁" title="GANA PREMIOS" desc="Premios en efectivo, bonos y coleccionables." />
-        <Feature icon="⭐" title="SUBE DE NIVEL" desc="Completa misiones y desbloquea ventajas." />
-        <Feature icon="🏆" title="SÉ EL MEJOR" desc="Escala el ranking y vuélvete leyenda." />
+        <Feature icon="👥" title="Juega en grupo" desc="Salas en vivo con jugadores reales." />
+        <Feature icon="🎁" title="Recompensas" desc="Premios, bonos y coins ganables." />
+        <Feature icon="⭐" title="Sube de nivel" desc="Gana EXP y desbloquea contenido." />
+        <Feature icon="🏆" title="Sé el mejor" desc="Escala el ranking de la comunidad." />
       </section>
 
-      {/* ===== Community ===== */}
       <section className="ld-community">
         <div className="ld-commL">
-          <h2 className="ld-commTitle">COMUNIDAD REAL.<br /><span className="ld-commGold">CONEXIONES REALES.</span></h2>
-          <p className="ld-commP">Chatea, haz amigos, únete a escuadrones y disfruta el bingo como nunca.</p>
-          <Link href="/signup" className="ld-commBtn">ÚNETE A LA COMUNIDAD 👥</Link>
+          <h2 className="ld-commTitle">UNA COMUNIDAD<br /><span className="ld-commGold">QUE CRECE CONTIGO</span></h2>
+          <p className="ld-commP">Sé de los primeros. La plataforma se construye día a día y tú creces con ella desde el principio.</p>
+          <Link href="/signup" className="ld-commBtn">ÚNETE AHORA 👥</Link>
         </div>
         <div className="ld-testimonial">
-          <div className="ld-stars">★★★★★</div>
-          <p className="ld-tQuote">"BingoBolla no es solo un juego, ¡es todo un vibe!"</p>
-          <div className="ld-tWho">— Jessica M.</div>
+          <div className="ld-tIcon">🚀</div>
+          <p className="ld-tQuote">Bingo de verdad + un mundo de juego que no para de crecer.</p>
+          <div className="ld-tWho">— El equipo de BingoBolla</div>
         </div>
       </section>
 
-      {/* ===== As seen on ===== */}
-      <section className="ld-seen">
-        <span className="ld-seenL">VISTO EN</span>
-        <span className="ld-seenName">Yahoo!</span>
-        <span className="ld-seenName">USA Today</span>
-        <span className="ld-seenName">Forbes</span>
-        <span className="ld-seenName">FOX</span>
-        <span className="ld-seenName">MarketWatch</span>
-      </section>
-
-      {/* ===== Footer ===== */}
       <footer className="ld-footer">
-        <div className="ld-fItem">🛡️ <div><b>Pagos seguros</b><span>Rápido y confiable</span></div></div>
-        <div className="ld-fItem">🎧 <div><b>Soporte 24/7</b><span>Siempre aquí</span></div></div>
+        <div className="ld-fItem">🛡️ <div><b>Pagos seguros</b><span>Vía PayPal</span></div></div>
+        <div className="ld-fItem">🎧 <div><b>Soporte</b><span>Estamos aquí</span></div></div>
         <div className="ld-fLogo">B</div>
         <div className="ld-fItem">📱 <div><b>Móvil y escritorio</b><span>Juega donde sea</span></div></div>
-        <div className="ld-fItem">🎲 <div><b>RNG certificado</b><span>Justo y transparente</span></div></div>
+        <div className="ld-fItem">🎲 <div><b>RNG transparente</b><span>Justo y verificable</span></div></div>
       </footer>
       <div className="ld-legal">
-        BingoBolla · Modelo sweepstakes 100% legal · 18+ · Juego responsable ·
-        No compra necesaria · Donamos 1% a Cure Alzheimer's Fund
+        BingoBolla · Modelo sweepstakes · 18+ · Juego responsable ·
+        No compra necesaria · Donamos 1% de ingresos al Cure Alzheimer's Fund ·
+        Disponibilidad sujeta a estado de residencia
       </div>
     </div>
   );
 }
 
-function GameCard({ emoji, name, players, c }: { emoji: string; name: string; players: string; c: string }) {
+function WorldCard({ emoji, name, tag, desc, c, live }: { emoji: string; name: string; tag: string; desc: string; c: string; live?: boolean }) {
   return (
-    <Link href="/signup" className="ld-gc" style={{ "--gc": c } as any}>
-      <div className="ld-gcArt">{emoji}</div>
-      <div className="ld-gcName">{name}</div>
-      <div className="ld-gcPlayers">🟢 {players}</div>
+    <Link href="/signup" className={`ld-wld ${live ? "ld-wldLive" : ""}`} style={{ "--wc": c } as any}>
+      <div className="ld-wldArt">{emoji}</div>
+      <div className="ld-wldName">{name}</div>
+      <div className={`ld-wldTag ${live ? "ld-wldTagLive" : ""}`}>{tag}</div>
+      <div className="ld-wldDesc">{desc}</div>
     </Link>
   );
 }
@@ -195,19 +205,16 @@ function Feature({ icon, title, desc }: { icon: string; title: string; desc: str
 
 const LD_CSS = `
 .ld-root{position:relative;min-height:100vh;overflow-x:hidden;color:#fff;
-  font-family:'Fredoka',ui-rounded,system-ui,sans-serif;
-  background:#0a0418;}
+  font-family:'Fredoka',ui-rounded,system-ui,sans-serif;background:#0a0418;}
 .ld-bg{position:fixed;inset:0;pointer-events:none;
-  background:
-    radial-gradient(60% 50% at 25% 15%,rgba(150,60,220,.35),transparent),
-    radial-gradient(50% 45% at 80% 20%,rgba(255,60,160,.28),transparent),
-    radial-gradient(55% 50% at 50% 90%,rgba(255,170,40,.15),transparent),
-    linear-gradient(180deg,#1a0a3e 0%,#12062e 40%,#0a0418 100%);}
+  background:radial-gradient(60% 50% at 25% 15%,rgba(150,60,220,.35),transparent),
+  radial-gradient(50% 45% at 80% 20%,rgba(255,60,160,.28),transparent),
+  radial-gradient(55% 50% at 50% 90%,rgba(255,170,40,.15),transparent),
+  linear-gradient(180deg,#1a0a3e 0%,#12062e 40%,#0a0418 100%);}
 .ld-stars{position:fixed;inset:0;pointer-events:none;}
 .ld-star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;
   opacity:.4;animation:ldTw 4s infinite;}
 @keyframes ldTw{0%,100%{opacity:.15}50%{opacity:.85}}
-
 .ld-nav{position:relative;z-index:20;display:flex;align-items:center;
   justify-content:space-between;padding:18px 28px;max-width:1280px;margin:0 auto;
   flex-wrap:wrap;gap:14px;}
@@ -228,29 +235,23 @@ const LD_CSS = `
   padding:10px 22px;border-radius:12px;
   background:linear-gradient(135deg,#ff4d9a,#c8264f);
   box-shadow:0 6px 20px rgba(255,80,160,.5);}
-
 .ld-statbar{position:relative;z-index:10;display:flex;flex-wrap:wrap;
-  justify-content:center;gap:8px 28px;padding:12px 20px;max-width:1280px;
+  justify-content:center;gap:8px 24px;padding:12px 20px;max-width:1280px;
   margin:0 auto;border-top:1px solid rgba(170,120,255,.15);
   border-bottom:1px solid rgba(170,120,255,.15);font-size:12px;color:#b9a0e0;}
 .ld-sb{display:flex;align-items:center;gap:6px;}
 .ld-sb b{color:#fff;font-weight:800;}
-.ld-sbDot{width:8px;height:8px;border-radius:50%;background:#3ddc6a;
-  box-shadow:0 0 8px #3ddc6a;animation:ldTw 1.5s infinite;}
-
-.ld-hero{position:relative;z-index:10;display:grid;
-  grid-template-columns:1fr;gap:30px;max-width:1280px;margin:0 auto;
-  padding:40px 28px 50px;}
+.ld-hero{position:relative;z-index:10;display:grid;grid-template-columns:1fr;
+  gap:30px;max-width:1280px;margin:0 auto;padding:40px 28px 40px;}
 .ld-crown{font-size:46px;filter:drop-shadow(0 4px 10px rgba(255,180,40,.6));
   margin-bottom:-6px;animation:ldBob 3s ease-in-out infinite;}
 @keyframes ldBob{0%,100%{transform:translateY(0) rotate(-5deg)}
   50%{transform:translateY(-8px) rotate(5deg)}}
 .ld-h1{font-weight:800;line-height:.92;margin-bottom:18px;}
-.ld-h1w{display:block;font-size:clamp(40px,9vw,76px);
-  color:#fff;text-shadow:0 4px 16px rgba(0,0,0,.5);letter-spacing:-1px;}
-.ld-h1accent{display:block;font-size:clamp(46px,11vw,92px);
-  font-style:italic;letter-spacing:-1px;
-  background:linear-gradient(120deg,#ff4d9a,#ff8a3d 40%,#ffd23d);
+.ld-h1w{display:block;font-size:clamp(40px,9vw,76px);color:#fff;
+  text-shadow:0 4px 16px rgba(0,0,0,.5);letter-spacing:-1px;}
+.ld-h1accent{display:block;font-size:clamp(46px,11vw,92px);font-style:italic;
+  letter-spacing:-1px;background:linear-gradient(120deg,#ff4d9a,#ff8a3d 40%,#ffd23d);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 4px 14px rgba(255,120,60,.5));}
 .ld-sub{font-size:17px;color:#d8c8f0;line-height:1.5;max-width:440px;
@@ -273,7 +274,6 @@ const LD_CSS = `
 .ld-tb{font-size:12px;color:#b9a0e0;background:rgba(255,255,255,.05);
   padding:7px 13px;border-radius:9px;border:1px solid rgba(170,120,255,.18);}
 .ld-tbPay{color:#5ab0ff;}
-
 .ld-heroR{position:relative;min-height:340px;}
 .ld-ball{position:absolute;border-radius:50%;display:flex;align-items:center;
   justify-content:center;font-weight:800;color:#fff;
@@ -295,16 +295,15 @@ const LD_CSS = `
 .ld-bingoText{position:absolute;right:0;top:30px;font-weight:800;font-size:34px;
   font-style:italic;color:#ff4d9a;text-shadow:0 0 20px rgba(255,80,160,.7);
   transform:rotate(-8deg);animation:ldTw 2s infinite;}
-.ld-chatcard{position:absolute;right:0;bottom:0;width:220px;
-  border-radius:16px;padding:12px;
-  background:linear-gradient(180deg,rgba(28,14,56,.95),rgba(16,8,36,.97));
+.ld-chatcard{position:absolute;right:0;bottom:0;width:220px;border-radius:16px;
+  padding:12px;background:linear-gradient(180deg,rgba(28,14,56,.95),rgba(16,8,36,.97));
   border:1px solid rgba(170,120,255,.3);backdrop-filter:blur(10px);
   box-shadow:0 12px 30px rgba(0,0,0,.5);}
 .ld-ccHd{display:flex;justify-content:space-between;font-size:11px;
   font-weight:800;color:#c7a8e8;margin-bottom:9px;}
 .ld-ccOnline{color:#3ddc6a;}
-.ld-ccMsg{display:flex;gap:7px;align-items:center;font-size:11px;
-  color:#e8d8f0;margin-bottom:7px;}
+.ld-ccMsg{display:flex;gap:7px;align-items:center;font-size:11px;color:#e8d8f0;
+  margin-bottom:7px;}
 .ld-ccMsg b{color:#ff8ad0;}
 .ld-ccAv{width:20px;height:20px;border-radius:50%;flex-shrink:0;
   background:linear-gradient(135deg,#7a3ad0,#ff5a8a);display:flex;
@@ -315,67 +314,103 @@ const LD_CSS = `
 .ld-ccSend{width:20px;height:20px;border-radius:50%;
   background:linear-gradient(135deg,#ff4d9a,#c8264f);display:flex;
   align-items:center;justify-content:center;color:#fff;font-weight:800;}
-
-.ld-bigstats{position:relative;z-index:10;display:flex;flex-wrap:wrap;
-  gap:12px;max-width:1280px;margin:0 auto;padding:0 28px 40px;
-  align-items:stretch;}
-.ld-bs{flex:1;min-width:130px;border-radius:14px;padding:16px;text-align:center;
+.ld-welcome{position:relative;z-index:10;max-width:1100px;margin:0 auto 40px;
+  padding:0 28px;}
+.ld-wcGlow{position:absolute;inset:0 28px;border-radius:24px;
+  background:radial-gradient(circle at 50% 50%,rgba(255,170,40,.3),transparent 70%);
+  filter:blur(30px);}
+.ld-wcInner{position:relative;border-radius:24px;padding:32px 24px;
+  text-align:center;
+  background:linear-gradient(135deg,rgba(90,58,8,.6),rgba(58,26,110,.7));
+  border:1px solid rgba(255,200,80,.4);
+  box-shadow:0 0 40px rgba(255,170,40,.2);}
+.ld-wcBadge{display:inline-block;font-size:12px;font-weight:800;
+  letter-spacing:.1em;color:#ffd8a0;background:rgba(0,0,0,.25);
+  padding:6px 16px;border-radius:20px;margin-bottom:14px;}
+.ld-wcMain{font-weight:800;font-size:clamp(26px,6vw,44px);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  flex-wrap:wrap;}
+.ld-wcGold{color:#ffd23d;text-shadow:0 0 20px rgba(255,200,60,.6);}
+.ld-wcSweeps{color:#ff8ad0;text-shadow:0 0 20px rgba(255,120,200,.6);}
+.ld-wcPlus{color:#fff;opacity:.6;}
+.ld-wcSub{font-size:14px;color:#e8d0c0;margin:12px 0 20px;}
+.ld-wcBtn{display:inline-block;text-decoration:none;padding:15px 36px;
+  border-radius:30px;font-weight:800;font-size:16px;color:#3a1a00;
+  background:linear-gradient(180deg,#ffd23d,#e0901a);
+  box-shadow:0 8px 24px rgba(255,170,40,.5);}
+.ld-pillars{position:relative;z-index:10;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;
+  max-width:1280px;margin:0 auto;padding:0 28px 50px;}
+.ld-pil{border-radius:16px;padding:22px;text-align:center;
   background:linear-gradient(180deg,rgba(40,22,75,.7),rgba(22,12,46,.8));
   border:1px solid rgba(170,120,255,.2);}
-.ld-bsV{font-weight:800;font-size:26px;
-  background:linear-gradient(180deg,#fff,#ffd23d);-webkit-background-clip:text;
-  background-clip:text;color:transparent;}
-.ld-bsL{font-size:10px;letter-spacing:.06em;color:#b9a0e0;margin-top:4px;}
-.ld-jackpot{flex:1.4;min-width:220px;border-radius:16px;padding:16px 22px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#5a3a08,#3a1a6e);
-  border:1px solid rgba(255,200,80,.4);
-  box-shadow:0 0 30px rgba(255,170,40,.2);}
-.ld-jpL{font-size:12px;letter-spacing:.1em;color:#ffd8a0;font-weight:700;}
-.ld-jpV{font-weight:800;font-size:38px;color:#ffd23d;
-  text-shadow:0 0 22px rgba(255,200,60,.6);margin:4px 0 10px;}
-.ld-jpBtn{text-decoration:none;padding:10px 22px;border-radius:10px;
-  font-weight:800;font-size:13px;color:#3a1a00;
-  background:linear-gradient(180deg,#ffd23d,#e0901a);}
-
-.ld-games{position:relative;z-index:10;max-width:1280px;margin:0 auto;
-  padding:20px 28px 40px;}
-.ld-secTitle{font-weight:800;font-size:24px;margin-bottom:20px;}
-.ld-gameGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+.ld-pilIc{font-size:34px;margin-bottom:10px;}
+.ld-pilT{font-weight:800;font-size:16px;}
+.ld-pilD{font-size:12px;color:#b9a0e0;margin-top:6px;line-height:1.4;}
+.ld-world{position:relative;z-index:10;max-width:1280px;margin:0 auto;
+  padding:0 28px 40px;}
+.ld-worldHd{text-align:center;margin-bottom:24px;}
+.ld-secTitle{font-weight:800;font-size:28px;}
+.ld-worldSub{font-size:15px;color:#b9a0e0;max-width:560px;margin:10px auto 0;
+  line-height:1.5;}
+.ld-levelcard{border-radius:18px;padding:20px;margin-bottom:20px;
+  background:linear-gradient(135deg,rgba(60,32,110,.7),rgba(28,14,56,.85));
+  border:1px solid rgba(170,120,255,.3);}
+.ld-lvTop{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.ld-lvBadge{width:46px;height:46px;border-radius:14px;flex-shrink:0;
+  background:radial-gradient(circle at 35% 30%,#ffd98a,#e0901a);display:flex;
+  align-items:center;justify-content:center;font-size:22px;font-weight:800;
+  color:#3a1a00;box-shadow:0 0 18px rgba(255,180,40,.5);}
+.ld-lvInfo{flex:1;min-width:0;}
+.ld-lvName{font-weight:800;font-size:16px;}
+.ld-lvDesc{font-size:12px;color:#b9a0e0;margin-top:2px;}
+.ld-lvSoon{font-size:10px;font-weight:800;color:#ffd23d;
+  background:rgba(255,200,60,.15);padding:5px 10px;border-radius:8px;
+  white-space:nowrap;}
+.ld-xpbar{height:14px;border-radius:8px;background:rgba(0,0,0,.35);
+  overflow:hidden;border:1px solid rgba(170,120,255,.2);}
+.ld-xpfill{height:100%;width:62%;border-radius:8px;
+  background:linear-gradient(90deg,#9a4ad0,#ff4d9a,#ffd23d);
+  box-shadow:0 0 12px rgba(255,120,200,.6);
+  animation:ldXp 3s ease-in-out infinite;}
+@keyframes ldXp{0%,100%{width:55%}50%{width:72%}}
+.ld-xpLabels{display:flex;justify-content:space-between;font-size:10px;
+  color:#9a7ac8;margin-top:6px;}
+.ld-worldGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
   gap:14px;}
-.ld-gc{text-decoration:none;border-radius:18px;padding:18px;text-align:center;
+.ld-wld{text-decoration:none;border-radius:18px;padding:18px;text-align:center;
   background:linear-gradient(180deg,rgba(40,22,75,.8),rgba(20,10,40,.9));
   border:1px solid rgba(170,120,255,.2);transition:transform .2s,box-shadow .2s;
   display:block;}
-.ld-gc:hover{transform:translateY(-6px);
-  box-shadow:0 16px 36px rgba(0,0,0,.5),0 0 24px var(--gc);}
-.ld-gcArt{height:90px;border-radius:14px;display:flex;align-items:center;
-  justify-content:center;font-size:48px;margin-bottom:12px;
-  background:radial-gradient(circle,color-mix(in srgb,var(--gc) 30%,transparent),
+.ld-wld:hover{transform:translateY(-6px);
+  box-shadow:0 16px 36px rgba(0,0,0,.5),0 0 24px var(--wc);}
+.ld-wldLive{border-color:rgba(60,220,106,.35);}
+.ld-wldArt{height:80px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;font-size:44px;margin-bottom:12px;
+  background:radial-gradient(circle,color-mix(in srgb,var(--wc) 30%,transparent),
   rgba(0,0,0,.3));}
-.ld-gcName{font-weight:800;font-size:15px;}
-.ld-gcPlayers{font-size:11px;color:#9ddc9a;margin-top:6px;}
-.ld-event{grid-column:span 1;border-radius:18px;padding:18px;text-align:center;
-  background:linear-gradient(165deg,#7a1a5a,#3a0e6e);
-  border:1px solid rgba(255,120,200,.4);
-  box-shadow:0 0 26px rgba(255,80,180,.25);
-  display:flex;flex-direction:column;align-items:center;gap:8px;}
-.ld-evNew{font-size:11px;font-weight:800;color:#ffd23d;letter-spacing:.06em;}
-.ld-evName{font-weight:800;font-size:20px;
-  background:linear-gradient(180deg,#ffe07a,#e0901a);-webkit-background-clip:text;
+.ld-wldName{font-weight:800;font-size:15px;}
+.ld-wldTag{font-size:10px;font-weight:700;color:#b9a0e0;margin:6px 0;
+  padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.05);
+  display:inline-block;}
+.ld-wldTagLive{color:#5ddc8a;background:rgba(60,220,106,.15);}
+.ld-wldDesc{font-size:11px;color:#9a7ac8;line-height:1.4;}
+.ld-buildNote{text-align:center;margin-top:20px;font-size:13px;color:#c7a8e8;
+  background:rgba(170,120,255,.08);padding:14px;border-radius:12px;
+  border:1px solid rgba(170,120,255,.18);}
+.ld-cause{position:relative;z-index:10;max-width:760px;margin:0 auto 50px;
+  padding:36px 28px;text-align:center;border-radius:24px;
+  background:linear-gradient(135deg,rgba(20,80,50,.4),rgba(28,14,56,.7));
+  border:1px solid rgba(60,220,140,.3);}
+.ld-causeHeart{font-size:48px;animation:ldBob 3s ease-in-out infinite;}
+.ld-causeTitle{font-weight:800;font-size:26px;margin:10px 0 14px;
+  background:linear-gradient(180deg,#7dffb0,#3ddc6a);-webkit-background-clip:text;
   background-clip:text;color:transparent;}
-.ld-evBadge{width:52px;height:52px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#ff7ad0,#7a2ad0);display:flex;
-  align-items:center;justify-content:center;font-weight:800;font-size:24px;
-  box-shadow:0 0 22px rgba(255,120,220,.6);}
-.ld-evTimer{display:flex;gap:6px;}
-.ld-evT{background:rgba(0,0,0,.3);border-radius:8px;padding:6px 8px;min-width:38px;}
-.ld-evT b{display:block;font-size:16px;font-weight:800;}
-.ld-evT span{font-size:8px;color:#c7a8e8;}
-.ld-evBtn{text-decoration:none;padding:9px 20px;border-radius:10px;
-  font-weight:800;font-size:13px;color:#fff;
-  background:linear-gradient(135deg,#ff4d9a,#c8264f);}
-
+.ld-causeP{font-size:15px;color:#d8e8d8;line-height:1.6;}
+.ld-causeP strong{color:#7dffb0;}
+.ld-causeBadge{display:inline-block;margin-top:18px;font-size:12px;
+  font-weight:700;color:#ffd23d;background:rgba(255,200,60,.12);
+  padding:8px 18px;border-radius:20px;border:1px solid rgba(255,200,60,.3);}
 .ld-features{position:relative;z-index:10;display:grid;
   grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;
   max-width:1280px;margin:0 auto;padding:0 28px 40px;}
@@ -385,7 +420,6 @@ const LD_CSS = `
 .ld-featIc{font-size:32px;margin-bottom:8px;}
 .ld-featT{font-weight:800;font-size:15px;}
 .ld-featD{font-size:12px;color:#b9a0e0;margin-top:5px;line-height:1.4;}
-
 .ld-community{position:relative;z-index:10;display:grid;
   grid-template-columns:1fr;gap:20px;max-width:1280px;margin:0 auto;
   padding:0 28px 40px;}
@@ -396,20 +430,12 @@ const LD_CSS = `
 .ld-commBtn{text-decoration:none;display:inline-block;padding:13px 26px;
   border-radius:30px;font-weight:800;font-size:14px;color:#fff;
   background:linear-gradient(135deg,#9a4ad0,#6a2aa8);}
-.ld-testimonial{border-radius:18px;padding:24px;
+.ld-testimonial{border-radius:18px;padding:24px;text-align:center;
   background:linear-gradient(135deg,rgba(60,32,110,.7),rgba(28,14,56,.8));
   border:1px solid rgba(255,200,80,.25);}
-.ld-stars{color:#ffd23d;font-size:20px;letter-spacing:3px;}
-.ld-tQuote{font-size:18px;font-weight:600;margin:12px 0;line-height:1.4;}
+.ld-tIcon{font-size:34px;margin-bottom:8px;}
+.ld-tQuote{font-size:17px;font-weight:600;margin:10px 0;line-height:1.4;}
 .ld-tWho{font-size:13px;color:#b9a0e0;}
-
-.ld-seen{position:relative;z-index:10;display:flex;flex-wrap:wrap;
-  align-items:center;justify-content:center;gap:14px 30px;max-width:1280px;
-  margin:0 auto;padding:24px 28px;border-top:1px solid rgba(170,120,255,.15);
-  border-bottom:1px solid rgba(170,120,255,.15);}
-.ld-seenL{font-size:11px;letter-spacing:.15em;color:#9a7ac8;}
-.ld-seenName{font-size:18px;font-weight:800;color:#8a6cb8;font-style:italic;}
-
 .ld-footer{position:relative;z-index:10;display:flex;flex-wrap:wrap;
   align-items:center;justify-content:center;gap:18px 36px;max-width:1280px;
   margin:0 auto;padding:30px 28px 16px;}
@@ -423,10 +449,9 @@ const LD_CSS = `
 .ld-legal{position:relative;z-index:10;text-align:center;font-size:11px;
   color:#7a6ba8;padding:16px 28px 30px;max-width:760px;margin:0 auto;
   line-height:1.6;}
-
 @media(min-width:900px){
   .ld-hero{grid-template-columns:1.1fr 1fr;align-items:center;
-    padding:50px 28px 60px;}
+    padding:50px 28px 50px;}
   .ld-heroR{min-height:440px;}
   .ld-ball1{width:150px;height:150px;font-size:52px;}
   .ld-community{grid-template-columns:1.2fr 1fr;align-items:center;}
