@@ -98,6 +98,7 @@ export default function StoreClient({
               onBuy={() => handleBuy(p.id)}
               amountLabel={`${p.gold_coins.toLocaleString()} 🪙`}
               freeBonus={Number((p as any).sweeps_bonus ?? 0)}
+              
               isPopular={i === 1}
               accent="#FFD93D"
             />
