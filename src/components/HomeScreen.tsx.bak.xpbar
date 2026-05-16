@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProgressPanel from "@/components/ProgressPanel";
-import XpBar from "@/components/XpBar";
 
 type RoomLite = {
   id: string;
@@ -93,7 +92,6 @@ export default function HomeScreen({
           </div>
           <div className="hs-rk">🏅 Bolla Player</div>
         </div>
-        <XpBar onToast={flash} />
         <Link href="/store" className="hs-cur">
           <span>🪙</span>
           <span className="hs-am">{Math.round(gold).toLocaleString()}</span>
