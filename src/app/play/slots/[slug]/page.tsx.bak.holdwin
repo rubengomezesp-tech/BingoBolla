@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import SlotMachine from "./SlotMachine";
-import HoldWinSlot from "./HoldWinSlot";
 
 export const dynamic = "force-dynamic";
 
@@ -53,18 +52,11 @@ export default async function SlotPage({ params }: { params: Promise<{ slug: str
         </div>
       </header>
 
-      {["neon-777"].includes(machine.slug) ? (
-        <HoldWinSlot
-          machine={machine}
-          initialProfile={profile}
-        />
-      ) : (
-        <SlotMachine
-          machine={machine}
-          initialProfile={profile}
-          recentSpins={recentSpins ?? []}
-        />
-      )}
+      <SlotMachine
+        machine={machine}
+        initialProfile={profile}
+        recentSpins={recentSpins ?? []}
+      />
     </div>
   );
 }
