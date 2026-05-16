@@ -10,8 +10,6 @@ import { isMuted, setMuted, playBallCalled, playOneToGo, playWin, playPurchase }
 import type { Profile } from "@/lib/supabase/types";
 import { NumberMarker, Confetti } from "@/components/Marker";
 import Link from "next/link";
-import WinnerOverlay from "@/components/WinnerOverlay";
-import JackpotBadge from "@/components/JackpotBadge";
 
 type Ball = { ball_number: number; sequence: number };
 type MyCard = { id: string; game_id: string; card_data: CardType; currency: "gold" | "sweeps" };
@@ -293,7 +291,6 @@ export default function RoomClient({
   return (
     <div className="min-h-screen bg-[var(--color-bg)] grain">
       {confettiTrigger > 0 && <Confetti trigger={confettiTrigger} />}
-      <WinnerOverlay gameId={playingGameId} />
       <header className="sticky top-0 z-30 bg-[var(--color-bg)]/85 backdrop-blur-xl border-b border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-2">
           <Link href="/lobby" className="text-sm text-[var(--color-fg-dim)] hover:text-white flex items-center gap-1.5">
@@ -360,7 +357,6 @@ export default function RoomClient({
                     {playing && (
                       <span className="text-xs font-mono text-[var(--color-fg-muted)]">{balls.length}/{totalBalls}</span>
                     )}
-                    {room && <JackpotBadge roomId={room.id} compact />}
                   </div>
 
                   {playing && state.playing_game && (
