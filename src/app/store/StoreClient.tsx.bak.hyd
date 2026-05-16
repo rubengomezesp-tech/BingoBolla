@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -25,8 +25,6 @@ export default function StoreClient({
 }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
 
   async function handleBuy(packageId: string) {
     setLoading(packageId);
@@ -53,10 +51,6 @@ export default function StoreClient({
   const goldPackages = packages.filter((p) => p.currency_type === "gold");
   const sweepsPackages = packages.filter((p) => p.currency_type === "sweeps");
   const diamondPackages = packages.filter((p) => p.currency_type === "diamonds");
-
-  if (!mounted) {
-    return <main className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10"><div className="h-96 animate-pulse rounded-2xl bg-white/5" /></main>;
-  }
 
   return (
     <main className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10">
