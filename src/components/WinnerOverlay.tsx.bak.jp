@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { playJackpot, playWinnerAnnounce } from "@/lib/sounds";
 
 type Winner = {
   pattern: string;
@@ -45,7 +44,6 @@ export default function WinnerOverlay({ gameId }: { gameId: string | null }) {
             if (!shownKeys.has(key)) {
               setShownKeys((prev) => new Set(prev).add(key));
               setWinner(w);
-              if (w.is_jackpot || w.pattern === "jackpot") { playJackpot(); } else { playWinnerAnnounce(); }
               const dur = w.is_jackpot ? 7000 : 4500;
               setTimeout(() => setWinner(null), dur);
               break;
