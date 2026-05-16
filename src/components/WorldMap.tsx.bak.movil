@@ -32,12 +32,10 @@ export default function WorldMap({
   worldId = "miami_nights",
   worldName = "Miami Nights",
   bgUrl,
-  mobileBgUrl,
 }: {
   worldId?: string;
   worldName?: string;
   bgUrl: string;
-  mobileBgUrl?: string;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -78,12 +76,8 @@ export default function WorldMap({
 
       {/* Fondo: tu render de Miami Nights */}
       <div
-        className="wm-bg wm-bg-desktop"
+        className="wm-bg"
         style={{ backgroundImage: `url(${bgUrl})` }}
-      />
-      <div
-        className="wm-bg wm-bg-mobile"
-        style={{ backgroundImage: `url(${mobileBgUrl || bgUrl})` }}
       />
       <div className="wm-bg-shade" />
 
@@ -203,10 +197,8 @@ const WM_CSS = `
 .wm-root{position:relative;width:100%;min-height:100vh;overflow:hidden;
   background:#0a0418;font-family:'Fredoka',ui-rounded,system-ui,sans-serif;
   color:#fff;}
-.wm-bg{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;}
-.wm-bg-desktop{display:none;}
-.wm-bg-mobile{display:block;}
-.wm-bg-OLD{display:none;}
+.wm-bg{position:absolute;inset:0;background-size:cover;
+  background-position:center;background-repeat:no-repeat;}
 .wm-bg-shade{position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(10,4,24,.45) 0%,transparent 25%,
   transparent 70%,rgba(10,4,24,.6) 100%);}
@@ -281,8 +273,6 @@ const WM_CSS = `
 .wm-loading{position:absolute;inset:0;display:flex;align-items:center;
   justify-content:center;font-size:15px;color:#c7a8e8;z-index:20;}
 @media(min-width:900px){
-  .wm-bg-desktop{display:block;}
-  .wm-bg-mobile{display:none;}
   .wm-node{width:62px;height:62px;}
   .wm-nodeIcon{font-size:24px;}
   .wm-sheetCard{border-radius:24px;margin-bottom:40px;}

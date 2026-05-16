@@ -16,21 +16,17 @@ export default async function MundoPage() {
 
   // Cargar el mundo (fondo + nombre). Si falla, fallback seguro.
   const { data: world } = await supabase
-    .from("worlds").select("id,name,bg_image_url,bg_image_mobile_url").eq("id", "miami_nights").maybeSingle();
+    .from("worlds").select("id,name,bg_image_url").eq("id", "miami_nights").maybeSingle();
 
   const bgUrl =
     (world as any)?.bg_image_url ||
     "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg.PNG";
-  const mobileBgUrl =
-    (world as any)?.bg_image_mobile_url ||
-    "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg-movil.PNG";
 
   return (
     <WorldMap
       worldId={(world as any)?.id ?? "miami_nights"}
       worldName={(world as any)?.name ?? "Miami Nights"}
       bgUrl={bgUrl}
-      mobileBgUrl={mobileBgUrl}
     />
   );
 }
