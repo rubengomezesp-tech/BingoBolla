@@ -40,7 +40,7 @@ export default function DailyBonusButton({ onClaimed }: { onClaimed?: () => void
       if (data?.seconds_left) { setStatus("claimed"); setSecondsLeft(data.seconds_left); }
       return;
     }
-    setFlash(`+500 🪙 +$0.50 💎`); sounds.bonus(); setTimeout(function(){router.refresh();}, 1200);
+    setFlash(`+500 🪙 +$0.50 💎`); sounds.bonus(); setTimeout(function(){router.refresh();}, 1200); sounds.bonus(); setTimeout(function(){router.refresh();}, 1200); sounds.bonus(); setTimeout(function(){router.refresh();}, 1200);
     setStatus("claimed");
     setSecondsLeft(24 * 3600);
     setTimeout(() => setFlash(null), 4000);

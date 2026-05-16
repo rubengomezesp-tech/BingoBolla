@@ -3,9 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/supabase/types";
 import RoomCard, { type RoomCardData } from "./RoomCard";
+import BrandLogo from "@/components/BrandLogo";
 import DailyBonusButton from "@/components/DailyBonusButton";
 import { SlotsAccessCard, SiteFooter } from "@/components/LobbyExtras";
-import BrandLogo from "@/components/BrandLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +21,13 @@ export default async function LobbyPage() {
   const excludedSet = new Set(excluded?.map((e: any) => e.state) ?? []);
   const stateExcluded = profile.state && excludedSet.has(profile.state);
 
+  // Fetch rooms
   const { data: rooms } = await supabase
     .from("rooms_live")
     .select("*")
     .order("ticket_sweeps", { ascending: true });
 
+  // Fetch active games (waiting or playing) for each room
   const roomIds = (rooms ?? []).map((r: any) => r.id);
   const { data: activeGames } = roomIds.length > 0
     ? await supabase
@@ -35,6 +37,7 @@ export default async function LobbyPage() {
         .in("status", ["waiting", "playing"])
     : { data: [] };
 
+  // Map: roomId → next_starts_at
   const gameByRoom: Record<string, { starts_at: string; status: string }> = {};
   for (const g of (activeGames as any[]) ?? []) {
     const existing = gameByRoom[g.room_id];
@@ -43,6 +46,7 @@ export default async function LobbyPage() {
     }
   }
 
+  // Build room cards data
   const roomsForCards: RoomCardData[] = ((rooms as any[]) ?? []).map((r) => ({
     id: r.id,
     name: r.name,
@@ -67,7 +71,12 @@ export default async function LobbyPage() {
     <div className="min-h-screen bg-[var(--color-bg)] grain">
       <header className="sticky top-0 z-30 bg-[var(--color-bg)]/85 backdrop-blur-xl border-b border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-          <BrandLogo size={40} href="/lobby" />
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FF3D7F] to-[#B388FF] flex items-center justify-center">
+              <span className="font-display text-white">B</span>
+            </div>
+            <span className="font-display text-xl hidden sm:inline">BingoBolla</span>
+          </Link>
 
           <div className="flex items-center gap-2">
             <Link href="/store" className="glass rounded-full px-3 py-1.5 hover:bg-white/10 flex items-center gap-1.5 transition-colors">
