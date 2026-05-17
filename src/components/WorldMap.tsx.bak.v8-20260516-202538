@@ -93,14 +93,7 @@ export default function WorldMap({
 
   function playNode(n: Node) {
     if (n.node_type === "bingo") {
-      // Partida real: si el nodo tiene sala asignada, entra ahi.
-      // Si no, primera sala disponible (fallback, como HomeScreen).
-      if (n.target_ref) {
-        router.push(`/room/${n.target_ref}`);
-      } else {
-        const firstBingo = nodes.find((x) => x.node_type === "bingo" && x.target_ref);
-        router.push(firstBingo?.target_ref ? `/room/${firstBingo.target_ref}` : "/lobby#salas");
-      }
+      router.push("/lobby");
     } else {
       setSelected(null);
     }
@@ -213,11 +206,7 @@ export default function WorldMap({
                 aria-label={n.title}
               >
                 {state === "locked" ? (
-                  assets["node-locked"] ? (
-                    <img className="wm-lockimg" src={assets["node-locked"]} alt="Bloqueado" />
-                  ) : (
-                    <span className="wm-lock">🔒</span>
-                  )
+                  <span className="wm-lock">🔒</span>
                 ) : (
                   /* El nodo abierto/activo NO muestra la bola: ahi va la mascota */
                   !isActive && <span className="wm-nodeNum wm-nodeNum-solo">{n.node_index}</span>
@@ -421,11 +410,6 @@ const WM_CSS = `
 .wm-locked{background:radial-gradient(circle at 35% 30%,#4a3a6a,#2a1a44);
   border:2px solid rgba(255,255,255,.12);cursor:default;opacity:.7;}
 .wm-lock{font-size:18px;opacity:.7;}
-.wm-lockimg{width:118%;height:118%;object-fit:contain;
-  filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));
-  animation:wmLockGlow 2.8s ease-in-out infinite;}
-@keyframes wmLockGlow{0%,100%{filter:drop-shadow(0 3px 7px rgba(0,0,0,.6)) brightness(1)}
-  50%{filter:drop-shadow(0 3px 10px rgba(255,80,160,.5)) brightness(1.12)}}
 .wm-open{background:radial-gradient(circle at 35% 30%,#ffd98a,#e0901a 70%,#a06010);
   border:3px solid #fff;box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 22px rgba(255,190,50,.8);}
 .wm-done{background:radial-gradient(circle at 35% 30%,#7dffb0,#2aa85a 70%,#1a7a40);

@@ -1,3 +1,21 @@
+#!/bin/bash
+# ============================================================
+#  BINGOBOLLA · WorldMap v8 — Primera partida real + candado premium
+#  - Nodo bingo -> /room/{target_ref} (partida real, fallback seguro)
+#  - Nodos bloqueados: candado premium de world_assets (no emoji)
+#  Solo reemplaza WorldMap.tsx (page.tsx no cambia). Backup auto.
+#  prod NO se toca: compila solo en local.
+#  REQUISITO: haber corrido antes conectar_partida.sql + add_candado.sql
+# ============================================================
+cd ~/bingobolla || { echo "No existe ~/bingobolla"; exit 1; }
+
+TS=$(date +%Y%m%d-%H%M%S)
+echo "1/3 · Backup..."
+cp src/components/WorldMap.tsx "src/components/WorldMap.tsx.bak.v8-$TS"
+echo "    Backup: WorldMap.tsx.bak.v8-$TS"
+
+echo "2/3 · Escribiendo WorldMap.tsx v8..."
+cat > src/components/WorldMap.tsx << 'WORLDMAP_EOF'
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -547,3 +565,25 @@ const WM_CSS = `
   .wm-sheet{align-items:center;}
 }
 `;
+WORLDMAP_EOF
+echo "    OK ($(wc -l < src/components/WorldMap.tsx) lineas)."
+
+echo "3/3 · Compilando..."
+npm run build
+RESULT=$?
+
+echo ""
+echo "===================================================="
+if [ $RESULT -eq 0 ]; then
+  echo "BUILD OK ✅"
+  echo "Ver:  npm run dev  ->  localhost:3000/mundo"
+  echo "Probar: toca nodo 1 'Primera Partida' -> JUGAR -> debe entrar a /room/{sala} real."
+  echo "Nodos bloqueados: candado premium animado (no emoji)."
+  echo ""
+  echo "Subir a prod si OK:"
+  echo '  git add -A && git commit -m "WorldMap v8: primera partida real + candado premium" && git push origin main && vercel --prod'
+else
+  echo "BUILD FALLO ❌ — nuevo puesto, prod intacto."
+  echo "Restaurar: cp src/components/WorldMap.tsx.bak.v8-$TS src/components/WorldMap.tsx"
+fi
+echo "===================================================="
