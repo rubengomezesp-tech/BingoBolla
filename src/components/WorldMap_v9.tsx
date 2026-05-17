@@ -30,16 +30,17 @@ export default function WorldMap({ playerId }: { playerId: string }) {
 
   useEffect(() => {
     async function load() {
+      const safe = async (p: any) => { try { return await Promise.resolve(p); } catch { return { data: null }; } };
       const [nr, ar, xr, pr] = await Promise.all([
-        sb.from("world_nodes").select("*").order("node_index"),
-        sb.rpc("get_world_assets"),
-        sb.rpc("get_player_xp", { p_player_id: playerId }),
-        sb.from("profiles").select("gold_coins,sweeps_coins").eq("id", playerId).single(),
+        safe(sb.from("world_nodes").select("*").order("node_index")),
+        safe(sb.rpc("get_world_assets")),
+        safe(sb.rpc("get_player_xp", { p_player_id: playerId })),
+        safe(sb.from("profiles").select("gold_coins,sweeps_coins").eq("id", playerId).single()),
       ]);
-      if (nr.data) setNodes(nr.data);
-      if (ar.data) { const m: Record<string,string> = {}; for (const a of ar.data) m[a.asset_key] = a.url; setAssets(m); }
-      if (xr.data?.[0]) setXp(xr.data[0]);
-      if (pr.data) setProf(pr.data);
+      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data);
+      if (Array.isArray(ar?.data)) { const m: Record<string,string> = {}; for (const a of ar.data) m[a.asset_key] = a.url; setAssets(m); }
+      if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
+      if (pr?.data) setProf(pr.data);
       setLoading(false);
       setTimeout(() => {
         const active = nr.data?.find((n: WNode) => n.unlocked && !n.completed);
