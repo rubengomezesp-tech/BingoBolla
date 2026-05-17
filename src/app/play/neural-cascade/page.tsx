@@ -1,0 +1,1 @@
+export default function P(){return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100dvh",background:"#06010d",color:"rgba(255,255,255,.4)"}}>Neural Cascade · Fase 2 pendiente</div>}

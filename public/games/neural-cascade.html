@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>NEURAL CASCADE · Virus Routing</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Pacifico&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06010d;--cyan:#3de8ff;--magenta:#ff4d9a;
+  --gold:#ffd23d;--red:#ff3333;--green:#3ddc78;--purple:#9a4ad0;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+html,body{height:100%;}
+body{font-family:'Fredoka',system-ui,sans-serif;color:#fff;overflow:hidden;
+  background:radial-gradient(ellipse at 20% 10%,rgba(90,40,160,.35),transparent 55%),
+  radial-gradient(ellipse at 85% 90%,rgba(61,232,255,.12),transparent 50%),
+  linear-gradient(180deg,#0e0120,var(--bg));}
+.game{width:100%;height:100dvh;display:flex;flex-direction:column;align-items:center;overflow:hidden;}
+
+/* HUD */
+.hud{width:100%;max-width:520px;padding:calc(env(safe-area-inset-top)+8px) 14px 4px;display:flex;align-items:center;gap:8px;}
+.logo{font-family:'Pacifico',cursive;font-size:15px;flex:1;background:linear-gradient(90deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.logo small{display:block;font-family:'Fredoka';font-size:8px;font-weight:700;letter-spacing:2px;-webkit-text-fill-color:var(--gold);}
+.lvlchip{background:linear-gradient(135deg,var(--cyan),#1a7ad0);color:#001a2e;font-weight:700;font-size:10px;padding:3px 9px;border-radius:9px;border:2px solid rgba(255,255,255,.2);}
+
+/* barra de progreso del boss level */
+.bossbar{width:100%;max-width:520px;padding:2px 14px 4px;display:flex;align-items:center;gap:6px;}
+.bb-label{font-size:9px;color:rgba(170,170,210,.6);font-weight:700;white-space:nowrap;}
+.bb-dots{display:flex;gap:4px;}
+.bb-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(61,232,255,.3);
+  background:rgba(61,232,255,.05);transition:all .3s;}
+.bb-dot.done{background:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(61,220,120,.6);}
+.bb-dot.current{border-color:var(--cyan);box-shadow:0 0 8px rgba(61,232,255,.5);animation:bbc .8s ease-in-out infinite;}
+@keyframes bbc{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.bb-boss{font-size:9px;color:var(--gold);font-weight:700;margin-left:2px;}
+
+/* stats */
+.stats{width:100%;max-width:520px;padding:2px 14px 3px;display:flex;gap:5px;}
+.stat{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(61,232,255,.14);border-radius:9px;padding:5px 7px;display:flex;align-items:center;gap:4px;}
+.stat .si{font-size:14px;}.stat .sl{font-size:8px;color:rgba(170,170,210,.55);font-weight:600;}.stat .sv{font-size:14px;font-weight:700;line-height:1.1;}
+.stat.pw{border-color:var(--magenta);animation:pw .65s ease-in-out infinite;}
+.stat.pc{border-color:var(--red);animation:pw .32s ease-in-out infinite;}
+.stat.pw .sv{color:var(--magenta);}.stat.pc .sv{color:var(--red);}
+@keyframes pw{0%,100%{box-shadow:none}50%{box-shadow:0 0 10px var(--magenta)}}
+
+/* tablero */
+.boardwrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:1px 4px;min-height:0;}
+.hexboard{position:relative;}
+.conns{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
+
+/* nodo */
+.hx{position:absolute;transform:translate(-50%,-50%);cursor:pointer;transition:transform .1s;}
+.hx:active{transform:translate(-50%,-50%) scale(.88);}
+.hx.notap{cursor:default;}
+.hx.calm:hover .hf{filter:brightness(2.2);}
+.hx.relay-dormant .hf{fill:#0a1a2a!important;}.hx.relay-dormant .hs{stroke:rgba(61,232,255,.4)!important;stroke-width:2!important;}.hx.relay-dormant .hi{fill:rgba(61,232,255,.4)!important;}
+.hx.relay-dormant{animation:rd 1.5s ease-in-out infinite;}
+@keyframes rd{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3)}}
+.hx.relay-active .hf{fill:#002a30!important;}.hx.relay-active .hs{stroke:var(--cyan)!important;stroke-width:3!important;animation:ract .7s ease-in-out infinite;}.hx.relay-active .hi{fill:var(--cyan)!important;}
+@keyframes ract{0%,100%{stroke-opacity:1}50%{stroke-opacity:.5}}
+.hx.source .hf{fill:#380000!important;}.hx.source .hs{stroke:var(--red)!important;stroke-width:4!important;animation:src .5s ease-in-out infinite;}.hx.source .hi{fill:var(--red)!important;}
+@keyframes src{0%,100%{stroke-opacity:1}50%{stroke-opacity:.4}}
+.hx.blocked{cursor:not-allowed!important;}.hx.blocked .hf{fill:#080810!important;}.hx.blocked .hs{stroke:rgba(180,30,50,.3)!important;stroke-width:1.5!important;stroke-dasharray:3,3;}.hx.blocked .hi{fill:rgba(180,30,50,.25)!important;}
+
+/* Punto de Steiner: relay que conecta 3+ ramas — efecto especial */
+.hx.steiner .hf{fill:#003020!important;}.hx.steiner .hs{stroke:#ffd23d!important;stroke-width:3.5!important;animation:stn .5s ease-in-out infinite;}
+@keyframes stn{0%,100%{stroke-opacity:1;filter:drop-shadow(0 0 6px gold)}50%{stroke-opacity:.6}}
+.hx.steiner .hi{fill:var(--gold)!important;}
+
+/* target ring */
+.target-ring{position:absolute;inset:-6px;border-radius:50%;pointer-events:none;z-index:10;border:2.5px solid var(--gold);animation:tring 1.2s ease-in-out infinite;box-shadow:0 0 12px rgba(255,210,60,.6);}
+@keyframes tring{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.14);opacity:.6}}
+.target-ring.done{border-color:var(--green);box-shadow:0 0 16px rgba(61,220,120,.9);animation:tdone .5s ease-out forwards;}
+@keyframes tdone{0%{transform:scale(1.3)}100%{transform:scale(1);opacity:.8}}
+
+/* eficiencia de relay activo: conexiones activas visibles */
+.conn-active{stroke:rgba(61,232,255,.55)!important;stroke-width:2!important;}
+.conn-steiner{stroke:rgba(255,210,60,.7)!important;stroke-width:2.5!important;}
+
+/* fx */
+.infect-pulse{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--red);pointer-events:none;z-index:25;transform:translate(-50%,-50%);box-shadow:0 0 8px var(--red);animation:ip .4s ease-out forwards;}
+@keyframes ip{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(2.5);opacity:0}}
+.spark{position:absolute;pointer-events:none;z-index:21;font-size:11px;animation:spark .6s ease-out forwards;}
+@keyframes spark{to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy)));opacity:0}}
+.combo-fx{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(0);z-index:60;font-family:'Pacifico',cursive;font-size:26px;pointer-events:none;color:#fff;text-shadow:0 0 18px var(--cyan),0 0 36px var(--magenta);}
+.combo-fx.show{animation:cfx 1s ease-out;}
+@keyframes cfx{0%{transform:translate(-50%,-50%) scale(0);opacity:0}25%{transform:translate(-50%,-50%) scale(1.2);opacity:1}70%{opacity:1}100%{transform:translate(-50%,-80%);opacity:0}}
+
+/* leyenda */
+.legend{width:100%;max-width:520px;padding:1px 14px 3px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
+.lg{display:flex;align-items:center;gap:3px;font-size:8px;color:rgba(155,155,185,.6);}
+.lgd{width:9px;height:9px;border-radius:2px;flex:0 0 auto;}
+
+/* hint */
+.hint{width:100%;max-width:520px;padding:1px 14px 4px;text-align:center;font-size:10px;color:rgba(61,232,255,.6);font-weight:600;min-height:16px;}
+
+/* botón ? */
+.helpbtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom)+50px);z-index:40;width:28px;height:28px;border-radius:50%;background:rgba(61,232,255,.1);border:1.5px solid var(--cyan);color:var(--cyan);font-family:'Pacifico',cursive;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* tutorial */
+.tov{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;background:rgba(4,0,12,.92);backdrop-filter:blur(8px);}
+.tov.show{display:flex;animation:fd .3s;}
+@keyframes fd{from{opacity:0}to{opacity:1}}
+.tcard{width:92%;max-width:390px;max-height:92dvh;overflow-y:auto;border-radius:20px;padding:16px 15px 13px;background:linear-gradient(180deg,#1c0838,#0c0424);border:1.5px solid rgba(61,232,255,.28);animation:su .4s cubic-bezier(.2,1,.3,1);}
+@keyframes su{from{transform:translateY(28px) scale(.94);opacity:0}to{transform:none;opacity:1}}
+.tlogo{font-family:'Pacifico',cursive;font-size:17px;text-align:center;background:linear-gradient(90deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px;}
+.tsec{background:rgba(255,255,255,.04);border-radius:9px;padding:8px 10px;margin-bottom:6px;}
+.th{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--cyan);margin-bottom:3px;}
+.tt{font-size:11px;color:rgba(195,195,245,.8);line-height:1.55;}.tt b{color:#fff;}
+.texample{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0;font-size:12px;}
+.ttip{background:rgba(255,210,60,.06);border:1px solid rgba(255,210,60,.18);border-radius:8px;padding:6px 9px;font-size:10px;color:var(--gold);line-height:1.5;margin-bottom:7px;}
+.tbtns{display:flex;gap:7px;}
+.tok{flex:2;background:linear-gradient(180deg,var(--cyan),#1870c8);color:#001828;font-family:inherit;font-weight:700;font-size:13px;border:2px solid rgba(255,255,255,.2);padding:10px;border-radius:10px;cursor:pointer;}
+.tcl{flex:1;background:rgba(255,255,255,.05);color:rgba(165,165,210,.6);font-family:inherit;font-size:11px;border:1px solid rgba(255,255,255,.1);padding:10px;border-radius:10px;cursor:pointer;}
+
+/* resultado */
+.rov{position:fixed;inset:0;z-index:80;display:none;align-items:flex-end;justify-content:center;background:rgba(4,0,12,.82);backdrop-filter:blur(6px);}
+.rov.show{display:flex;animation:fd .3s;}
+.rcard{width:100%;max-width:440px;border-radius:22px 22px 0 0;padding:20px 18px 22px;text-align:center;background:linear-gradient(180deg,#280a50,#0c0422);border:1.5px solid rgba(61,232,255,.22);border-bottom:none;animation:rup .35s cubic-bezier(.2,1,.3,1);}
+@keyframes rup{from{transform:translateY(100%)}to{transform:none}}
+.rcard h2{font-family:'Pacifico',cursive;font-size:22px;margin-bottom:4px;}
+.rcard.win h2{color:var(--cyan);}.rcard.lose h2{color:var(--magenta);}
+.rcard p{font-size:12px;color:rgba(170,170,220,.8);margin-bottom:8px;}
+.stars-row{display:flex;justify-content:center;gap:6px;margin:8px 0;}
+.star{font-size:26px;transition:transform .3s;}
+.star.on{animation:starPop .4s cubic-bezier(.2,1.4,.4,1);}
+@keyframes starPop{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+.rscore{font-size:28px;font-weight:700;color:var(--gold);text-shadow:0 0 10px rgba(255,210,60,.5);margin-bottom:10px;}
+.rbtn{background:linear-gradient(180deg,var(--cyan),#1870c8);color:#001828;font-family:inherit;font-weight:700;font-size:14px;border:2px solid rgba(255,255,255,.2);padding:10px 22px;border-radius:12px;cursor:pointer;}
+.rbtnsec{background:rgba(255,255,255,.07);color:rgba(200,200,255,.7);font-family:inherit;font-size:12px;border:1px solid rgba(255,255,255,.12);padding:10px 16px;border-radius:12px;cursor:pointer;margin-right:8px;}
+.boss-complete{background:linear-gradient(90deg,rgba(255,210,60,.1),rgba(61,232,255,.1));border:1px solid rgba(255,210,60,.3);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--gold);margin-bottom:10px;display:none;}
+</style>
+</head>
+<body>
+<div class="game"><button onclick="window.parent.postMessage({type:'BB_GAME_EXIT'},'*')" style="position:fixed;top:12px;left:12px;z-index:200;background:rgba(0,0,0,.65);border:1.5px solid rgba(255,255,255,.25);color:#fff;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;">✕</button>
+  <div class="hud">
+    <div class="logo">Neural Cascade<small>VIRUS ROUTING · BOSS LEVEL</small></div>
+    <div class="lvlchip" id="lvlChip">NV5 P1</div>
+  </div>
+
+  <!-- Barra de progreso del boss level (5 dots) -->
+  <div class="bossbar">
+    <div class="bb-label" id="bbLabel">BOSS NV5</div>
+    <div class="bb-dots" id="bbDots">
+      <div class="bb-dot current"></div>
+      <div class="bb-dot"></div>
+      <div class="bb-dot"></div>
+      <div class="bb-dot"></div>
+      <div class="bb-dot"></div>
+    </div>
+    <div class="bb-boss" id="bbBoss">5 puzzles → 🗺️</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="si">🎯</div><div><div class="sl">TARGETS</div><div class="sv" id="stTgt">0/0</div></div></div>
+    <div class="stat" id="stPulse"><div class="si">🔌</div><div><div class="sl">RELAYS</div><div class="sv" id="stPulseV">10</div></div></div>
+    <div class="stat"><div class="si">✦</div><div><div class="sl">STEINER</div><div class="sv" id="stSteiner">0</div></div></div>
+  </div>
+
+  <div class="boardwrap"><div class="hexboard" id="hexboard"><svg class="conns" id="connSvg"></svg></div></div>
+
+  <div class="legend">
+    <div class="lg"><div class="lgd" style="background:#380000;border:1.5px solid #ff3333"></div>Fuente ☣</div>
+    <div class="lg"><div class="lgd" style="border:2px solid var(--gold);border-radius:50%"></div>Target 🎯</div>
+    <div class="lg"><div class="lgd" style="background:#002a30;border:1.5px solid var(--cyan)"></div>Relay activo</div>
+    <div class="lg"><div class="lgd" style="background:#0a1a2a;border:1.5px solid rgba(61,232,255,.4)"></div>Relay dormido</div>
+    <div class="lg"><div class="lgd" style="background:#003020;border:1.5px solid var(--gold)"></div>✦ Steiner</div>
+    <div class="lg"><div class="lgd" style="background:#080810;border:1.5px dashed rgba(180,30,50,.4)"></div>Bloqueado</div>
+  </div>
+  <div class="hint" id="hintEl"></div>
+
+  <div class="combo-fx" id="cFx"></div>
+  <button class="helpbtn" id="helpBtn">?</button>
+
+  <!-- Tutorial -->
+  <div class="tov" id="tov">
+    <div class="tcard">
+      <div class="tlogo">☣ Virus Routing</div>
+      <div class="tsec">
+        <div class="th">☣ EL CONCEPTO</div>
+        <div class="tt">El <b style="color:var(--red)">fuente</b> (rojo) está infectado. Conecta los <b style="color:var(--gold)">targets</b> (anillo dorado) colocando <b style="color:var(--cyan)">relays</b> que formen un camino continuo desde el fuente.</div>
+        <div class="texample">☣ → 🔵 → 🔵 → 🎯✅</div>
+      </div>
+      <div class="tsec">
+        <div class="th">🔌 REGLAS</div>
+        <div class="tt">Tienes <b id="tutPul">10</b> relays para este puzzle. Cada relay colocado = 1 relay gastado.</div>
+      </div>
+      <div class="tsec">
+        <div class="th">✦ PUNTO DE STEINER</div>
+        <div class="tt">Si colocas un relay que <b>sirve de encrucijada</b> para 3 o más ramas → se convierte en <b style="color:var(--gold)">Punto de Steiner ✦</b>. Encontrar estas encrucijadas es la clave para resolver los puzzles con los relays justos.</div>
+      </div>
+      <div class="ttip">💡 Estrategia: no vayas directo a cada target por separado. Busca un punto central desde el que puedas ramificar hacia varios targets a la vez — eso es el Punto de Steiner.</div>
+      <div class="tbtns">
+        <button class="tcl" id="tCl">Cerrar</button>
+        <button class="tok" id="tOk">¡A construir! ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resultado -->
+  <div class="rov" id="rov">
+    <div class="rcard" id="rCard">
+      <h2 id="rTitle">¡Red infectada!</h2>
+      <div class="boss-complete" id="bossCmpl">🏆 ¡BOSS LEVEL SUPERADO! Nuevo nivel del mapa desbloqueado.</div>
+      <div class="stars-row" id="starsRow">
+        <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+      </div>
+      <p id="rSub"></p>
+      <div class="rscore" id="rScore">0</div>
+      <button class="rbtnsec" id="rRetry">Reintentar ↻</button>
+      <button class="rbtn" id="rBtn">Siguiente ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   NEURAL CASCADE · VIRUS ROUTING
+   20 puzzles matemáticamente verificados (Steiner Tree)
+   4 boss levels × 5 puzzles = desbloquea siguiente nivel del mapa
+   
+   Punto de Steiner: relay que actúa de encrucijada para 3+ ramas.
+   Estrategia real: encontrar los Steiner points ahorra relays.
+   Presupuesto = solución óptima Steiner + 2 (margen mínimo).
+   ============================================================ */
+
+const COLS=7,ROWS=6,HR=23;
+const HS=HR*2*.82,VS=Math.sqrt(3)*HR*.88;
+const NS="http://www.w3.org/2000/svg";
+
+/* 20 PUZZLES (4 boss levels × 5 puzzles)
+   relays = Steiner approx + 2 (calculado matemáticamente)
+   Todos verificados con BFS en el simulador Python */
+const ALL_PUZZLES={
+  5:[
+    {src:[3,2],tgts:[[0,0],[6,0]],blocked:[[3,1]],relays:9,
+     hint:"2 targets en esquinas — la ruta directa está cortada, busca otro camino 💡"},
+    {src:[3,2],tgts:[[0,0],[6,5]],blocked:[[3,3],[2,1]],relays:10,
+     hint:"Esquinas opuestas — dos bloqueos, solo hay una ruta eficiente 💡"},
+    {src:[0,2],tgts:[[5,0],[5,4]],blocked:[[2,2],[2,3],[3,1]],relays:10,
+     hint:"Fuente izquierda, targets derecha — 3 bloqueos en el camino 💡"},
+    {src:[3,3],tgts:[[0,0],[6,0],[3,5]],blocked:[[3,2],[2,2],[4,2],[3,4]],relays:12,
+     hint:"3 targets — busca la encrucijada que sirva a los dos de arriba ✦ 💡"},
+    {src:[3,2],tgts:[[0,0],[6,0],[0,5],[6,5]],blocked:[[2,2],[4,2],[1,1],[5,1]],relays:17,
+     hint:"4 esquinas con bloqueo diagonal — ¿puedes compartir parte de la ruta? ✦ 💡"},
+  ],
+  10:[
+    {src:[0,0],tgts:[[6,0],[6,5],[3,5]],blocked:[[3,2],[3,3],[2,1],[4,1]],relays:15,
+     hint:"Fuente esquina, bloqueo central doble — rodea por los bordes 💡"},
+    {src:[3,5],tgts:[[0,0],[6,0],[0,3]],blocked:[[2,3],[3,3],[4,3],[3,4]],relays:14,
+     hint:"Fuente abajo, fila media bloqueada — sube por costados izq y der 💡"},
+    {src:[6,3],tgts:[[0,0],[0,5],[3,2]],blocked:[[3,3],[4,2],[4,3],[5,2]],relays:14,
+     hint:"Fuente borde derecho bloqueado — las rutas por el centro están cerradas 💡"},
+    {src:[3,0],tgts:[[0,3],[6,3],[0,5],[6,5]],blocked:[[2,2],[4,2],[3,3],[2,1],[4,1]],relays:14,
+     hint:"4 targets abajo, bloqueo doble — divide los relays por flancos 💡"},
+    {src:[0,3],tgts:[[3,0],[6,0],[6,3],[3,5]],blocked:[[2,2],[2,3],[3,2],[1,2]],relays:15,
+     hint:"Fuente izq-centro rodeado de bloqueos — solo hay una salida 💡"},
+  ],
+  15:[
+    {src:[3,3],tgts:[[0,0],[6,0],[0,5],[6,5]],blocked:[[2,2],[4,2],[2,3],[4,3],[3,2],[3,4]],relays:17,
+     hint:"4 esquinas, bloqueo en cruz — los Steiner points son esenciales aquí ✦ 💡"},
+    {src:[0,0],tgts:[[6,0],[3,3],[0,5],[6,5]],blocked:[[3,1],[3,2],[2,3],[1,1],[4,1]],relays:17,
+     hint:"Fuente esquina, rutas diagonales cortadas — el centro es la clave 💡"},
+    {src:[3,0],tgts:[[0,2],[6,2],[0,5],[6,5],[3,5]],blocked:[[2,2],[4,2],[3,3],[1,1],[5,1]],relays:17,
+     hint:"5 targets — el camino directo a cada uno es un lujo que no puedes permitirte 💡"},
+    {src:[6,0],tgts:[[0,0],[0,3],[3,5],[6,5]],blocked:[[3,1],[3,2],[3,3],[3,4],[4,1]],relays:16,
+     hint:"Columna central totalmente bloqueada — rodea por arriba o por abajo, elige bien 💡"},
+    {src:[3,2],tgts:[[0,0],[6,0],[0,3],[6,3],[3,5]],blocked:[[2,2],[4,2],[3,3],[2,3],[4,3],[3,1]],relays:17,
+     hint:"5 targets, bloqueo masivo — cada relay debe servir a múltiples rutas ✦ 💡"},
+  ],
+  20:[
+    {src:[3,3],tgts:[[0,0],[6,0],[0,5],[6,5],[3,0]],blocked:[[2,2],[4,2],[2,3],[4,3],[3,2],[3,4],[1,1]],relays:19,
+     hint:"Nivel maestro — 5 targets, bloqueo en diamante, optimización máxima ✦ 💡"},
+    {src:[0,3],tgts:[[3,0],[6,0],[6,3],[3,5],[0,5]],blocked:[[2,2],[2,3],[3,3],[4,2],[1,2],[1,4]],relays:16,
+     hint:"Fuente borde izq rodeada — el camino eficiente usa bifurcaciones ✦ 💡"},
+    {src:[3,0],tgts:[[0,2],[6,2],[0,5],[6,5],[1,5],[5,5]],blocked:[[2,2],[4,2],[3,3],[2,3],[4,3],[3,1],[3,2]],relays:17,
+     hint:"6 targets — bloqueo pesado central y vertical, los bordes son el camino 💡"},
+    {src:[6,3],tgts:[[0,0],[3,0],[0,3],[0,5],[3,5]],blocked:[[4,2],[4,3],[3,2],[3,3],[2,2],[5,2],[5,3]],relays:16,
+     hint:"Fuente borde der completamente rodeada, 5 targets izq — máxima dificultad 💡"},
+    {src:[3,3],tgts:[[0,0],[6,0],[0,3],[6,3],[0,5],[6,5]],blocked:[[2,2],[4,2],[2,3],[4,3],[3,1],[3,4],[2,4],[4,4]],relays:18,
+     hint:"El puzzle final — 6 targets en los bordes, bloqueo interior ✦✦ 💡"},
+  ],
+};
+const BOSS_LEVELS=[5,10,15,20];
+
+/* Estado */
+let nodes=[],targets=new Set(),blocked=new Set(),sourceKey="";
+let relaysLeft=0,relaysMax=0,relaysSteiner=0;
+let targetsLeft=0,targetsTotal=0,score=0;
+let bossIdx=0,puzzleIdx=0,busy=false,gameOver=false;
+let puzzleStars=[]; // estrellas por cada puzzle del boss level actual
+
+function currentBossLevel(){return BOSS_LEVELS[bossIdx]||20;}
+function currentPuzzle(){
+  const lvl=currentBossLevel();
+  return ALL_PUZZLES[lvl][puzzleIdx];
+}
+
+/* Geometría hex */
+function hxy(c,r){return{x:c*HS+(r%2===1?HS/2:0)+HR,y:r*VS+HR};}
+function hpts(r){return Array.from({length:6},(_,i)=>{const a=Math.PI/180*(60*i-30);return`${r*Math.cos(a)},${r*Math.sin(a)}`;}).join(" ");}
+function nbrs(c,r){const ev=r%2===0;return[[c-1,r],[c+1,r],[ev?c-1:c,r-1],[ev?c:c+1,r-1],[ev?c-1:c,r+1],[ev?c:c+1,r+1]].filter(([cc,rr])=>cc>=0&&cc<COLS&&rr>=0&&rr<ROWS);}
+function nodeAt(c,r){return nodes.find(n=>n.col===c&&n.row===r)||null;}
+function key(c,r){return`${c},${r}`;}
+
+const hexboard=document.getElementById("hexboard"),connSvg=document.getElementById("connSvg");
+
+function buildBoard(p){
+  nodes=[];
+  targets=new Set(p.tgts.map(([c,r])=>key(c,r)));
+  blocked=new Set((p.blocked||[]).map(([c,r])=>key(c,r)));
+  sourceKey=key(...p.src);
+  hexboard.innerHTML="";hexboard.appendChild(connSvg);connSvg.innerHTML="";
+  let mx=0,my=0;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const{x,y}=hxy(c,r);if(x>mx)mx=x;if(y>my)my=y;}
+  const bw=mx+HR*1.5,bh=my+HR*1.5;
+  hexboard.style.width=bw+"px";hexboard.style.height=bh+"px";
+  connSvg.setAttribute("width",bw);connSvg.setAttribute("height",bh);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const{x,y}=hxy(c,r);const k=key(c,r);
+    const isSource=k===sourceKey;const isBlocked=blocked.has(k);
+    const nd={col:c,row:r,state:isSource?"source":isBlocked?"blocked":"calm",
+      isTarget:targets.has(k),cx:x,cy:y,el:null,_f:null,_s:null,_i:null,_ring:null};
+    nodes.push(nd);makeEl(nd);
+  }
+  drawConns();
+}
+
+const ST={
+  calm:          {fill:"#0d0622",stroke:"#221544",sw:1.5,icon:"",iconFill:"#333"},
+  source:        {fill:"#380000",stroke:"#ff3333",sw:4,icon:"☣",iconFill:"#ff3333"},
+  blocked:       {fill:"#080810",stroke:"rgba(180,30,50,.28)",sw:1.5,icon:"▪",iconFill:"rgba(180,30,50,.25)"},
+  "relay-dormant":{fill:"#0a1a2a",stroke:"rgba(61,232,255,.4)",sw:2,icon:"◦",iconFill:"rgba(61,232,255,.4)"},
+  "relay-active":{fill:"#002a30",stroke:"#3de8ff",sw:3,icon:"⚡",iconFill:"#3de8ff"},
+  steiner:       {fill:"#003020",stroke:"#ffd23d",sw:3.5,icon:"✦",iconFill:"#ffd23d"},
+};
+
+function makeEl(nd){
+  const r=HR,d=r*2.4;
+  const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("width",d);svg.setAttribute("height",d);
+  svg.setAttribute("viewBox",`${-r*1.2} ${-r*1.2} ${d} ${d}`);
+  const fill=document.createElementNS(NS,"polygon");fill.setAttribute("points",hpts(r*.88));fill.className.baseVal="hf";
+  const stroke=document.createElementNS(NS,"polygon");stroke.setAttribute("points",hpts(r*.88));stroke.setAttribute("fill","none");stroke.className.baseVal="hs";
+  const icon=document.createElementNS(NS,"text");icon.setAttribute("x","0");icon.setAttribute("y","0");icon.setAttribute("font-size","12");icon.setAttribute("text-anchor","middle");icon.setAttribute("dominant-baseline","central");icon.className.baseVal="hi";
+  svg.appendChild(fill);svg.appendChild(stroke);svg.appendChild(icon);
+  const wrap=document.createElement("div");
+  wrap.style.cssText=`position:absolute;left:${nd.cx}px;top:${nd.cy}px;width:${d}px;height:${d}px;transform:translate(-50%,-50%);`;
+  wrap.appendChild(svg);
+  if(nd.isTarget){const ring=document.createElement("div");ring.className="target-ring";wrap.appendChild(ring);nd._ring=ring;}
+  wrap.addEventListener("pointerdown",e=>{e.preventDefault();onTap(nd);});
+  nd.el=wrap;nd._f=fill;nd._s=stroke;nd._i=icon;
+  hexboard.appendChild(wrap);applyStyle(nd);
+}
+
+function applyStyle(nd){
+  const s=ST[nd.state]||ST.calm;
+  nd._f.setAttribute("fill",s.fill);nd._s.setAttribute("stroke",s.stroke);nd._s.setAttribute("stroke-width",s.sw);nd._i.textContent=s.icon;nd._i.setAttribute("fill",s.iconFill);
+  const notap=nd.state!=="calm";
+  nd.el.className=`hx ${nd.state}${notap?" notap":""}`;
+}
+
+function drawConns(){
+  connSvg.innerHTML="";
+  const done=new Set();
+  nodes.forEach(n=>{
+    nbrs(n.col,n.row).forEach(([c,r])=>{
+      const k=[n.col,n.row,c,r].sort().join();if(done.has(k))return;done.add(k);
+      const nb=nodeAt(c,r);if(!nb)return;
+      const ln=document.createElementNS(NS,"line");
+      ln.setAttribute("x1",n.cx);ln.setAttribute("y1",n.cy);
+      ln.setAttribute("x2",nb.cx);ln.setAttribute("y2",nb.cy);
+      ln.setAttribute("stroke","rgba(61,232,255,.05)");ln.setAttribute("stroke-width","1");
+      ln.id=`c_${[n.col,n.row,c,r].sort().join("_")}`;
+      connSvg.appendChild(ln);
+    });
+  });
+}
+function glowConn(a,b,color="rgba(61,232,255,.55)"){
+  const id=`c_${[a.col,a.row,b.col,b.row].sort().join("_")}`;
+  const l=document.getElementById(id);if(!l)return;
+  l.setAttribute("stroke",color);l.setAttribute("stroke-width","2.2");
+}
+
+/* HUD */
+function updateHUD(){
+  document.getElementById("stTgt").textContent=`${targetsTotal-targetsLeft}/${targetsTotal}`;
+  document.getElementById("stPulseV").textContent=relaysLeft;
+  document.getElementById("stSteiner").textContent=relaysSteiner;
+  const pb=document.getElementById("stPulse");pb.classList.remove("pw","pc");
+  if(relaysLeft===1)pb.classList.add("pc");else if(relaysLeft<=2)pb.classList.add("pw");
+}
+
+function updateBossBar(){
+  const dots=document.querySelectorAll(".bb-dot");
+  dots.forEach((d,i)=>{
+    d.classList.remove("done","current");
+    if(i<puzzleIdx) d.classList.add("done");
+    else if(i===puzzleIdx) d.classList.add("current");
+  });
+  const lvl=currentBossLevel();
+  document.getElementById("bbLabel").textContent=`BOSS NV${lvl}`;
+  document.getElementById("bbBoss").textContent=`${5-puzzleIdx} restantes → 🗺️`;
+  document.getElementById("lvlChip").textContent=`NV${lvl} P${puzzleIdx+1}`;
+}
+
+/* MECÁNICA */
+async function onTap(nd){
+  if(busy||gameOver||nd.state!=="calm"||relaysLeft<=0)return;
+  busy=true;relaysLeft--;
+  nd.state="relay-dormant";applyStyle(nd);
+  spawnSpark(nd,"rgba(61,232,255,.6)");
+  await propagate(nd);
+  checkSteinerPoints();
+  updateHUD();busy=false;checkEnd();
+}
+
+async function propagate(trigger){
+  let changed=true;
+  while(changed){
+    changed=false;
+    const infected=nodes.filter(n=>n.state==="source"||n.state==="relay-active"||n.state==="steiner");
+    for(const inf of infected){
+      for(const[c,r]of nbrs(inf.col,inf.row)){
+        const nb=nodeAt(c,r);
+        if(!nb||nb.state!=="relay-dormant")continue;
+        nb.state="relay-active";applyStyle(nb);
+        glowConn(inf,nb);
+        spawnPulse(nb);spawnSpark(nb,"rgba(61,232,255,.8)");
+        score+=25;
+        if(nb.isTarget&&nb._ring&&!nb._ring.classList.contains("done")){
+          nb._ring.classList.add("done");targetsLeft=Math.max(0,targetsLeft-1);
+          showCombo("🎯 TARGET ✅");score+=200;
+        }
+        changed=true;await wait(100);
+      }
+    }
+  }
+}
+
+function checkSteinerPoints(){
+  // Un relay activo es Steiner si tiene 3+ vecinos activos (encrucijada de ramas)
+  const active=nodes.filter(n=>n.state==="relay-active"||n.state==="steiner");
+  active.forEach(nd=>{
+    const activeNbrs=nbrs(nd.col,nd.row)
+      .map(([c,r])=>nodeAt(c,r))
+      .filter(n=>n&&(n.state==="relay-active"||n.state==="steiner"||n.state==="source")).length;
+    if(activeNbrs>=3 && nd.state!=="steiner"){
+      nd.state="steiner";applyStyle(nd);
+      relaysSteiner++;
+      showCombo("✦ STEINER POINT!");score+=100;
+      // Conexiones en dorado
+      nbrs(nd.col,nd.row).forEach(([c,r])=>{
+        const nb=nodeAt(c,r);
+        if(nb&&(nb.state==="relay-active"||nb.state==="steiner"||nb.state==="source"))
+          glowConn(nd,nb,"rgba(255,210,60,.7)");
+      });
+    }
+  });
+}
+
+/* Cálculo de estrellas:
+   ⭐⭐⭐ = usados ≤ Steiner óptimo + 0 (exacto o mejor)
+   ⭐⭐ = usados ≤ Steiner óptimo + 2
+   ⭐ = completado pero con más relays
+*/
+function calcStars(used,optimal){
+  if(used<=optimal) return 3;
+  if(used<=optimal+2) return 2;
+  return 1;
+}
+
+/* FX */
+function spawnPulse(nd){
+  const p=document.createElement("div");p.className="infect-pulse";
+  p.style.cssText=`position:absolute;left:${nd.cx}px;top:${nd.cy}px;`;
+  hexboard.appendChild(p);setTimeout(()=>p.remove(),420);
+}
+function spawnSpark(nd,color){
+  for(let i=0;i<3;i++){
+    const s=document.createElement("div");s.className="spark";s.textContent="·";
+    s.style.cssText=`position:absolute;left:${nd.cx}px;top:${nd.cy}px;font-size:13px;pointer-events:none;z-index:21;color:${color};animation:spark .6s ease-out forwards;`;
+    s.style.setProperty("--dx",(Math.random()*40-20)+"px");
+    s.style.setProperty("--dy",(Math.random()*40-20)+"px");
+    hexboard.appendChild(s);setTimeout(()=>s.remove(),640);
+  }
+}
+const cFxEl=document.getElementById("cFx");
+function showCombo(txt){cFxEl.textContent=txt;cFxEl.classList.remove("show");void cFxEl.offsetWidth;cFxEl.classList.add("show");}
+
+/* FIN */
+function checkEnd(){
+  if(gameOver)return;
+  if(targetsLeft<=0){gameOver=true;setTimeout(()=>endLevel(true),500);return;}
+  if(relaysLeft<=0){gameOver=true;endLevel(false);}
+}
+
+async function endLevel(win){
+  const p=currentPuzzle();
+  const used=relaysMax-relaysLeft;
+  const optimal=p.relays-2; // el presupuesto es Steiner+2, así que el óptimo es relays-2
+  const stars=win?calcStars(used,optimal):0;
+  puzzleStars.push(stars);
+
+  // Mostrar card
+  document.getElementById("rCard").className="rcard "+(win?"win":"lose");
+  document.getElementById("rTitle").textContent=win?"⚡ ¡Red infectada!":"Sin relays...";
+  document.getElementById("rSub").textContent=win
+    ?`${used} relays usados de ${relaysMax} · ${relaysSteiner} Steiner points`
+    :`Solo ${targetsTotal-targetsLeft}/${targetsTotal} targets alcanzados`;
+  document.getElementById("rScore").textContent=(score+(win?Math.max(0,(relaysMax-used)*80):0)).toLocaleString("en-US");
+
+  // Estrellas animadas
+  const starEls=document.querySelectorAll("#starsRow .star");
+  starEls.forEach(s=>s.textContent="☆");
+  for(let i=0;i<stars;i++){
+    await wait(350);
+    starEls[i].textContent="⭐";starEls[i].classList.add("on");
+  }
+
+  // ¿Completó el boss level?
+  const bossComplete = win && puzzleIdx>=4;
+  const bcEl=document.getElementById("bossCmpl");
+  bcEl.style.display=bossComplete?"":"none";
+
+  const hasNext=!bossComplete;
+  const rb=document.getElementById("rBtn");
+  rb.style.display=win?"":"none";
+  rb.textContent=bossComplete?"🗺️ Siguiente nivel del mapa ▶":win?"Siguiente puzzle ▶":"";
+  rb.onclick=()=>{
+    document.getElementById("rov").classList.remove("show");
+    if(bossComplete){bossIdx=Math.min(bossIdx+1,BOSS_LEVELS.length-1);puzzleIdx=0;puzzleStars=[];loadPuzzle();}
+    else if(win){puzzleIdx++;loadPuzzle();}
+  };
+  document.getElementById("rRetry").onclick=()=>{
+    document.getElementById("rov").classList.remove("show");loadPuzzle();
+  };
+  
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      type: 'BB_GAME_RESULT',
+      game: 'neural_cascade',
+      win: win,
+      stars: stars,
+      xp: score,
+      bossLevel: currentBossLevel()
+    }, '*');
+  }
+  document.getElementById("rov").classList.add("show");
+}
+
+function loadPuzzle(){
+  const p=currentPuzzle();
+  relaysMax=p.relays;relaysLeft=p.relays;relaysSteiner=0;
+  targetsTotal=p.tgts.length;targetsLeft=targetsTotal;
+  score=0;busy=false;gameOver=false;
+  document.getElementById("hintEl").textContent=p.hint;
+  document.getElementById("tutPul").textContent=p.relays;
+  buildBoard(p);updateHUD();updateBossBar();
+  if(puzzleIdx===0) showTut();
+}
+
+/* TUTORIAL */
+const tovEl=document.getElementById("tov");
+function showTut(){
+  const p=currentPuzzle();
+  const el=document.getElementById("tutPul");
+  if(el) el.textContent=p.relays;
+  tovEl.classList.add("show");
+}
+function hideTut(){tovEl.classList.remove("show");}
+document.getElementById("tOk").addEventListener("click",hideTut);
+document.getElementById("tCl").addEventListener("click",hideTut);
+document.getElementById("helpBtn").addEventListener("click",showTut);
+
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+loadPuzzle();
+</script>
+</body>
+</html>

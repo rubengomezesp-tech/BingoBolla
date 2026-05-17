@@ -1,7 +1,8 @@
+import WorldMap from "@/components/WorldMap_v9";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/supabase/types";
-import WorldMap from "@/components/WorldMap_v9";
+import WorldMap from "@/components/WorldMap";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,18 @@ export default async function MundoPage() {
     "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg-movil.PNG";
 
   return (
-        <WorldMap
-      playerId={profile.id}
+    <WorldMap
+      worldId={(world as any)?.id ?? "miami_nights"}
+      worldName={(world as any)?.name ?? "Miami Nights"}
+      bgUrl={bgUrl}
+      mobileBgUrl={mobileBgUrl}
+      goldCoins={Number((profile as any)?.gold_coins ?? 0)}
+      sweepsCoins={Number((profile as any)?.sweeps_coins ?? 0)}
+      diamonds={Number((profile as any)?.diamonds ?? 0)}
+      level={Number((xp as any)?.level ?? 1)}
+      progressPct={Number((xp as any)?.progress_pct ?? 0)}
+      xpIntoLevel={Number((xp as any)?.xp_into_level ?? 0)}
+      xpNeededLevel={Number((xp as any)?.xp_needed_level ?? 100)}
     />
   );
 }

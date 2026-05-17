@@ -1,0 +1,22 @@
+DELETE FROM world_nodes;
+INSERT INTO world_nodes (node_index,node_type,title,target_ref,pos_x,pos_y,stars,max_stars,unlocked,reward_xp,reward_gold) VALUES
+(1,'minigame','Primera Partida','ballmatch',48,94,0,3,true,50,20),
+(2,'minigame','Calienta Motores','ballmatch',28,88,0,3,false,60,25),
+(3,'minigame','Combo Fever','ballmatch',68,82,0,3,false,70,30),
+(4,'minigame','Bolla Rush','ballmatch',32,76,0,3,false,80,35),
+(5,'boss','⭐ Neural Cascade','neural_cascade',50,70,0,3,false,200,100),
+(6,'minigame','Miami Shuffle','ballmatch',70,64,0,3,false,90,40),
+(7,'minigame','Neon Combo','ballmatch',30,58,0,3,false,100,45),
+(8,'minigame','Ocean Drive','ballmatch',65,52,0,3,false,110,50),
+(9,'minigame','Bolla Frenzy','ballmatch',35,46,0,3,false,120,55),
+(10,'boss','⭐⭐ Neural Cascade','neural_cascade',50,40,0,3,false,300,150),
+(11,'minigame','South Beach','ballmatch',72,34,0,3,false,130,60),
+(12,'minigame','Jackpot Mode','ballmatch',28,28,0,3,false,140,65),
+(13,'minigame','Cascade Classic','ballmatch',68,22,0,3,false,150,70),
+(14,'minigame','Fever Rush','ballmatch',32,16,0,3,false,160,75),
+(15,'boss','⭐⭐⭐ Neural Cascade','neural_cascade',50,10,0,3,false,400,200),
+(16,'minigame','Penthouse Bolla','ballmatch',70,7,0,3,false,170,80),
+(17,'minigame','Diamond Club','ballmatch',30,5,0,3,false,180,85),
+(18,'minigame','Rooftop Fever','ballmatch',65,3.5,0,3,false,190,90),
+(19,'minigame','Ultimate Bolla','ballmatch',35,2,0,3,false,200,95),
+(20,'boss','👑 BOSS FINAL','neural_cascade',50,0.8,0,3,false,1000,500);
