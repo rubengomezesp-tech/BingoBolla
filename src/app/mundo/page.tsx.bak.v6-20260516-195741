@@ -14,14 +14,9 @@ export default async function MundoPage() {
     .from("profiles").select("*").eq("id", user.id).single<Profile>();
   if (!profile?.kyc_status || profile.kyc_status === "unverified") redirect("/onboarding");
 
-  // Mundo (fondo + nombre). Fallback seguro.
+  // Cargar el mundo (fondo + nombre). Si falla, fallback seguro.
   const { data: world } = await supabase
     .from("worlds").select("id,name,bg_image_url,bg_image_mobile_url").eq("id", "miami_nights").maybeSingle();
-
-  // XP / nivel real del jugador (funcion ya existente get_player_xp)
-  const { data: xpRow } = await supabase.rpc("get_player_xp", { p_player_id: user.id });
-  // get_player_xp puede devolver objeto o array de una fila; normalizamos
-  const xp = Array.isArray(xpRow) ? xpRow[0] : xpRow;
 
   const bgUrl =
     (world as any)?.bg_image_url ||
@@ -36,12 +31,6 @@ export default async function MundoPage() {
       worldName={(world as any)?.name ?? "Miami Nights"}
       bgUrl={bgUrl}
       mobileBgUrl={mobileBgUrl}
-      goldCoins={Number((profile as any)?.gold_coins ?? 0)}
-      sweepsCoins={Number((profile as any)?.sweeps_coins ?? 0)}
-      level={Number((xp as any)?.level ?? 1)}
-      progressPct={Number((xp as any)?.progress_pct ?? 0)}
-      xpIntoLevel={Number((xp as any)?.xp_into_level ?? 0)}
-      xpNeededLevel={Number((xp as any)?.xp_needed_level ?? 100)}
     />
   );
 }

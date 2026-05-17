@@ -30,12 +30,6 @@ const TYPE_ICON: Record<Node["node_type"], string> = {
   reward: "🎁",
 };
 
-// Formato de miles FIJO (mismo resultado en servidor y cliente).
-// Evita el error de hidratacion de toLocaleString() por locale.
-function fmt(n: number): string {
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
 export default function WorldMap({
   worldId = "miami_nights",
   worldName = "Miami Nights",
@@ -141,7 +135,7 @@ export default function WorldMap({
         <div className="wm-resrow">
           <div className="wm-res">
             <div className="wm-ic wm-ic-coin">🪙</div>
-            <div className="wm-val">{fmt(goldCoins)}</div>
+            <div className="wm-val">{Math.round(goldCoins).toLocaleString()}</div>
             <div className="wm-add">+</div>
           </div>
           <div className="wm-res">
@@ -275,7 +269,7 @@ export default function WorldMap({
                 : "Recompensa"}
             </div>
             <div className="wm-sheetReward">
-              Recompensa: <b>+{selected.reward_xp} EXP</b> · <b>+{fmt(selected.reward_gold)} 🪙</b>
+              Recompensa: <b>+{selected.reward_xp} EXP</b> · <b>+{selected.reward_gold.toLocaleString()} 🪙</b>
             </div>
             {selected.completed ? (
               <div className="wm-sheetDone">

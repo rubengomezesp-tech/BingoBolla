@@ -1,3 +1,19 @@
+#!/bin/bash
+# ============================================================
+#  BINGOBOLLA · Instalar WorldMap.tsx v3 (AUTOCONTENIDO)
+#  El componente va escrito DENTRO de este script.
+#  No depende de ~/Downloads (que estaba fallando).
+#  prod NO se toca: esto compila solo en local.
+# ============================================================
+cd ~/bingobolla || { echo "No existe ~/bingobolla"; exit 1; }
+
+echo "1/3 · Backup del actual..."
+BACKUP="src/components/WorldMap.tsx.bak.v3-$(date +%Y%m%d-%H%M%S)"
+cp src/components/WorldMap.tsx "$BACKUP"
+echo "    Backup: $BACKUP"
+
+echo "2/3 · Escribiendo componente nuevo directamente..."
+cat > src/components/WorldMap.tsx << 'WORLDMAP_EOF'
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -30,34 +46,16 @@ const TYPE_ICON: Record<Node["node_type"], string> = {
   reward: "🎁",
 };
 
-// Formato de miles FIJO (mismo resultado en servidor y cliente).
-// Evita el error de hidratacion de toLocaleString() por locale.
-function fmt(n: number): string {
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
 export default function WorldMap({
   worldId = "miami_nights",
   worldName = "Miami Nights",
   bgUrl,
   mobileBgUrl,
-  goldCoins = 0,
-  sweepsCoins = 0,
-  level = 1,
-  progressPct = 0,
-  xpIntoLevel = 0,
-  xpNeededLevel = 100,
 }: {
   worldId?: string;
   worldName?: string;
   bgUrl: string;
   mobileBgUrl?: string;
-  goldCoins?: number;
-  sweepsCoins?: number;
-  level?: number;
-  progressPct?: number;
-  xpIntoLevel?: number;
-  xpNeededLevel?: number;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -102,12 +100,6 @@ export default function WorldMap({
   const bgMobile = assets["bg-miami-mobile"] || mobileBgUrl || bgUrl;
   const done = nodes.filter((n) => n.completed).length;
 
-  // Nodo activo = primer jugable. La mascota se coloca encima de el.
-  const activeNode =
-    nodes.find((n) => n.unlocked && !n.completed) ||
-    nodes.find((n) => n.unlocked) ||
-    null;
-
   const RAIL = [
     { key: "icon-regalo-diario", lbl: "REGALO DIARIO", timer: "⏱ 23h 48m", badge: "3", bonus: false },
     { key: "icon-gira-gana", lbl: "¡GIRA Y GANA!", timer: "⏱ 23h 48m", badge: "", bonus: false },
@@ -126,29 +118,15 @@ export default function WorldMap({
 
       {/* HUD SUPERIOR */}
       <div className="wm-hud">
-        <div className="wm-avatar" aria-label={`Nivel ${level}`} title={`Nivel ${level} · ${xpIntoLevel}/${xpNeededLevel} XP`}>
-          <svg className="wm-xpring" viewBox="0 0 100 100" aria-hidden="true">
-            <circle className="wm-xpring-bg" cx="50" cy="50" r="45" />
-            <circle
-              className="wm-xpring-fg"
-              cx="50" cy="50" r="45"
-              strokeDasharray={`${Math.max(0, Math.min(100, progressPct)) * 2.827} 282.7`}
-            />
-          </svg>
-          <div className="wm-avatar-ph">{level}</div>
-          <div className="wm-lvl">{level}</div>
+        <div className="wm-avatar" aria-label="Perfil">
+          <div className="wm-avatar-ph">25</div>
+          <div className="wm-lvl">25</div>
         </div>
         <div className="wm-resrow">
-          <div className="wm-res">
-            <div className="wm-ic wm-ic-coin">🪙</div>
-            <div className="wm-val">{fmt(goldCoins)}</div>
-            <div className="wm-add">+</div>
-          </div>
-          <div className="wm-res">
-            <div className="wm-ic wm-ic-ticket">🎟️</div>
-            <div className="wm-val">{Number(sweepsCoins).toFixed(2)}</div>
-            <div className="wm-add">+</div>
-          </div>
+          <div className="wm-res"><div className="wm-ic wm-ic-coin">🪙</div><div className="wm-val">245,680</div><div className="wm-add">+</div></div>
+          <div className="wm-res"><div className="wm-ic wm-ic-energy">⚡</div><div><div className="wm-val">5/5</div><div className="wm-sub">LLENO</div></div><div className="wm-add">+</div></div>
+          <div className="wm-res"><div className="wm-ic wm-ic-ticket">🎟️</div><div className="wm-val">12</div><div className="wm-add">+</div></div>
+          <div className="wm-res"><div className="wm-ic wm-ic-gem">💎</div><div className="wm-val">1,250</div><div className="wm-add">+</div></div>
         </div>
         <div className="wm-menu"><i /><i /><i /><div className="wm-badge">1</div></div>
       </div>
@@ -189,11 +167,10 @@ export default function WorldMap({
         {!loading &&
           nodes.map((n) => {
             const state = n.completed ? "done" : n.unlocked ? "open" : "locked";
-            const isActive = activeNode && n.node_id === activeNode.node_id;
             return (
               <button
                 key={n.node_id}
-                className={`wm-node wm-${state}${isActive ? " wm-node-hidden" : ""}`}
+                className={`wm-node wm-${state}`}
                 style={{ left: `${n.pos_x}%`, top: `${n.pos_y}%` }}
                 onClick={() => onNodeClick(n)}
                 aria-label={n.title}
@@ -201,8 +178,10 @@ export default function WorldMap({
                 {state === "locked" ? (
                   <span className="wm-lock">🔒</span>
                 ) : (
-                  /* El nodo abierto/activo NO muestra la bola: ahi va la mascota */
-                  !isActive && <span className="wm-nodeNum wm-nodeNum-solo">{n.node_index}</span>
+                  <>
+                    <span className="wm-nodeIcon">{TYPE_ICON[n.node_type]}</span>
+                    <span className="wm-nodeNum">{n.node_index}</span>
+                  </>
                 )}
                 {state === "done" && (
                   <span className="wm-stars">
@@ -210,26 +189,17 @@ export default function WorldMap({
                     <span className="wm-starsDim">{"★".repeat(Math.max(0, n.max_stars - n.stars))}</span>
                   </span>
                 )}
-                {state === "open" && !isActive && <span className="wm-pulse" />}
+                {state === "open" && <span className="wm-pulse" />}
               </button>
             );
           })}
-
-        {/* MASCOTA: se coloca encima del nodo activo (opcion A) */}
-        {activeNode && (
-          <div
-            className="wm-mascot"
-            style={{ left: `${activeNode.pos_x}%`, top: `${activeNode.pos_y}%` }}
-            onClick={() => onNodeClick(activeNode)}
-          >
-            <span className="wm-mascot-pulse" />
-            {assets["mascot-global"] ? (
-              <img src={assets["mascot-global"]} alt="Mascota" />
-            ) : (
-              <span className="wm-mascot-fb">🟣</span>
-            )}
-          </div>
-        )}
+        <div className="wm-mascot">
+          {assets["mascot-global"] ? (
+            <img src={assets["mascot-global"]} alt="Mascota" />
+          ) : (
+            <span>🟣</span>
+          )}
+        </div>
       </div>
 
       {/* RACHA DIARIA */}
@@ -275,7 +245,7 @@ export default function WorldMap({
                 : "Recompensa"}
             </div>
             <div className="wm-sheetReward">
-              Recompensa: <b>+{selected.reward_xp} EXP</b> · <b>+{fmt(selected.reward_gold)} 🪙</b>
+              Recompensa: <b>+{selected.reward_xp} EXP</b> · <b>+{selected.reward_gold.toLocaleString()} 🪙</b>
             </div>
             {selected.completed ? (
               <div className="wm-sheetDone">
@@ -308,18 +278,12 @@ const WM_CSS = `
 
 .wm-hud{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;
   gap:8px;padding:calc(env(safe-area-inset-top) + 10px) 10px 10px;}
-.wm-avatar{width:54px;height:54px;border-radius:50%;flex:0 0 auto;
-  position:relative;box-shadow:0 0 14px rgba(255,190,50,.6);cursor:pointer;}
-.wm-xpring{position:absolute;inset:-5px;width:calc(100% + 10px);height:calc(100% + 10px);
-  transform:rotate(-90deg);z-index:2;}
-.wm-xpring-bg{fill:none;stroke:rgba(0,0,0,.45);stroke-width:7;}
-.wm-xpring-fg{fill:none;stroke:#FFD98A;stroke-width:7;stroke-linecap:round;
-  filter:drop-shadow(0 0 4px rgba(255,200,80,.9));
-  transition:stroke-dasharray .6s ease;}
+.wm-avatar{width:54px;height:54px;border-radius:50%;flex:0 0 auto;border:3px solid #C8941A;
+  position:relative;box-shadow:0 0 14px rgba(255,190,50,.6);}
 .wm-avatar-ph{width:100%;height:100%;border-radius:50%;display:flex;align-items:center;
   justify-content:center;background:radial-gradient(circle at 35% 30%,#3a2060,#1a0e36);
-  font-weight:700;font-size:20px;color:#ffd98a;border:3px solid #C8941A;}
-.wm-lvl{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);z-index:3;
+  font-weight:700;font-size:18px;color:#ffd98a;}
+.wm-lvl{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
   background:linear-gradient(180deg,#FFD98A,#C8941A);color:#3a1f00;font-size:11px;
   font-weight:700;padding:1px 8px;border-radius:10px;border:2px solid #fff;white-space:nowrap;}
 .wm-lvl::before{content:"★";margin-right:2px;}
@@ -331,8 +295,11 @@ const WM_CSS = `
 .wm-ic{width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;
   align-items:center;justify-content:center;font-size:15px;}
 .wm-ic-coin{background:radial-gradient(circle at 35% 30%,#ffe48a,#e0901a 70%,#9c5e0a);}
+.wm-ic-energy{background:radial-gradient(circle at 35% 30%,#7ad0ff,#2a7fd6 70%,#13508a);}
 .wm-ic-ticket{background:radial-gradient(circle at 35% 30%,#ffb0d8,#e0408a 70%,#a01e5c);}
+.wm-ic-gem{background:radial-gradient(circle at 35% 30%,#a8e8ff,#3aa8e0 70%,#1a6a9c);}
 .wm-val{font-weight:700;font-size:13px;line-height:1;white-space:nowrap;}
+.wm-sub{font-size:8px;color:#d8c7ef;font-weight:600;}
 .wm-add{width:20px;height:20px;border-radius:50%;flex:0 0 auto;
   background:radial-gradient(circle at 35% 30%,#7dffb0,#3ddc78 60%,#1f9a4f);
   border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;
@@ -374,8 +341,8 @@ const WM_CSS = `
 
 .wm-rail{position:absolute;left:8px;top:calc(env(safe-area-inset-top) + 150px);z-index:20;
   display:flex;flex-direction:column;gap:12px;}
-.wm-railbtn{width:70px;text-align:center;position:relative;}
-.wm-railic{width:60px;height:60px;margin:0 auto;border-radius:16px;position:relative;
+.wm-railbtn{width:62px;text-align:center;position:relative;}
+.wm-railic{width:54px;height:54px;margin:0 auto;border-radius:14px;
   background:linear-gradient(180deg,rgba(40,18,78,.9),rgba(20,10,42,.95));
   border:2px solid rgba(255,200,90,.5);
   box-shadow:0 4px 14px rgba(0,0,0,.5),0 0 14px rgba(255,170,50,.3);
@@ -384,8 +351,8 @@ const WM_CSS = `
 .wm-railbtn:nth-child(2) .wm-railic{animation-delay:.4s;}
 .wm-railbtn:nth-child(3) .wm-railic{animation-delay:.8s;}
 .wm-railbtn:nth-child(4) .wm-railic{animation-delay:1.2s;}
-.wm-railic img{width:122%;height:122%;object-fit:contain;
-  filter:drop-shadow(0 4px 9px rgba(0,0,0,.7));}
+.wm-railic img{width:88%;height:88%;object-fit:contain;
+  filter:drop-shadow(0 3px 8px rgba(0,0,0,.6));}
 .wm-railph{font-size:8px;font-weight:700;color:#ffd98a;padding:4px;line-height:1.1;}
 .wm-raillbl{margin-top:3px;font-size:9px;font-weight:700;color:#fff;
   text-shadow:0 1px 3px #000;line-height:1.15;}
@@ -416,20 +383,10 @@ const WM_CSS = `
 .wm-starsDim{color:rgba(255,255,255,.25);}
 .wm-pulse{position:absolute;inset:-3px;border-radius:50%;
   border:3px solid rgba(255,210,60,.7);animation:wmPulse 1.6s ease-out infinite;}
-.wm-node-hidden{background:none!important;border:none!important;box-shadow:none!important;}
-.wm-mascot{position:absolute;z-index:18;
-  width:156px;height:156px;cursor:pointer;
-  transform:translate(-50%,-72%);
-  animation:wmBob 2.6s ease-in-out infinite;
-  filter:drop-shadow(0 10px 18px rgba(0,0,0,.65));}
+.wm-mascot{position:absolute;left:13%;top:88%;transform:translate(-50%,-50%);
+  width:46px;height:46px;font-size:42px;animation:wmBob 2.6s ease-in-out infinite;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));}
 .wm-mascot img{width:100%;height:100%;object-fit:contain;}
-.wm-mascot-fb{font-size:100px;}
-.wm-mascot-pulse{position:absolute;left:50%;bottom:4px;width:74px;height:20px;
-  transform:translateX(-50%);border-radius:50%;
-  background:radial-gradient(ellipse,rgba(255,210,60,.55),transparent 70%);
-  animation:wmGlow 1.7s ease-in-out infinite;}
-.wm-nodeNum-solo{position:static;width:auto;height:auto;background:none;border:none;
-  font-size:20px;color:#fff;text-shadow:0 2px 5px rgba(0,0,0,.7);}
 
 .wm-racha{position:absolute;right:10px;bottom:calc(env(safe-area-inset-bottom) + 96px);z-index:20;
   padding:10px 14px;border-radius:16px;text-align:center;
@@ -485,10 +442,8 @@ const WM_CSS = `
   font-size:15px;color:#c7a8e8;z-index:60;}
 
 @keyframes wmPulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.7);opacity:0}}
-@keyframes wmBob{0%,100%{transform:translate(-50%,-72%) translateY(0)}
-  50%{transform:translate(-50%,-72%) translateY(-9px)}}
-@keyframes wmGlow{0%,100%{opacity:.5;transform:translateX(-50%) scale(1)}
-  50%{opacity:.9;transform:translateX(-50%) scale(1.15)}}
+@keyframes wmBob{0%,100%{transform:translate(-50%,-50%) translateY(0)}
+  50%{transform:translate(-50%,-50%) translateY(-10px)}}
 @keyframes wmFloaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @keyframes wmShimmer{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
 @keyframes wmSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -511,11 +466,11 @@ const WM_CSS = `
   .wm-jackpot{top:80px;right:22px;padding:8px 22px 10px;}
   .wm-jp-amt{font-size:22px;}
   .wm-rail{left:16px;top:170px;gap:16px;}
-  .wm-railbtn{width:84px;}
-  .wm-railic{width:72px;height:72px;}
+  .wm-railbtn{width:74px;}
+  .wm-railic{width:64px;height:64px;}
   .wm-node{width:62px;height:62px;}
   .wm-nodeIcon{font-size:24px;}
-  .wm-mascot{width:192px;height:192px;}
+  .wm-mascot{width:58px;height:58px;left:13%;}
   .wm-play-txt{font-size:30px;}
   .wm-play{padding:16px 50px 16px 56px;}
   .wm-racha{right:22px;bottom:120px;}
@@ -523,3 +478,31 @@ const WM_CSS = `
   .wm-sheet{align-items:center;}
 }
 `;
+WORLDMAP_EOF
+echo "    Componente escrito ($(wc -l < src/components/WorldMap.tsx) lineas)."
+
+echo "3/3 · Compilando..."
+npm run build
+RESULT=$?
+
+echo ""
+echo "===================================================="
+if [ $RESULT -eq 0 ]; then
+  echo "BUILD OK ✅ — compila limpio."
+  echo ""
+  echo "Ver en local:"
+  echo "  npm run dev   ->   http://localhost:3000/mundo"
+  echo ""
+  echo "Si te gusta, SUBIR A PROD:"
+  echo '  git add -A && git commit -m "WorldMap imagen 1 + world_assets" && git push origin main && vercel --prod'
+else
+  echo "BUILD FALLO ❌ con el componente nuevo."
+  echo "Componente nuevo SIGUE PUESTO para ver el error."
+  echo "prod intacto (esto es solo local)."
+  echo ""
+  echo "Restaurar manual si quieres:"
+  echo "  cp $BACKUP src/components/WorldMap.tsx"
+  echo ""
+  echo "Pega el error completo y lo arreglo."
+fi
+echo "===================================================="

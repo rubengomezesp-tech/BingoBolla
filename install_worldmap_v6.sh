@@ -1,3 +1,74 @@
+#!/bin/bash
+# ============================================================
+#  BINGOBOLLA · WorldMap v6 (fix hidratacion) — HUD datos REALES
+#  - Nivel real + anillo XP (get_player_xp, p_player_id)
+#  - Monedas/Sweeps reales · formato fijo (sin error hidratacion)
+#  - Sin energia/gemas · CSS limpio
+#  Reemplaza WorldMap.tsx + mundo/page.tsx (backup ambos).
+#  prod NO se toca: compila solo en local.
+# ============================================================
+cd ~/bingobolla || { echo "No existe ~/bingobolla"; exit 1; }
+
+TS=$(date +%Y%m%d-%H%M%S)
+echo "1/4 · Backup de los 2 archivos..."
+cp src/components/WorldMap.tsx "src/components/WorldMap.tsx.bak.v6-$TS"
+cp src/app/mundo/page.tsx "src/app/mundo/page.tsx.bak.v6-$TS"
+echo "    Backups (.bak.v6-$TS)"
+
+echo "2/4 · Escribiendo mundo/page.tsx..."
+cat > src/app/mundo/page.tsx << 'PAGE_EOF'
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import type { Profile } from "@/lib/supabase/types";
+import WorldMap from "@/components/WorldMap";
+
+export const dynamic = "force-dynamic";
+
+export default async function MundoPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles").select("*").eq("id", user.id).single<Profile>();
+  if (!profile?.kyc_status || profile.kyc_status === "unverified") redirect("/onboarding");
+
+  // Mundo (fondo + nombre). Fallback seguro.
+  const { data: world } = await supabase
+    .from("worlds").select("id,name,bg_image_url,bg_image_mobile_url").eq("id", "miami_nights").maybeSingle();
+
+  // XP / nivel real del jugador (funcion ya existente get_player_xp)
+  const { data: xpRow } = await supabase.rpc("get_player_xp", { p_player_id: user.id });
+  // get_player_xp puede devolver objeto o array de una fila; normalizamos
+  const xp = Array.isArray(xpRow) ? xpRow[0] : xpRow;
+
+  const bgUrl =
+    (world as any)?.bg_image_url ||
+    "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg.PNG";
+  const mobileBgUrl =
+    (world as any)?.bg_image_mobile_url ||
+    "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg-movil.PNG";
+
+  return (
+    <WorldMap
+      worldId={(world as any)?.id ?? "miami_nights"}
+      worldName={(world as any)?.name ?? "Miami Nights"}
+      bgUrl={bgUrl}
+      mobileBgUrl={mobileBgUrl}
+      goldCoins={Number((profile as any)?.gold_coins ?? 0)}
+      sweepsCoins={Number((profile as any)?.sweeps_coins ?? 0)}
+      level={Number((xp as any)?.level ?? 1)}
+      progressPct={Number((xp as any)?.progress_pct ?? 0)}
+      xpIntoLevel={Number((xp as any)?.xp_into_level ?? 0)}
+      xpNeededLevel={Number((xp as any)?.xp_needed_level ?? 100)}
+    />
+  );
+}
+PAGE_EOF
+echo "    OK ($(wc -l < src/app/mundo/page.tsx) lineas)."
+
+echo "3/4 · Escribiendo WorldMap.tsx..."
+cat > src/components/WorldMap.tsx << 'WORLDMAP_EOF'
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -523,3 +594,27 @@ const WM_CSS = `
   .wm-sheet{align-items:center;}
 }
 `;
+WORLDMAP_EOF
+echo "    OK ($(wc -l < src/components/WorldMap.tsx) lineas)."
+
+echo "4/4 · Compilando..."
+npm run build
+RESULT=$?
+
+echo ""
+echo "===================================================="
+if [ $RESULT -eq 0 ]; then
+  echo "BUILD OK ✅"
+  echo ""
+  echo "Ver:  npm run dev  ->  localhost:3000/mundo"
+  echo "Esperado: Nivel 1, anillo ~55%, monedas/sweeps reales, SIN error hidratacion."
+  echo ""
+  echo "Subir a prod si OK:"
+  echo '  git add -A && git commit -m "WorldMap v6: HUD datos reales + fix hidratacion" && git push origin main && vercel --prod'
+else
+  echo "BUILD FALLO ❌ — nuevos puestos, prod intacto."
+  echo "Restaurar:"
+  echo "  cp src/components/WorldMap.tsx.bak.v6-$TS src/components/WorldMap.tsx"
+  echo "  cp src/app/mundo/page.tsx.bak.v6-$TS src/app/mundo/page.tsx"
+fi
+echo "===================================================="
