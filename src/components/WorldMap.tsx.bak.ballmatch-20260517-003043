@@ -93,7 +93,14 @@ export default function WorldMap({
 
   function playNode(n: Node) {
     if (n.node_type === "bingo") {
-      router.push(`/play/ballmatch?level=${n.node_index}`);
+      // Partida real: si el nodo tiene sala asignada, entra ahi.
+      // Si no, primera sala disponible (fallback, como HomeScreen).
+      if (n.target_ref) {
+        router.push(`/room/${n.target_ref}`);
+      } else {
+        const firstBingo = nodes.find((x) => x.node_type === "bingo" && x.target_ref);
+        router.push(firstBingo?.target_ref ? `/room/${firstBingo.target_ref}` : "/lobby#salas");
+      }
     } else {
       setSelected(null);
     }

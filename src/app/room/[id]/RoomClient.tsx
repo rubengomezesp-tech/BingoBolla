@@ -150,15 +150,17 @@ export default function RoomClient({
     return () => clearInterval(id);
   }, [room?.id]);
 
-  // TICK cada 3 segundos (envía room_id)
+  const tickGameId = playingGameId ?? waitingGameId;
+
+  // TICK cada 3 segundos (envía el game activo)
   useEffect(() => {
-    if (!room?.id) return;
+    if (!tickGameId) return;
     const tick = async () => {
       try {
         await fetch("/api/game/tick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ room_id: room.id }),
+          body: JSON.stringify({ game_id: tickGameId }),
         });
       } catch (err) {
         console.error("Tick error:", err);
@@ -167,7 +169,7 @@ export default function RoomClient({
     tickIntervalRef.current = setInterval(tick, 3000);
     tick();
     return () => { if (tickIntervalRef.current) clearInterval(tickIntervalRef.current); };
-  }, [room?.id]);
+  }, [tickGameId]);
 
   // Sonidos y marcado visual
   useEffect(() => {
