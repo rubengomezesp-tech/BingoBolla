@@ -15,16 +15,8 @@ type XPData = { level: number; xp_into_level: number; xp_needed_level: number; p
 const fmt = (n: number) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
 const BOSS = new Set([5,10,15,20]);
 
-// Imagen única con todos los anillos ya dibujados
-const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.png";
-
-// Assets laterales del rail
-const RAIL_ASSETS = [
-  { key:"icon-regalo-diario-v2", fallback:"🎁", label:"Regalo" },
-  { key:"icon-gira-gana",        fallback:"🎡", label:"Ruleta" },
-  { key:"icon-cofre-vip",        fallback:"💎", label:"VIP"    },
-  { key:"icon-invitar",          fallback:"👥", label:"Invite" },
-];
+// Imagen única con los 20 anillos ya dibujados
+const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.PNG";
 
 export default function WorldMap({ playerId }: { playerId: string }) {
   const sb = createClient();
@@ -35,7 +27,9 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const [prof, setProf]       = useState<{gold_coins:number;sweeps_coins:number}|null>(null);
   const [game, setGame]       = useState<{game:GameType;nodeId:string;level:number}|null>(null);
   const [loading, setLoading] = useState(true);
+  const [imgH, setImgH]       = useState(0);   // alto real de la imagen renderizada
   const mapRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -55,16 +49,26 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
       if (pr?.data) setProf(pr.data);
       setLoading(false);
-      setTimeout(() => {
-        const active = nr?.data?.find((n: WNode) => n.unlocked && !n.completed);
-        if (active && mapRef.current) {
-          const h = mapRef.current.scrollHeight;
-          mapRef.current.scrollTo({ top: (active.pos_y/100)*h - window.innerHeight*0.55, behavior:"smooth" });
-        }
-      }, 800);
     }
     load();
   }, [playerId]);
+
+  // Cuando la imagen carga, medir su alto real y hacer scroll al nodo activo
+  const onImgLoad = useCallback(() => {
+    if (imgRef.current) {
+      const h = imgRef.current.offsetHeight;
+      setImgH(h);
+      setTimeout(() => {
+        const active = nodes.find(n => n.unlocked && !n.completed);
+        if (active && mapRef.current) {
+          mapRef.current.scrollTo({
+            top: (active.pos_y/100)*h - window.innerHeight*0.5,
+            behavior: "smooth",
+          });
+        }
+      }, 400);
+    }
+  }, [nodes]);
 
   const openGame = useCallback((n: WNode) => {
     if (!n.unlocked) return;
@@ -95,10 +99,17 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     </div>
   );
 
-  // La altura del mapa = ancho de pantalla × ratio de la imagen (portrait ~2.2:1)
-  // Usamos window.innerWidth × 2.2 para mantener proporciones perfectas
-  const mapH = typeof window !== "undefined" ? Math.round(window.innerWidth * 2.22) : 2400;
   const mascot = assets["mascot-global"];
+
+  // Rail con acciones reales
+  const RAIL = [
+    { key:"icon-regalo-diario-v2", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
+    { key:"icon-gira-gana",        fallback:"🎡", lbl:"RULETA",  timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/ruleta") },
+    { key:"icon-cofre-vip",        fallback:"💎", lbl:"VIP",     timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/tienda") },
+    { key:"icon-invitar",          fallback:"👥", lbl:"INVITAR", timer:"💎+100", badge:"5", bonus:true,
+      action:()=>{ if(navigator.share){ navigator.share({ title:"BingoBolla", text:"¡Juega conmigo!", url:"https://bingobolla.com" }).catch(()=>{}); } else { navigator.clipboard?.writeText("https://bingobolla.com"); } }
+    },
+  ];
 
   return (
     <>
@@ -144,45 +155,32 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         </div>
       </div>
 
-      {/* Rail lateral derecho — lógica original v8 con acciones reales */}
+      {/* Rail lateral izquierdo — assets reales + acciones */}
       <div style={{ position:"fixed", left:8, top:"50%", transform:"translateY(-50%)",
         zIndex:40, display:"flex", flexDirection:"column", gap:10 }}>
-        {[
-          { key:"icon-regalo-diario-v2", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h", badge:"3", bonus:false, action:()=>router.push("/regalo") },
-          { key:"icon-gira-gana",        fallback:"🎡", lbl:"RULETA",  timer:"⏱ 8h",  badge:"",  bonus:false, action:()=>router.push("/ruleta") },
-          { key:"icon-cofre-vip",        fallback:"💎", lbl:"VIP",     timer:"⏱ 8h",  badge:"",  bonus:false, action:()=>router.push("/tienda") },
-          { key:"icon-invitar",          fallback:"👥", lbl:"INVITAR", timer:"💎+100", badge:"5", bonus:true,
-            action:()=>{ if(navigator.share){ navigator.share({ title:"BingoBolla", text:"¡Juega conmigo en BingoBolla!", url:"https://bingobolla.com" }); } else { navigator.clipboard?.writeText("https://bingobolla.com"); } }
-          },
-        ].map(({ key, fallback, lbl, timer, badge, bonus, action }) => (
+        {RAIL.map(({ key, fallback, lbl, timer, badge, bonus, action }) => (
           <div key={key} onClick={action}
             style={{ width:64, textAlign:"center", position:"relative", cursor:"pointer" }}>
             <div style={{
-              width:60, height:60, margin:"0 auto", borderRadius:16,
+              width:58, height:58, margin:"0 auto", borderRadius:16,
               background:"rgba(15,8,40,.9)",
               border:"1.5px solid rgba(200,148,26,.5)",
               backdropFilter:"blur(10px)",
               display:"flex", alignItems:"center", justifyContent:"center",
-              boxShadow:"0 4px 14px rgba(0,0,0,.6)",
-              overflow:"hidden",
-              animation:"railPulse 2s ease-in-out infinite",
+              boxShadow:"0 4px 14px rgba(0,0,0,.6)", overflow:"hidden",
             }}>
               {assets[key]
-                ? <img src={assets[key]} alt={lbl}
-                    style={{ width:"122%", height:"122%", objectFit:"contain", transform:"scale(1.1)" }}/>
-                : <span style={{ fontSize:26 }}>{fallback}</span>
-              }
+                ? <img src={assets[key]} alt={lbl} style={{ width:"118%", height:"118%", objectFit:"contain" }}/>
+                : <span style={{ fontSize:26 }}>{fallback}</span>}
             </div>
             {badge && (
-              <div style={{
-                position:"absolute", top:-2, right:6,
+              <div style={{ position:"absolute", top:-2, right:8,
                 background:"#ff4d9a", color:"#fff", borderRadius:10,
                 fontSize:9, fontWeight:800, padding:"1px 5px",
-                border:"1.5px solid #fff", minWidth:16, textAlign:"center",
-              }}>{badge}</div>
+                border:"1.5px solid #fff", minWidth:16 }}>{badge}</div>
             )}
             <div style={{ marginTop:3, fontSize:9, fontWeight:700, color:"#fff",
-              textShadow:"0 1px 4px rgba(0,0,0,.8)" }}>{lbl}</div>
+              textShadow:"0 1px 4px rgba(0,0,0,.9)" }}>{lbl}</div>
             <div style={{ marginTop:1, fontSize:8, fontWeight:600,
               color: bonus ? "#a8e8ff" : "#ffd98a" }}>{timer}</div>
           </div>
@@ -192,109 +190,90 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       {/* Mapa scrollable */}
       <div ref={mapRef} style={{
         height:"100dvh", overflowY:"auto", overflowX:"hidden",
-        position:"relative", background:"#06010d",
+        background:"#06010d", position:"relative",
       }}>
-        {/* IMAGEN ÚNICA — cubre todo el alto del mapa */}
-        <div style={{
-          position:"absolute", top:0, left:0, right:0,
-          height:`${mapH}px`,
-          backgroundImage:`url(${MAP_IMG})`,
-          backgroundSize:"100% 100%",
-          backgroundRepeat:"no-repeat",
-          backgroundPosition:"top center",
-          zIndex:0,
-        }}/>
+        {/* Contenedor con la imagen real (mantiene proporción) */}
+        <div style={{ position:"relative", width:"100%" }}>
+          <img
+            ref={imgRef}
+            src={MAP_IMG}
+            alt="Miami Map"
+            onLoad={onImgLoad}
+            style={{ display:"block", width:"100%", height:"auto" }}
+          />
 
-        {/* Contenido del mapa */}
-        <div style={{ position:"relative", zIndex:2, height:`${mapH}px` }}>
-
-          {/* Nodos — encima de los anillos de la imagen */}
-          {nodes.map(node => {
+          {/* Nodos — posicionados con % sobre la imagen */}
+          {imgH > 0 && nodes.map(node => {
             const isBoss   = BOSS.has(node.node_index);
             const isActive = node.unlocked && !node.completed;
-            // Tamaño del nodo = ~8% del ancho (encaja dentro del anillo de la imagen)
-            const sz = isBoss ? 70 : 58;
+            const sz = isBoss ? 56 : 46;
 
             return (
               <div key={node.node_id} onClick={() => openGame(node)}
                 style={{
                   position:"absolute",
                   left:`${node.pos_x}%`,
-                  top:`${(node.pos_y/100)*mapH}px`,
+                  top:`${node.pos_y}%`,
                   transform:"translate(-50%,-50%)",
                   width:sz, height:sz,
                   borderRadius:"50%",
-                  // Fondo semitransparente — deja ver el anillo de la imagen debajo
                   background: !node.unlocked
-                    ? "rgba(0,0,0,.55)"
+                    ? "rgba(0,0,0,.45)"
                     : node.completed
-                      ? "rgba(20,80,40,.6)"
-                      : "rgba(80,20,160,.45)",
-                  border: isActive
-                    ? "none"  // sin borde — el anillo de la imagen ya es el borde
-                    : "none",
+                      ? "rgba(20,80,40,.4)"
+                      : "rgba(120,60,220,.35)",
                   boxShadow: isActive
-                    ? `0 0 ${isBoss?28:18}px rgba(200,148,26,.65)`
+                    ? `0 0 ${isBoss?26:18}px rgba(255,200,60,.7)`
                     : "none",
                   display:"flex", flexDirection:"column",
-                  alignItems:"center", justifyContent:"center", gap:1,
+                  alignItems:"center", justifyContent:"center", gap:0,
                   cursor: node.unlocked ? "pointer" : "default",
-                  animation: isActive ? "nodePulse 2s ease-in-out infinite" : "none",
+                  animation: isActive ? "nodePulse 1.8s ease-in-out infinite" : "none",
                   zIndex: isBoss ? 5 : 3,
                 }}>
-                <span style={{ fontSize: isBoss ? 22 : 18 }}>
+                <span style={{ fontSize: isBoss ? 18 : 15 }}>
                   {!node.unlocked ? "🔒" : node.completed ? "✅" : "🎮"}
                 </span>
-                <span style={{
-                  fontSize: 8, fontWeight:700, textAlign:"center",
-                  color: "rgba(255,255,255,.95)",
-                  maxWidth: sz-8, overflow:"hidden",
-                  whiteSpace:"nowrap", textOverflow:"ellipsis",
-                  textShadow:"0 1px 4px rgba(0,0,0,1)",
-                }}>{node.title}</span>
                 {node.completed && (
                   <div style={{ display:"flex", gap:1 }}>
                     {Array.from({length:node.max_stars}).map((_,i)=>(
-                      <span key={i} style={{ fontSize:7, opacity:i<node.stars?1:.2 }}>⭐</span>
+                      <span key={i} style={{ fontSize:6, opacity:i<node.stars?1:.2 }}>⭐</span>
                     ))}
                   </div>
                 )}
-                {/* Número de nivel */}
+                {/* Badge número */}
                 <span style={{
-                  position:"absolute", top:-9, right:-6,
+                  position:"absolute", top:-7, right:-5,
                   background: isBoss ? "linear-gradient(135deg,#C8941A,#ff8c00)" : "rgba(90,40,200,.95)",
-                  borderRadius:10, fontSize:9, fontWeight:800, color:"#fff",
-                  padding:"1px 6px", border:"1.5px solid rgba(255,255,255,.3)",
-                  boxShadow: isBoss ? "0 0 10px rgba(200,148,26,.6)" : "0 2px 6px rgba(0,0,0,.5)",
+                  borderRadius:9, fontSize:8, fontWeight:800, color:"#fff",
+                  padding:"1px 5px", border:"1.5px solid rgba(255,255,255,.3)",
                 }}>{node.node_index}</span>
               </div>
             );
           })}
 
           {/* Mascota sobre nodo activo */}
-          {(() => {
+          {imgH > 0 && (() => {
             const active = nodes.find(n => n.unlocked && !n.completed);
             if (!active) return null;
-            const top = (active.pos_y/100)*mapH;
             return mascot ? (
               <img src={mascot} alt="mascot" style={{
-                position:"absolute", left:`${active.pos_x}%`, top:`${top}px`,
-                transform:"translate(-50%,-160%)",
-                width:52, height:52, objectFit:"contain",
-                filter:"drop-shadow(0 4px 12px rgba(0,0,0,.8))",
+                position:"absolute", left:`${active.pos_x}%`, top:`${active.pos_y}%`,
+                transform:"translate(-50%,-165%)",
+                width:46, height:46, objectFit:"contain",
+                filter:"drop-shadow(0 4px 10px rgba(0,0,0,.8))",
                 animation:"mascotBob 2s ease-in-out infinite",
                 zIndex:8, pointerEvents:"none",
               }}/>) : (
               <div style={{
-                position:"absolute", left:`${active.pos_x}%`, top:`${top}px`,
-                transform:"translate(-50%,-160%)", fontSize:38,
+                position:"absolute", left:`${active.pos_x}%`, top:`${active.pos_y}%`,
+                transform:"translate(-50%,-165%)", fontSize:32,
                 animation:"mascotBob 2s ease-in-out infinite",
                 zIndex:8, pointerEvents:"none",
               }}>🟣</div>
             );
           })()}
         </div>
-        <div style={{ height:"10vh" }}/>
       </div>
 
       <style>{`
@@ -302,13 +281,9 @@ export default function WorldMap({ playerId }: { playerId: string }) {
           0%,100%{transform:translate(-50%,-50%) scale(1)}
           50%{transform:translate(-50%,-50%) scale(1.1)}
         }
-        @keyframes railPulse {
-          0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.6)}
-          50%{box-shadow:0 4px 20px rgba(200,148,26,.4)}
-        }
         @keyframes mascotBob {
-          0%,100%{transform:translate(-50%,-160%)}
-          50%{transform:translate(-50%,-175%)}
+          0%,100%{transform:translate(-50%,-165%)}
+          50%{transform:translate(-50%,-178%)}
         }
       `}</style>
     </>
