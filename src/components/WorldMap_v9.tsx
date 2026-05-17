@@ -16,7 +16,7 @@ const fmt = (n: number) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3
 const BOSS = new Set([5,10,15,20]);
 
 // Imagen única con los 20 anillos ya dibujados
-const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.PNG";
+const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.png";
 
 export default function WorldMap({ playerId }: { playerId: string }) {
   const sb = createClient();
