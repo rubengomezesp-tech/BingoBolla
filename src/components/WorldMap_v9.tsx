@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import GameOverlay, { GameType } from "@/components/GameOverlay";
 
@@ -27,6 +28,7 @@ const RAIL_ASSETS = [
 
 export default function WorldMap({ playerId }: { playerId: string }) {
   const sb = createClient();
+  const router = useRouter();
   const [nodes, setNodes]     = useState<WNode[]>([]);
   const [assets, setAssets]   = useState<Record<string,string>>({});
   const [xp, setXp]           = useState<XPData | null>(null);
@@ -142,25 +144,47 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         </div>
       </div>
 
-      {/* Rail lateral derecho — assets reales de Supabase */}
-      <div style={{ position:"fixed", right:8, top:"50%", transform:"translateY(-50%)",
-        zIndex:40, display:"flex", flexDirection:"column", gap:8 }}>
-        {RAIL_ASSETS.map(({ key, fallback, label }) => (
-          <div key={key} style={{
-            width:50, height:50, borderRadius:14,
-            background:"rgba(15,8,40,.88)",
-            border:"1.5px solid rgba(200,148,26,.45)",
-            backdropFilter:"blur(10px)",
-            display:"flex", flexDirection:"column",
-            alignItems:"center", justifyContent:"center", gap:1,
-            cursor:"pointer",
-            boxShadow:"0 4px 14px rgba(0,0,0,.55)",
-          }}>
-            {assets[key]
-              ? <img src={assets[key]} alt={label} style={{ width:30, height:30, objectFit:"contain" }}/>
-              : <span style={{ fontSize:22 }}>{fallback}</span>
-            }
-            <span style={{ fontSize:7, color:"rgba(210,190,255,.65)", fontWeight:700 }}>{label}</span>
+      {/* Rail lateral derecho — lógica original v8 con acciones reales */}
+      <div style={{ position:"fixed", left:8, top:"50%", transform:"translateY(-50%)",
+        zIndex:40, display:"flex", flexDirection:"column", gap:10 }}>
+        {[
+          { key:"icon-regalo-diario-v2", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h", badge:"3", bonus:false, action:()=>router.push("/regalo") },
+          { key:"icon-gira-gana",        fallback:"🎡", lbl:"RULETA",  timer:"⏱ 8h",  badge:"",  bonus:false, action:()=>router.push("/ruleta") },
+          { key:"icon-cofre-vip",        fallback:"💎", lbl:"VIP",     timer:"⏱ 8h",  badge:"",  bonus:false, action:()=>router.push("/tienda") },
+          { key:"icon-invitar",          fallback:"👥", lbl:"INVITAR", timer:"💎+100", badge:"5", bonus:true,
+            action:()=>{ if(navigator.share){ navigator.share({ title:"BingoBolla", text:"¡Juega conmigo en BingoBolla!", url:"https://bingobolla.com" }); } else { navigator.clipboard?.writeText("https://bingobolla.com"); } }
+          },
+        ].map(({ key, fallback, lbl, timer, badge, bonus, action }) => (
+          <div key={key} onClick={action}
+            style={{ width:64, textAlign:"center", position:"relative", cursor:"pointer" }}>
+            <div style={{
+              width:60, height:60, margin:"0 auto", borderRadius:16,
+              background:"rgba(15,8,40,.9)",
+              border:"1.5px solid rgba(200,148,26,.5)",
+              backdropFilter:"blur(10px)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              boxShadow:"0 4px 14px rgba(0,0,0,.6)",
+              overflow:"hidden",
+              animation:"railPulse 2s ease-in-out infinite",
+            }}>
+              {assets[key]
+                ? <img src={assets[key]} alt={lbl}
+                    style={{ width:"122%", height:"122%", objectFit:"contain", transform:"scale(1.1)" }}/>
+                : <span style={{ fontSize:26 }}>{fallback}</span>
+              }
+            </div>
+            {badge && (
+              <div style={{
+                position:"absolute", top:-2, right:6,
+                background:"#ff4d9a", color:"#fff", borderRadius:10,
+                fontSize:9, fontWeight:800, padding:"1px 5px",
+                border:"1.5px solid #fff", minWidth:16, textAlign:"center",
+              }}>{badge}</div>
+            )}
+            <div style={{ marginTop:3, fontSize:9, fontWeight:700, color:"#fff",
+              textShadow:"0 1px 4px rgba(0,0,0,.8)" }}>{lbl}</div>
+            <div style={{ marginTop:1, fontSize:8, fontWeight:600,
+              color: bonus ? "#a8e8ff" : "#ffd98a" }}>{timer}</div>
           </div>
         ))}
       </div>
@@ -277,6 +301,10 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         @keyframes nodePulse {
           0%,100%{transform:translate(-50%,-50%) scale(1)}
           50%{transform:translate(-50%,-50%) scale(1.1)}
+        }
+        @keyframes railPulse {
+          0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.6)}
+          50%{box-shadow:0 4px 20px rgba(200,148,26,.4)}
         }
         @keyframes mascotBob {
           0%,100%{transform:translate(-50%,-160%)}
