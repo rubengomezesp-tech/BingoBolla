@@ -88,11 +88,14 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const onPointerDown = (e: React.PointerEvent, nodeId: string) => {
     if (!editMode) return;
     e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDragId(nodeId);
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (e: React.PointerEvent, nodeId?: string) => {
     if (!editMode || !dragId || !imgWrapRef.current) return;
+    if (nodeId && nodeId !== dragId) return;
     const rect = imgWrapRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -127,7 +130,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const lockImg = assets["node-locked"];
 
   const RAIL = [
-    { key:"icon-regalo-diario-v2", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
+    { key:"icon-regalo-diario", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
     { key:"icon-gira-gana",        fallback:"🎡", lbl:"RULETA",  timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/ruleta") },
     { key:"icon-cofre-vip",        fallback:"💎", lbl:"VIP",     timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/tienda") },
     { key:"icon-invitar",          fallback:"👥", lbl:"INVITAR", timer:"💎+100", badge:"5", bonus:true,
@@ -268,6 +271,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
             return (
               <div key={node.node_id}
                 onPointerDown={(e) => onPointerDown(e, node.node_id)}
+                onPointerMove={(e) => onPointerMove(e, node.node_id)}
+                onPointerUp={onPointerUp}
                 onClick={() => openGame(node)}
                 style={{
                   position:"absolute",
