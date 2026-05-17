@@ -43,7 +43,6 @@ export default function WorldMap({
   mobileBgUrl,
   goldCoins = 0,
   sweepsCoins = 0,
-  diamonds = 0,
   level = 1,
   progressPct = 0,
   xpIntoLevel = 0,
@@ -55,7 +54,6 @@ export default function WorldMap({
   mobileBgUrl?: string;
   goldCoins?: number;
   sweepsCoins?: number;
-  diamonds?: number;
   level?: number;
   progressPct?: number;
   xpIntoLevel?: number;
@@ -149,11 +147,6 @@ export default function WorldMap({
           <div className="wm-res">
             <div className="wm-ic wm-ic-ticket">🎟️</div>
             <div className="wm-val">{Number(sweepsCoins).toFixed(2)}</div>
-            <div className="wm-add">+</div>
-          </div>
-          <div className="wm-res">
-            <div className="wm-ic wm-ic-gem">💎</div>
-            <div className="wm-val">{fmt(diamonds)}</div>
             <div className="wm-add">+</div>
           </div>
         </div>
@@ -339,7 +332,6 @@ const WM_CSS = `
   align-items:center;justify-content:center;font-size:15px;}
 .wm-ic-coin{background:radial-gradient(circle at 35% 30%,#ffe48a,#e0901a 70%,#9c5e0a);}
 .wm-ic-ticket{background:radial-gradient(circle at 35% 30%,#ffb0d8,#e0408a 70%,#a01e5c);}
-.wm-ic-gem{background:radial-gradient(circle at 35% 30%,#a8e8ff,#3aa8e0 70%,#1a6a9c);}
 .wm-val{font-weight:700;font-size:13px;line-height:1;white-space:nowrap;}
 .wm-add{width:20px;height:20px;border-radius:50%;flex:0 0 auto;
   background:radial-gradient(circle at 35% 30%,#7dffb0,#3ddc78 60%,#1f9a4f);
