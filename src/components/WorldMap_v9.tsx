@@ -14,9 +14,10 @@ type XPData = { level: number; xp_into_level: number; xp_needed_level: number; p
 
 const fmt = (n: number) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
 const BOSS = new Set([5,10,15,20]);
-
-// Imagen única con los 20 anillos ya dibujados
 const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.png";
+
+// Email admin — solo este usuario ve el editor drag-and-drop
+const ADMIN_EMAIL = "rubengomezesp@gmail.com";
 
 export default function WorldMap({ playerId }: { playerId: string }) {
   const sb = createClient();
@@ -27,18 +28,22 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const [prof, setProf]       = useState<{gold_coins:number;sweeps_coins:number}|null>(null);
   const [game, setGame]       = useState<{game:GameType;nodeId:string;level:number}|null>(null);
   const [loading, setLoading] = useState(true);
-  const [imgH, setImgH]       = useState(0);   // alto real de la imagen renderizada
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [dragId, setDragId]   = useState<string|null>(null);
+  const [dirty, setDirty]     = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const imgWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
       const safe = async (p: any) => { try { return await Promise.resolve(p); } catch { return { data: null }; } };
-      const [nr, ar, xr, pr] = await Promise.all([
+      const [nr, ar, xr, pr, ur] = await Promise.all([
         safe(sb.from("world_nodes").select("*").order("node_index")),
         safe(sb.rpc("get_world_assets")),
         safe(sb.rpc("get_player_xp", { p_player_id: playerId })),
         safe(sb.from("profiles").select("gold_coins,sweeps_coins").eq("id", playerId).single()),
+        safe(sb.auth.getUser()),
       ]);
       if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data);
       if (Array.isArray(ar?.data)) {
@@ -48,34 +53,21 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       }
       if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
       if (pr?.data) setProf(pr.data);
+      // Detectar admin
+      const email = ur?.data?.user?.email;
+      if (email === ADMIN_EMAIL) setIsAdmin(true);
       setLoading(false);
     }
     load();
   }, [playerId]);
 
-  // Cuando la imagen carga, medir su alto real y hacer scroll al nodo activo
-  const onImgLoad = useCallback(() => {
-    if (imgRef.current) {
-      const h = imgRef.current.offsetHeight;
-      setImgH(h);
-      setTimeout(() => {
-        const active = nodes.find(n => n.unlocked && !n.completed);
-        if (active && mapRef.current) {
-          mapRef.current.scrollTo({
-            top: (active.pos_y/100)*h - window.innerHeight*0.5,
-            behavior: "smooth",
-          });
-        }
-      }, 400);
-    }
-  }, [nodes]);
-
   const openGame = useCallback((n: WNode) => {
+    if (editMode) return; // en modo editor no se abren juegos
     if (!n.unlocked) return;
     const g = n.target_ref as GameType;
     if (g !== "ballmatch" && g !== "neural_cascade") return;
     setGame({ game:g, nodeId:n.node_id, level:n.node_index });
-  }, []);
+  }, [editMode]);
 
   const handleDone = useCallback(async (r: {win:boolean;stars:number;xp:number}) => {
     if (r.win) {
@@ -92,6 +84,38 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     setGame(null);
   }, [playerId]);
 
+  // === DRAG & DROP (modo editor admin) ===
+  const onPointerDown = (e: React.PointerEvent, nodeId: string) => {
+    if (!editMode) return;
+    e.preventDefault();
+    setDragId(nodeId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!editMode || !dragId || !imgWrapRef.current) return;
+    const rect = imgWrapRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setNodes(prev => prev.map(n =>
+      n.node_id === dragId
+        ? { ...n, pos_x: Math.max(0, Math.min(100, +x.toFixed(2))), pos_y: Math.max(0, Math.min(100, +y.toFixed(2))) }
+        : n
+    ));
+    setDirty(true);
+  };
+
+  const onPointerUp = () => setDragId(null);
+
+  const saveCoords = async () => {
+    for (const n of nodes) {
+      await sb.from("world_nodes")
+        .update({ pos_x: n.pos_x, pos_y: n.pos_y })
+        .eq("node_id", n.node_id);
+    }
+    setDirty(false);
+    alert("✅ Coordenadas guardadas en la BD");
+  };
+
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
       height:"100dvh", background:"#06010d", color:"rgba(200,200,255,.5)" }}>
@@ -100,8 +124,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   );
 
   const mascot = assets["mascot-global"];
+  const lockImg = assets["node-locked"];
 
-  // Rail con acciones reales
   const RAIL = [
     { key:"icon-regalo-diario-v2", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
     { key:"icon-gira-gana",        fallback:"🎡", lbl:"RULETA",  timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/ruleta") },
@@ -155,7 +179,40 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         </div>
       </div>
 
-      {/* Rail lateral izquierdo — assets reales + acciones */}
+      {/* Botón modo editor — SOLO admin */}
+      {isAdmin && (
+        <div style={{ position:"fixed", top:"calc(env(safe-area-inset-top,10px) + 56px)",
+          right:14, zIndex:60, display:"flex", gap:6 }}>
+          <button onClick={() => setEditMode(!editMode)}
+            style={{ padding:"6px 12px", borderRadius:10,
+              background: editMode ? "#ff4d9a" : "rgba(120,80,220,.9)",
+              color:"#fff", border:"1.5px solid rgba(255,255,255,.3)",
+              fontSize:11, fontWeight:700, cursor:"pointer" }}>
+            {editMode ? "✏️ EDITANDO" : "🔧 Editar nodos"}
+          </button>
+          {editMode && dirty && (
+            <button onClick={saveCoords}
+              style={{ padding:"6px 12px", borderRadius:10,
+                background:"#3ddc78", color:"#003318",
+                border:"1.5px solid rgba(255,255,255,.3)",
+                fontSize:11, fontWeight:800, cursor:"pointer" }}>
+              💾 Guardar
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Aviso modo editor */}
+      {editMode && (
+        <div style={{ position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
+          zIndex:60, background:"rgba(255,77,154,.95)", color:"#fff",
+          padding:"8px 16px", borderRadius:20, fontSize:12, fontWeight:700,
+          boxShadow:"0 4px 16px rgba(0,0,0,.5)" }}>
+          Arrastra cada nodo sobre su anillo → pulsa Guardar
+        </div>
+      )}
+
+      {/* Rail lateral izquierdo */}
       <div style={{ position:"fixed", left:8, top:"50%", transform:"translateY(-50%)",
         zIndex:40, display:"flex", flexDirection:"column", gap:10 }}>
         {RAIL.map(({ key, fallback, lbl, timer, badge, bonus, action }) => (
@@ -189,27 +246,29 @@ export default function WorldMap({ playerId }: { playerId: string }) {
 
       {/* Mapa scrollable */}
       <div ref={mapRef} style={{
-        height:"100dvh", overflowY:"auto", overflowX:"hidden",
+        height:"100dvh", overflowY: editMode ? "hidden" : "auto", overflowX:"hidden",
         background:"#06010d", position:"relative",
-      }}>
-        {/* Contenedor con la imagen real (mantiene proporción) */}
-        <div style={{ position:"relative", width:"100%" }}>
-          <img
-            ref={imgRef}
-            src={MAP_IMG}
-            alt="Miami Map"
-            onLoad={onImgLoad}
-            style={{ display:"block", width:"100%", height:"auto" }}
-          />
+        touchAction: editMode ? "none" : "auto",
+      }}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        <div ref={imgWrapRef} style={{ position:"relative", width:"100%" }}>
+          <img src={MAP_IMG} alt="Miami Map" draggable={false}
+            style={{ display:"block", width:"100%", height:"auto" }}/>
 
-          {/* Nodos — posicionados con % sobre la imagen */}
-          {imgH > 0 && nodes.map(node => {
+          {/* Nodos */}
+          {nodes.map(node => {
             const isBoss   = BOSS.has(node.node_index);
             const isActive = node.unlocked && !node.completed;
-            const sz = isBoss ? 56 : 46;
+            const sz = isBoss ? 54 : 44;
+            const isDragging = dragId === node.node_id;
 
             return (
-              <div key={node.node_id} onClick={() => openGame(node)}
+              <div key={node.node_id}
+                onPointerDown={(e) => onPointerDown(e, node.node_id)}
+                onClick={() => openGame(node)}
                 style={{
                   position:"absolute",
                   left:`${node.pos_x}%`,
@@ -217,34 +276,46 @@ export default function WorldMap({ playerId }: { playerId: string }) {
                   transform:"translate(-50%,-50%)",
                   width:sz, height:sz,
                   borderRadius:"50%",
-                  background: !node.unlocked
-                    ? "rgba(0,0,0,.45)"
-                    : node.completed
-                      ? "rgba(20,80,40,.4)"
-                      : "rgba(120,60,220,.35)",
-                  boxShadow: isActive
-                    ? `0 0 ${isBoss?26:18}px rgba(255,200,60,.7)`
-                    : "none",
+                  background: editMode
+                    ? "rgba(255,77,154,.5)"
+                    : !node.unlocked
+                      ? "rgba(0,0,0,.4)"
+                      : node.completed
+                        ? "rgba(20,80,40,.35)"
+                        : "rgba(120,60,220,.3)",
+                  border: editMode ? "2px dashed #fff" : "none",
+                  boxShadow: isDragging
+                    ? "0 0 20px #fff"
+                    : isActive
+                      ? `0 0 ${isBoss?24:16}px rgba(255,200,60,.7)`
+                      : "none",
                   display:"flex", flexDirection:"column",
-                  alignItems:"center", justifyContent:"center", gap:0,
-                  cursor: node.unlocked ? "pointer" : "default",
-                  animation: isActive ? "nodePulse 1.8s ease-in-out infinite" : "none",
-                  zIndex: isBoss ? 5 : 3,
+                  alignItems:"center", justifyContent:"center",
+                  cursor: editMode ? "grab" : node.unlocked ? "pointer" : "default",
+                  animation: (isActive && !editMode) ? "nodePulse 1.8s ease-in-out infinite" : "none",
+                  zIndex: isDragging ? 20 : isBoss ? 5 : 3,
+                  touchAction:"none",
                 }}>
-                <span style={{ fontSize: isBoss ? 18 : 15 }}>
-                  {!node.unlocked ? "🔒" : node.completed ? "✅" : "🎮"}
-                </span>
-                {node.completed && (
+                {/* Icono según estado */}
+                {!node.unlocked ? (
+                  lockImg
+                    ? <img src={lockImg} alt="locked" style={{ width:sz*0.55, height:sz*0.55, objectFit:"contain" }}/>
+                    : <span style={{ fontSize: isBoss ? 18 : 15 }}>🔒</span>
+                ) : node.completed ? (
+                  <span style={{ fontSize: isBoss ? 18 : 15 }}>✅</span>
+                ) : (
+                  <span style={{ fontSize: isBoss ? 18 : 15 }}>🎮</span>
+                )}
+                {node.completed && !editMode && (
                   <div style={{ display:"flex", gap:1 }}>
                     {Array.from({length:node.max_stars}).map((_,i)=>(
                       <span key={i} style={{ fontSize:6, opacity:i<node.stars?1:.2 }}>⭐</span>
                     ))}
                   </div>
                 )}
-                {/* Badge número */}
                 <span style={{
                   position:"absolute", top:-7, right:-5,
-                  background: isBoss ? "linear-gradient(135deg,#C8941A,#ff8c00)" : "rgba(90,40,200,.95)",
+                  background: editMode ? "#ff4d9a" : isBoss ? "linear-gradient(135deg,#C8941A,#ff8c00)" : "rgba(90,40,200,.95)",
                   borderRadius:9, fontSize:8, fontWeight:800, color:"#fff",
                   padding:"1px 5px", border:"1.5px solid rgba(255,255,255,.3)",
                 }}>{node.node_index}</span>
@@ -252,8 +323,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
             );
           })}
 
-          {/* Mascota sobre nodo activo */}
-          {imgH > 0 && (() => {
+          {/* Mascota */}
+          {!editMode && (() => {
             const active = nodes.find(n => n.unlocked && !n.completed);
             if (!active) return null;
             return mascot ? (
@@ -264,14 +335,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
                 filter:"drop-shadow(0 4px 10px rgba(0,0,0,.8))",
                 animation:"mascotBob 2s ease-in-out infinite",
                 zIndex:8, pointerEvents:"none",
-              }}/>) : (
-              <div style={{
-                position:"absolute", left:`${active.pos_x}%`, top:`${active.pos_y}%`,
-                transform:"translate(-50%,-165%)", fontSize:32,
-                animation:"mascotBob 2s ease-in-out infinite",
-                zIndex:8, pointerEvents:"none",
-              }}>🟣</div>
-            );
+              }}/>) : null;
           })()}
         </div>
       </div>
