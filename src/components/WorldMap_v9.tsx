@@ -128,32 +128,92 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         </div>
       </div>
 
+      {/* Rail lateral derecho — assets del juego (fixed) */}
+      <div style={{
+        position:"fixed", right:10,
+        top:"50%", transform:"translateY(-50%)",
+        zIndex:30, display:"flex", flexDirection:"column", gap:10,
+      }}>
+        {[
+          { key:"icon-regalo-diario-v2", emoji:"🎁", label:"Regalo" },
+          { key:"icon-gira-gana",        emoji:"🎡", label:"Ruleta" },
+          { key:"icon-cofre-vip",        emoji:"💎", label:"VIP" },
+          { key:"icon-invitar",          emoji:"👥", label:"Invitar" },
+        ].map(({ key, emoji, label }) => (
+          <div key={key} style={{
+            width:48, height:48, borderRadius:14,
+            background:"rgba(20,10,50,.85)",
+            border:"1.5px solid rgba(120,80,220,.5)",
+            backdropFilter:"blur(8px)",
+            display:"flex", flexDirection:"column",
+            alignItems:"center", justifyContent:"center", gap:1,
+            cursor:"pointer", boxShadow:"0 4px 12px rgba(0,0,0,.5)",
+          }}>
+            {assets[key]
+              ? <img src={assets[key]} alt={label} style={{ width:28, height:28, objectFit:"contain" }}/>
+              : <span style={{ fontSize:20 }}>{emoji}</span>
+            }
+            <span style={{ fontSize:7, color:"rgba(200,200,255,.6)", fontWeight:600 }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Rail lateral derecho — assets del juego (fixed) */}
+      <div style={{
+        position:"fixed", right:10,
+        top:"50%", transform:"translateY(-50%)",
+        zIndex:30, display:"flex", flexDirection:"column", gap:10,
+      }}>
+        {[
+          { key:"icon-regalo-diario-v2", emoji:"🎁", label:"Regalo" },
+          { key:"icon-gira-gana",        emoji:"🎡", label:"Ruleta" },
+          { key:"icon-cofre-vip",        emoji:"💎", label:"VIP" },
+          { key:"icon-invitar",          emoji:"👥", label:"Invitar" },
+        ].map(({ key, emoji, label }) => (
+          <div key={key} style={{
+            width:48, height:48, borderRadius:14,
+            background:"rgba(20,10,50,.85)",
+            border:"1.5px solid rgba(120,80,220,.5)",
+            backdropFilter:"blur(8px)",
+            display:"flex", flexDirection:"column",
+            alignItems:"center", justifyContent:"center", gap:1,
+            cursor:"pointer", boxShadow:"0 4px 12px rgba(0,0,0,.5)",
+          }}>
+            {assets[key]
+              ? <img src={assets[key]} alt={label} style={{ width:28, height:28, objectFit:"contain" }}/>
+              : <span style={{ fontSize:20 }}>{emoji}</span>
+            }
+            <span style={{ fontSize:7, color:"rgba(200,200,255,.6)", fontWeight:600 }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
       {/* Mapa scrollable */}
       <div ref={mapRef} style={{
         height:"100dvh", overflowY:"auto", overflowX:"hidden",
         position:"relative", background:"#06010d",
       }}>
-        {/* Fondo: IMG_TOP arriba (nodos 11-20) + IMG_BOT abajo (nodos 1-10) */}
-        <div style={{ position:"absolute", inset:0, zIndex:0, pointerEvents:"none" }}>
-          {/* South Beach — mitad superior */}
+        {/* Fondo: altura explícita = mapH para cubrir todo el scroll */}
+        <div style={{ position:"absolute", top:0, left:0, right:0, height:`${mapH}px`, zIndex:0, pointerEvents:"none" }}>
+          {/* South Beach — mitad superior (nodos 11-20) */}
           <div style={{
             position:"absolute", top:0, left:0, right:0, height:"50%",
             backgroundImage:`url(${IMG_TOP})`,
             backgroundSize:"cover", backgroundPosition:"center top",
           }}/>
-          {/* Miami Beach — mitad inferior */}
+          {/* Miami Beach — mitad inferior (nodos 1-10) */}
           <div style={{
             position:"absolute", top:"50%", left:0, right:0, height:"50%",
             backgroundImage:`url(${IMG_BOT})`,
             backgroundSize:"cover", backgroundPosition:"center bottom",
           }}/>
-          {/* Fade suave en la unión */}
+          {/* Fade en la unión */}
           <div style={{
             position:"absolute", top:"46%", left:0, right:0, height:"8%",
-            background:"linear-gradient(180deg,transparent,rgba(6,1,13,.5),transparent)",
+            background:"linear-gradient(180deg,transparent,rgba(6,1,13,.55),transparent)",
           }}/>
-          {/* Oscurecer ligeramente para que los nodos destaquen */}
-          <div style={{ position:"absolute", inset:0, background:"rgba(6,1,13,.3)" }}/>
+          {/* Overlay oscuro suave */}
+          <div style={{ position:"absolute", inset:0, background:"rgba(6,1,13,.28)" }}/>
         </div>
 
         {/* Contenido del mapa */}
