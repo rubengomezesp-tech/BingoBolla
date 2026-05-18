@@ -11,13 +11,35 @@ type WNode = {
   completed: boolean; stars: number; unlocked: boolean;
 };
 type XPData = { level: number; xp_into_level: number; xp_needed_level: number; progress_pct: number; };
+type ProfileData = { gold_coins: number; sweeps_coins: number; diamonds?: number; };
+type JackpotRoom = { jackpot_gold?: number; jackpot_sweeps?: number; };
 
 const fmt = (n: number) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
 const BOSS = new Set([5,10,15,20]);
+const WORLD_ID = "miami_nights";
 const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.png";
+const MAX_ENERGY = 5;
+const WORLD_NAME = "Miami Nights";
 
 // Email admin — solo este usuario ve el editor drag-and-drop
 const ADMIN_EMAIL = "rubengomezesp@gmail.com";
+
+function normalizeNode(raw: Partial<WNode> & { id?: string }): WNode {
+  const index = Number(raw.node_index ?? 0);
+  return {
+    node_id: String(raw.node_id ?? raw.id ?? index),
+    node_index: index,
+    node_type: raw.node_type ?? "minigame",
+    title: raw.title ?? `Nivel ${index}`,
+    pos_x: Number(raw.pos_x ?? 50),
+    pos_y: Number(raw.pos_y ?? 50),
+    target_ref: raw.target_ref ?? null,
+    max_stars: Number(raw.max_stars ?? 3),
+    completed: Boolean(raw.completed),
+    stars: Number(raw.stars ?? 0),
+    unlocked: index === 1 || Boolean(raw.unlocked),
+  };
+}
 
 export default function WorldMap({ playerId }: { playerId: string }) {
   const sb = createClient();
@@ -25,7 +47,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const [nodes, setNodes]     = useState<WNode[]>([]);
   const [assets, setAssets]   = useState<Record<string,string>>({});
   const [xp, setXp]           = useState<XPData | null>(null);
-  const [prof, setProf]       = useState<{gold_coins:number;sweeps_coins:number}|null>(null);
+  const [prof, setProf]       = useState<ProfileData | null>(null);
+  const [jackpotGold, setJackpotGold] = useState(23450000);
   const [game, setGame]       = useState<{game:GameType;nodeId:string;level:number}|null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -38,14 +61,15 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   useEffect(() => {
     async function load() {
       const safe = async (p: any) => { try { return await Promise.resolve(p); } catch { return { data: null }; } };
-      const [nr, ar, xr, pr, ur] = await Promise.all([
-        safe(sb.from("world_nodes").select("*").order("node_index")),
+      const [nr, ar, xr, pr, jr, ur] = await Promise.all([
+        safe(sb.rpc("get_world_map", { p_world_id: WORLD_ID })),
         safe(sb.rpc("get_world_assets")),
         safe(sb.rpc("get_player_xp", { p_player_id: playerId })),
-        safe(sb.from("profiles").select("gold_coins,sweeps_coins").eq("id", playerId).single()),
+        safe(sb.from("profiles").select("gold_coins,sweeps_coins,diamonds").eq("id", playerId).single()),
+        safe(sb.rpc("room_jackpots")),
         safe(sb.auth.getUser()),
       ]);
-      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data);
+      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data.map(normalizeNode));
       if (Array.isArray(ar?.data)) {
         const m: Record<string,string> = {};
         for (const a of ar.data) m[a.asset_key] = a.url;
@@ -53,6 +77,10 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       }
       if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
       if (pr?.data) setProf(pr.data);
+      if (Array.isArray(jr?.data)) {
+        const total = (jr.data as JackpotRoom[]).reduce((sum, room) => sum + Number(room.jackpot_gold ?? 0), 0);
+        if (total > 0) setJackpotGold(total);
+      }
       // Detectar admin
       const email = ur?.data?.user?.email;
       if (email === ADMIN_EMAIL) setIsAdmin(true);
@@ -64,8 +92,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const openGame = useCallback((n: WNode) => {
     if (editMode) return; // en modo editor no se abren juegos
     if (!n.unlocked) return;
-    const g = n.target_ref as GameType;
-    if (g !== "ballmatch" && g !== "neural_cascade") return;
+    const g: GameType = n.target_ref === "neural_cascade" ? "neural_cascade" : "ballmatch";
     setGame({ game:g, nodeId:n.node_id, level:n.node_index });
   }, [editMode]);
 
@@ -73,11 +100,11 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     if (r.win) {
       const safe = async (p: any) => { try { return await Promise.resolve(p); } catch { return { data: null }; } };
       const [nr, xr, pr] = await Promise.all([
-        safe(sb.from("world_nodes").select("*").order("node_index")),
+        safe(sb.rpc("get_world_map", { p_world_id: WORLD_ID })),
         safe(sb.rpc("get_player_xp", { p_player_id: playerId })),
-        safe(sb.from("profiles").select("gold_coins,sweeps_coins").eq("id", playerId).single()),
+        safe(sb.from("profiles").select("gold_coins,sweeps_coins,diamonds").eq("id", playerId).single()),
       ]);
-      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data);
+      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data.map(normalizeNode));
       if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
       if (pr?.data) setProf(pr.data);
     }
@@ -113,7 +140,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     for (const n of nodes) {
       await sb.from("world_nodes")
         .update({ pos_x: n.pos_x, pos_y: n.pos_y })
-        .eq("node_id", n.node_id);
+        .eq("id", n.node_id);
     }
     setDirty(false);
     alert("✅ Coordenadas guardadas en la BD");
@@ -130,13 +157,19 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const lockImg = assets["node-locked"];
 
   const RAIL = [
-    { key:"icon-regalo-diario", fallback:"🎁", lbl:"REGALO",  timer:"⏱ 23h",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
-    { key:"icon-gira-gana",        fallback:"🎡", lbl:"RULETA",  timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/ruleta") },
-    { key:"icon-cofre-vip",        fallback:"💎", lbl:"VIP",     timer:"⏱ 8h",   badge:"",  bonus:false, action:()=>router.push("/tienda") },
-    { key:"icon-invitar",          fallback:"👥", lbl:"INVITAR", timer:"💎+100", badge:"5", bonus:true,
-      action:()=>{ if(navigator.share){ navigator.share({ title:"BingoBolla", text:"¡Juega conmigo!", url:"https://bingobolla.com" }).catch(()=>{}); } else { navigator.clipboard?.writeText("https://bingobolla.com"); } }
+    { key:"icon-regalo-diario", fallback:"🎁", lbl:"REGALO DIARIO",  timer:"⏱ 23h 48m",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
+    { key:"icon-gira-gana",        fallback:"🎡", lbl:"¡GIRA Y GANA!",  timer:"⏱ 23h 48m",   badge:"",  bonus:false, action:()=>router.push("/ruleta") },
+    { key:"icon-cofre-vip",        fallback:"💎", lbl:"COFRE VIP",     timer:"⏱ 8h 12m",   badge:"",  bonus:false, action:()=>router.push("/vip") },
+    { key:"icon-invitar",          fallback:"👥", lbl:"INVITAR AMIGOS", timer:"⭐ +100 💎", badge:"5", bonus:true,
+      action:()=>router.push("/invitar")
     },
   ];
+  const activeNode = nodes.find(n => n.unlocked && !n.completed) || nodes.find(n => n.unlocked) || null;
+  const completedCount = nodes.filter(n => n.completed).length;
+  const totalNodes = nodes.length || 20;
+  const energy = MAX_ENERGY;
+  const tickets = 12;
+  const diamonds = prof?.diamonds ?? Math.floor(Number(prof?.sweeps_coins ?? 0));
 
   return (
     <>
@@ -146,40 +179,56 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         onClose={() => setGame(null)} onComplete={handleDone}
       />
 
-      {/* HUD fijo */}
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:50,
-        background:"linear-gradient(180deg,rgba(6,1,13,.92),transparent)",
-        padding:"env(safe-area-inset-top,10px) 14px 12px",
-        display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ position:"relative", width:42, height:42 }}>
-            <svg width="42" height="42" style={{ transform:"rotate(-90deg)" }}>
-              <circle cx="21" cy="21" r="17" fill="none" stroke="rgba(120,80,220,.3)" strokeWidth="3"/>
-              <circle cx="21" cy="21" r="17" fill="none" stroke="#C8941A" strokeWidth="3"
-                strokeDasharray={`${2*Math.PI*17}`}
-                strokeDashoffset={`${2*Math.PI*17*(1-(xp?.progress_pct??0)/100)}`}
-                strokeLinecap="round"/>
-            </svg>
-            <span style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-              justifyContent:"center", fontSize:11, fontWeight:700, color:"#C8941A" }}>
-              {xp?.level??1}
-            </span>
-          </div>
-          <div style={{ fontSize:11, color:"rgba(200,200,255,.7)" }}>
-            <div style={{ fontWeight:700, color:"#C8941A", fontSize:12 }}>NV {xp?.level??1}</div>
-            <div style={{ fontSize:9 }}>{fmt(xp?.xp_into_level??0)}/{fmt(xp?.xp_needed_level??100)} XP</div>
-          </div>
+      <style>{WORLD_UI_CSS}</style>
+
+      {/* HUD superior estilo juego */}
+      <div className="wm-topHud">
+        <button className="wm-avatarPro" onClick={() => router.push("/account")} aria-label="Cuenta">
+          <div className="wm-avatarFace">{assets["avatar-global"] ? <img src={assets["avatar-global"]} alt="" /> : "BB"}</div>
+          <div className="wm-levelStar">{xp?.level ?? 1}</div>
+        </button>
+
+        <div className="wm-resourceRail">
+          <button className="wm-resource" onClick={() => router.push("/store")}>
+            <span className="wm-resIcon coin">🪙</span>
+            <span className="wm-resValue">{fmt(prof?.gold_coins ?? 0)}</span>
+            <span className="wm-plus">+</span>
+          </button>
+          <button className="wm-resource energy" onClick={() => router.push("/store")}>
+            <span className="wm-resIcon bolt">⚡</span>
+            <span className="wm-resValue">{energy}/{MAX_ENERGY}</span>
+            <span className="wm-resSub">LLENO</span>
+            <span className="wm-plus">+</span>
+          </button>
+          <button className="wm-resource" onClick={() => router.push("/store")}>
+            <span className="wm-resIcon ticket">🎟️</span>
+            <span className="wm-resValue">{tickets}</span>
+            <span className="wm-plus">+</span>
+          </button>
+          <button className="wm-resource" onClick={() => router.push("/store")}>
+            <span className="wm-resIcon gem">💎</span>
+            <span className="wm-resValue">{fmt(diamonds)}</span>
+            <span className="wm-plus">+</span>
+          </button>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
-          {[{icon:"🪙",v:prof?.gold_coins??0},{icon:"💎",v:prof?.sweeps_coins??0}].map(({icon,v},i)=>(
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:4,
-              background:"rgba(255,255,255,.07)", borderRadius:20, padding:"4px 10px",
-              border:"1px solid rgba(255,255,255,.1)" }}>
-              <span style={{ fontSize:14 }}>{icon}</span>
-              <span style={{ fontSize:12, fontWeight:700 }}>{fmt(v)}</span>
-            </div>
-          ))}
-        </div>
+
+        <button className="wm-menuPro" onClick={() => router.push("/account")} aria-label="Menu">
+          <span />
+          <span />
+          <span />
+          <b>1</b>
+        </button>
+      </div>
+
+      <div className="wm-titleCard">
+        <div className="wm-neonTitle">{WORLD_NAME}<span>🌴</span></div>
+        <div className="wm-completed"><b>★</b> {completedCount}/{totalNodes} completados</div>
+      </div>
+
+      <div className="wm-jackpotPro">
+        <div className="wm-jackpotTitle">JACKPOT</div>
+        <div className="wm-jackpotAmount">🪙 {fmt(jackpotGold)}</div>
+        <div className="wm-jackpotTimer">23h 48m</div>
       </div>
 
       {/* Botón modo editor — SOLO admin */}
@@ -216,33 +265,20 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       )}
 
       {/* Rail lateral izquierdo */}
-      <div style={{ position:"fixed", left:8, top:"50%", transform:"translateY(-50%)",
-        zIndex:40, display:"flex", flexDirection:"column", gap:10 }}>
+      <div className="wm-sideRail">
         {RAIL.map(({ key, fallback, lbl, timer, badge, bonus, action }) => (
           <div key={key} onClick={action}
-            style={{ width:64, textAlign:"center", position:"relative", cursor:"pointer" }}>
-            <div style={{
-              width:58, height:58, margin:"0 auto", borderRadius:16,
-              background:"rgba(15,8,40,.9)",
-              border:"1.5px solid rgba(200,148,26,.5)",
-              backdropFilter:"blur(10px)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              boxShadow:"0 4px 14px rgba(0,0,0,.6)", overflow:"hidden",
-            }}>
+            className="wm-sideRailBtn">
+            <div className="wm-sideRailIcon">
               {assets[key]
-                ? <img src={assets[key]} alt={lbl} style={{ width:"118%", height:"118%", objectFit:"contain" }}/>
-                : <span style={{ fontSize:26 }}>{fallback}</span>}
+                ? <img src={assets[key]} alt={lbl}/>
+                : <span>{fallback}</span>}
             </div>
             {badge && (
-              <div style={{ position:"absolute", top:-2, right:8,
-                background:"#ff4d9a", color:"#fff", borderRadius:10,
-                fontSize:9, fontWeight:800, padding:"1px 5px",
-                border:"1.5px solid #fff", minWidth:16 }}>{badge}</div>
+              <div className="wm-sideBadge">{badge}</div>
             )}
-            <div style={{ marginTop:3, fontSize:9, fontWeight:700, color:"#fff",
-              textShadow:"0 1px 4px rgba(0,0,0,.9)" }}>{lbl}</div>
-            <div style={{ marginTop:1, fontSize:8, fontWeight:600,
-              color: bonus ? "#a8e8ff" : "#ffd98a" }}>{timer}</div>
+            <div className="wm-sideLabel">{lbl}</div>
+            <div className={`wm-sideTimer${bonus ? " bonus" : ""}`}>{timer}</div>
           </div>
         ))}
       </div>
@@ -330,11 +366,10 @@ export default function WorldMap({ playerId }: { playerId: string }) {
 
           {/* Mascota */}
           {!editMode && (() => {
-            const active = nodes.find(n => n.unlocked && !n.completed);
-            if (!active) return null;
+            if (!activeNode) return null;
             return mascot ? (
               <img src={mascot} alt="mascot" style={{
-                position:"absolute", left:`${active.pos_x}%`, top:`${active.pos_y}%`,
+                position:"absolute", left:`${activeNode.pos_x}%`, top:`${activeNode.pos_y}%`,
                 transform:"translate(-50%,-165%)",
                 width:46, height:46, objectFit:"contain",
                 filter:"drop-shadow(0 4px 10px rgba(0,0,0,.8))",
@@ -344,6 +379,31 @@ export default function WorldMap({ playerId }: { playerId: string }) {
           })()}
         </div>
       </div>
+
+      {!editMode && (
+        <>
+          <button
+            className="wm-playCta"
+            onClick={() => activeNode && openGame(activeNode)}
+            disabled={!activeNode}
+          >
+            <span>JUGAR</span>
+            <b>8</b>
+          </button>
+
+          <div className="wm-dailyStreak">
+            <div className="wm-dailyTitle">RACHA DIARIA</div>
+            <div className="wm-dailyDots">
+              <i className="done">✓</i>
+              <i className="done">✓</i>
+              <i className="now">3</i>
+              <i />
+              <strong>🎁</strong>
+            </div>
+            <div className="wm-dailyDay">Día 3 de 7</div>
+          </div>
+        </>
+      )}
 
       <style>{`
         @keyframes nodePulse {
@@ -358,3 +418,181 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     </>
   );
 }
+
+const WORLD_UI_CSS = `
+.wm-topHud{
+  position:fixed;top:0;left:0;right:0;z-index:70;
+  display:grid;grid-template-columns:64px minmax(0,1fr) 54px;align-items:center;gap:10px;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 12px;
+  background:linear-gradient(180deg,rgba(4,1,14,.82),rgba(4,1,14,.28) 68%,transparent);
+  pointer-events:auto;
+}
+.wm-avatarPro{
+  position:relative;width:58px;height:58px;border:0;border-radius:50%;padding:3px;cursor:pointer;
+  background:conic-gradient(from 20deg,#ff56ba,#ffd25e,#7affb3,#7a53ff,#ff56ba);
+  box-shadow:0 0 18px rgba(255,75,190,.75),0 5px 16px rgba(0,0,0,.55);
+}
+.wm-avatarFace{
+  width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 35% 25%,#ff90cf,#51227a 58%,#17082f);
+  color:#ffd98a;font-weight:900;font-size:17px;border:2px solid rgba(255,255,255,.72);overflow:hidden;
+}
+.wm-avatarFace img{width:100%;height:100%;object-fit:cover;}
+.wm-levelStar{
+  position:absolute;right:-5px;bottom:-5px;min-width:27px;height:27px;padding:0 5px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#ffe98f,#f5a61f);color:#2b1300;font-size:12px;font-weight:900;
+  border:2px solid #fff;box-shadow:0 0 12px rgba(255,209,80,.8);
+}
+.wm-resourceRail{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;overflow-x:auto;scrollbar-width:none;}
+.wm-resourceRail::-webkit-scrollbar{display:none;}
+.wm-resource{
+  min-width:112px;height:44px;border:1px solid rgba(174,128,255,.52);border-radius:24px;padding:4px 6px;
+  display:grid;grid-template-columns:32px minmax(34px,1fr) 26px;align-items:center;gap:6px;
+  background:linear-gradient(180deg,rgba(28,16,66,.92),rgba(12,6,34,.96));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 16px rgba(0,0,0,.45);
+  color:#fff;cursor:pointer;font:inherit;
+}
+.wm-resource.energy{min-width:122px;}
+.wm-resIcon{
+  width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 10px rgba(255,255,255,.16);
+}
+.wm-resIcon.coin{background:radial-gradient(circle at 35% 25%,#fff0a9,#f0a514 68%,#824900);}
+.wm-resIcon.bolt{background:radial-gradient(circle at 35% 25%,#ff9cff,#e92d88 65%,#6a1c7c);}
+.wm-resIcon.ticket{background:radial-gradient(circle at 35% 25%,#ffb7d8,#ea4389 65%,#8d1f5c);}
+.wm-resIcon.gem{background:radial-gradient(circle at 35% 25%,#c8f4ff,#38b8f4 68%,#145d9e);}
+.wm-resValue{font-size:16px;font-weight:900;white-space:nowrap;text-shadow:0 2px 5px rgba(0,0,0,.55);}
+.wm-resSub{font-size:10px;font-weight:800;color:#ff9de7;margin-top:-3px;grid-column:2;line-height:1;}
+.wm-plus{
+  width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 35% 28%,#90ff8d,#2bbd3c 70%,#16782a);
+  color:#fff;font-size:22px;font-weight:900;border:2px solid rgba(255,255,255,.86);
+  box-shadow:0 0 10px rgba(67,255,93,.55);
+}
+.wm-menuPro{
+  position:relative;width:52px;height:52px;border-radius:50%;border:1.5px solid rgba(255,255,255,.4);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  background:linear-gradient(180deg,rgba(33,20,73,.95),rgba(13,6,36,.98));
+  box-shadow:0 0 16px rgba(151,88,255,.45),inset 0 1px 0 rgba(255,255,255,.16);
+  cursor:pointer;
+}
+.wm-menuPro span{display:block;width:24px;height:3px;border-radius:3px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.55);}
+.wm-menuPro b{
+  position:absolute;right:-2px;top:-4px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#ff4d58;color:#fff;font-size:10px;border:1.5px solid #fff;
+}
+.wm-titleCard{
+  position:fixed;top:calc(env(safe-area-inset-top,0px) + 82px);left:50%;transform:translateX(-50%);
+  z-index:55;text-align:center;pointer-events:none;
+}
+.wm-neonTitle{
+  min-width:330px;padding:10px 26px 8px;border-radius:20px;border:2px solid #29e8ff;
+  background:linear-gradient(180deg,rgba(14,8,45,.74),rgba(8,3,25,.88));
+  color:#ff72d4;font-size:36px;font-family:cursive;font-weight:700;line-height:1;
+  text-shadow:0 0 9px rgba(255,76,207,.95),0 0 18px rgba(255,76,207,.7);
+  box-shadow:0 0 18px rgba(45,231,255,.7),inset 0 0 18px rgba(255,68,196,.24);
+}
+.wm-neonTitle span{font-size:27px;margin-left:8px;text-shadow:0 0 10px rgba(83,255,170,.9);}
+.wm-completed{
+  display:inline-flex;align-items:center;gap:7px;margin-top:-2px;padding:5px 24px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(18,8,38,.95),rgba(8,3,22,.98));
+  color:#fff;font-size:16px;font-weight:800;border:1px solid rgba(255,207,93,.55);
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.wm-completed b{color:#ffd45c;text-shadow:0 0 10px rgba(255,205,70,.9);}
+.wm-jackpotPro{
+  position:fixed;right:24px;top:calc(env(safe-area-inset-top,0px) + 92px);z-index:54;
+  min-width:210px;padding:12px 18px 14px;border-radius:18px;text-align:center;
+  background:linear-gradient(180deg,rgba(96,31,51,.92),rgba(47,13,35,.96));
+  border:2px solid #ffb737;box-shadow:0 0 24px rgba(255,146,51,.65),inset 0 0 16px rgba(255,211,85,.18);
+}
+.wm-jackpotTitle{font-size:28px;font-weight:1000;color:#ffe76b;text-shadow:0 0 12px rgba(255,218,72,.88);}
+.wm-jackpotAmount{margin-top:2px;font-size:22px;font-weight:900;}
+.wm-jackpotTimer{
+  display:inline-block;margin-top:8px;padding:3px 16px;border-radius:16px;background:rgba(21,7,25,.78);
+  font-size:17px;font-weight:800;color:#fff;
+}
+.wm-sideRail{
+  position:fixed;left:14px;top:calc(env(safe-area-inset-top,0px) + 170px);z-index:52;
+  display:flex;flex-direction:column;gap:14px;align-items:center;
+}
+.wm-sideRailBtn{width:78px;text-align:center;position:relative;cursor:pointer;filter:drop-shadow(0 7px 14px rgba(0,0,0,.56));}
+.wm-sideRailIcon{
+  width:70px;height:70px;margin:0 auto;border-radius:19px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  background:linear-gradient(180deg,rgba(44,23,86,.94),rgba(16,7,40,.96));
+  border:2px solid rgba(255,205,93,.58);box-shadow:0 0 16px rgba(255,192,64,.25),inset 0 1px 0 rgba(255,255,255,.15);
+}
+.wm-sideRailIcon img{width:124%;height:124%;object-fit:contain;}
+.wm-sideRailIcon span{font-size:35px;}
+.wm-sideBadge{
+  position:absolute;top:-7px;right:6px;min-width:23px;height:23px;padding:0 5px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;background:#ff4d9a;color:#fff;border:2px solid #fff;font-size:13px;font-weight:900;
+}
+.wm-sideLabel{margin-top:5px;font-size:10px;font-weight:900;color:#fff;line-height:1.05;text-shadow:0 2px 5px #000;}
+.wm-sideTimer{display:inline-block;margin-top:3px;padding:2px 6px;border-radius:9px;background:rgba(0,0,0,.48);font-size:10px;font-weight:800;color:#ffe18a;}
+.wm-sideTimer.bonus{color:#a8e8ff;}
+.wm-playCta{
+  position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);
+  z-index:58;height:74px;min-width:244px;border-radius:28px;border:3px solid #fff3c8;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:18px;padding:0 34px;
+  background:linear-gradient(180deg,#fff07f 0%,#ffc21e 45%,#ca7808 100%);
+  box-shadow:0 11px 26px rgba(0,0,0,.55),0 0 32px rgba(255,199,42,.8),inset 0 2px 0 rgba(255,255,255,.72);
+  font:inherit;animation:wmPlayBreath 2.1s ease-in-out infinite;
+}
+.wm-playCta:disabled{opacity:.55;cursor:default;animation:none;}
+.wm-playCta span{color:#351600;font-size:34px;font-weight:1000;line-height:1;text-shadow:0 1px 0 rgba(255,255,255,.45);}
+.wm-playCta b{
+  width:43px;height:43px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#111;
+  border:3px solid #fff;box-shadow:inset 0 0 0 13px #fff,0 0 13px rgba(0,0,0,.45);font-size:17px;
+}
+.wm-dailyStreak{
+  position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 98px);z-index:56;
+  width:255px;padding:13px 16px;border-radius:17px;
+  background:linear-gradient(180deg,rgba(41,22,80,.9),rgba(17,8,44,.96));
+  border:1.5px solid rgba(255,199,82,.48);box-shadow:0 8px 22px rgba(0,0,0,.55);
+}
+.wm-dailyTitle{text-align:center;font-size:15px;font-weight:900;color:#fff;}
+.wm-dailyDots{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 5px;}
+.wm-dailyDots i{
+  width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-style:normal;font-size:12px;font-weight:900;
+}
+.wm-dailyDots i.done{background:linear-gradient(180deg,#91ff69,#24b72d);color:#072c0b;border-color:#d9ffd5;}
+.wm-dailyDots i.now{background:linear-gradient(180deg,#fff08d,#e7a51c);color:#361700;border-color:#fff3bf;}
+.wm-dailyDots strong{font-size:30px;margin-left:5px;line-height:1;}
+.wm-dailyDay{text-align:center;color:#fff;font-size:16px;font-weight:800;}
+@keyframes wmPlayBreath{
+  0%,100%{box-shadow:0 11px 26px rgba(0,0,0,.55),0 0 28px rgba(255,199,42,.65),inset 0 2px 0 rgba(255,255,255,.72)}
+  50%{box-shadow:0 11px 26px rgba(0,0,0,.55),0 0 48px rgba(255,214,65,.95),inset 0 2px 0 rgba(255,255,255,.72)}
+}
+@media(max-width:900px){
+  .wm-topHud{grid-template-columns:58px minmax(0,1fr) 48px;padding-left:10px;padding-right:10px;gap:7px;}
+  .wm-avatarPro{width:52px;height:52px;}
+  .wm-menuPro{width:47px;height:47px;}
+  .wm-resourceRail{justify-content:flex-start;}
+  .wm-resource{min-width:96px;height:39px;grid-template-columns:28px minmax(28px,1fr) 22px;gap:5px;}
+  .wm-resource.energy{min-width:106px;}
+  .wm-resIcon{width:28px;height:28px;font-size:16px;}
+  .wm-resValue{font-size:14px;}
+  .wm-plus{width:22px;height:22px;font-size:19px;}
+  .wm-titleCard{top:calc(env(safe-area-inset-top,0px) + 72px);}
+  .wm-neonTitle{min-width:260px;font-size:27px;padding:8px 18px 7px;}
+  .wm-completed{font-size:13px;padding:4px 16px;}
+  .wm-jackpotPro{display:none;}
+  .wm-sideRail{left:8px;top:calc(env(safe-area-inset-top,0px) + 150px);gap:11px;}
+  .wm-sideRailBtn{width:66px;}
+  .wm-sideRailIcon{width:58px;height:58px;border-radius:16px;}
+  .wm-sideLabel{font-size:9px;}
+  .wm-sideTimer{font-size:8px;}
+  .wm-dailyStreak{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 88px);width:205px;padding:10px 12px;}
+  .wm-playCta{height:62px;min-width:190px;padding:0 26px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);}
+  .wm-playCta span{font-size:27px;}
+  .wm-playCta b{width:36px;height:36px;box-shadow:inset 0 0 0 11px #fff,0 0 13px rgba(0,0,0,.45);}
+}
+@media(max-width:560px){
+  .wm-dailyStreak{display:none;}
+  .wm-titleCard{top:calc(env(safe-area-inset-top,0px) + 76px);}
+  .wm-sideRail{top:calc(env(safe-area-inset-top,0px) + 166px);}
+}
+`;

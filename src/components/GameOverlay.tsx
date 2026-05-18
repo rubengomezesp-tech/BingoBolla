@@ -16,10 +16,22 @@ export default function GameOverlay({game,nodeId,level,playerId,onClose,onComple
         const r:GameResult = {win:e.data.win??false,stars:e.data.stars??0,xp:e.data.xp??0,level:e.data.level??level};
         if (r.win && nodeId) {
           try {
-            await sb.from("world_nodes").update({stars:r.stars,completed:true}).eq("node_id",nodeId);
-            if (r.xp>0) await sb.rpc("claim_daily_xp",{p_player_id:playerId,p_xp:r.xp});
-            const {data:cur} = await sb.from("world_nodes").select("node_index").eq("node_id",nodeId).single();
-            if (cur) await sb.from("world_nodes").update({unlocked:true}).eq("node_index",cur.node_index+1);
+            const now = new Date().toISOString();
+            await sb.from("player_world_progress").upsert({
+              player_id: playerId,
+              node_id: nodeId,
+              completed: true,
+              stars: Math.max(0, Math.min(3, r.stars)),
+              completed_at: now,
+              updated_at: now,
+            }, { onConflict: "player_id,node_id" });
+            if (r.xp>0) {
+              try {
+                await sb.rpc("add_xp",{p_player_id:playerId,p_amount:r.xp});
+              } catch (e) {
+                console.warn("XP award skipped", e);
+              }
+            }
           } catch(e){console.error(e);}
         }
         onComplete(r);

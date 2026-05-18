@@ -15,7 +15,11 @@ export default function DailyBonus() {
     const { data, error } = await supabase.rpc("claim_daily_bonus");
     setLoading(false);
     if (error) return;
-    setClaimed(data as any);
+    const reward = (data ?? {}) as any;
+    setClaimed({
+      gold: Number(reward.gold_awarded ?? reward.gold ?? 500),
+      sweeps: Number(reward.sweeps_awarded ?? reward.sweeps ?? 0.5),
+    });
     setTimeout(() => router.refresh(), 1500);
   }
 
