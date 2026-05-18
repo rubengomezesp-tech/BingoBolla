@@ -1,1 +1,11 @@
-export default function P(){return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100dvh",background:"#06010d",color:"rgba(255,255,255,.4)"}}>Ball Match · Fase 2 pendiente</div>}
+import { redirect } from "next/navigation";
+
+export default async function BallMatchAliasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ level?: string }>;
+}) {
+  const params = await searchParams;
+  const level = params.level ? `?level=${encodeURIComponent(params.level)}` : "";
+  redirect(`/play/ballmatch${level}`);
+}

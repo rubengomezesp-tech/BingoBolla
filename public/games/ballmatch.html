@@ -194,6 +194,15 @@
 
   .tile.sel .face{transform:scale(1.12);box-shadow:0 0 0 3px #fff,
     0 0 18px rgba(255,210,80,.9),inset 0 3px 6px rgba(255,255,255,.4);}
+  .tile.dragging .face{transform:scale(1.08);box-shadow:0 0 0 3px rgba(255,255,255,.9),
+    0 0 22px rgba(255,77,154,.85),inset 0 3px 6px rgba(255,255,255,.42);}
+  .tile.swipe-target .face{box-shadow:0 0 0 3px rgba(255,213,94,.95),
+    0 0 24px rgba(255,213,94,.85),inset 0 3px 6px rgba(255,255,255,.42);}
+  .tile.bad-swap .face{animation:badSwap .26s ease-out;}
+  @keyframes badSwap{
+    0%,100%{filter:brightness(1);transform:scale(1)}
+    45%{filter:brightness(.75) saturate(.85);transform:scale(.92)}
+  }
   .tile.pop{animation:pop .26s ease-out forwards;}
   @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.22)}
     100%{transform:scale(0);opacity:0}}
@@ -545,6 +554,8 @@ let goalType = "coin";
 let goalLeft = 20;
 let busy = false;     // bloquea input mientras resuelve cascada
 let sel = null;       // tile seleccionada
+let swipeStart = null;
+const SWIPE_MIN_PX = 18;
 
 // BOLLA FEVER
 let fever = 0;            // 0..FEVER_MAX
@@ -619,7 +630,10 @@ function makeTile(type, r, c, special, obstacle){
   t.innerHTML = inner;
   const hits = obstacle ? OBS_HITS[obstacle] : 0;
   const obj = { type, el:t, r, c, special: special||null, obstacle: obstacle||null, hits };
-  t.addEventListener("pointerdown", (e)=>{ e.preventDefault(); onPick(obj); });
+  t.addEventListener("pointerdown", (e)=>startTilePointer(e,obj));
+  t.addEventListener("pointermove", (e)=>moveTilePointer(e,obj));
+  t.addEventListener("pointerup", (e)=>endTilePointer(e,obj));
+  t.addEventListener("pointercancel", (e)=>endTilePointer(e,obj));
   board.appendChild(t);
   place(obj, false);
   return obj;
@@ -652,6 +666,52 @@ function makesMatchAt(r,c,type){
 
 function adjacent(a,b){
   return (Math.abs(a.r-b.r)+Math.abs(a.c-b.c))===1;
+}
+
+function neighborForSwipe(tileObj, dx, dy){
+  if(Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN_PX) return null;
+  let nr = tileObj.r;
+  let nc = tileObj.c;
+  if(Math.abs(dx) > Math.abs(dy)) nc += dx > 0 ? 1 : -1;
+  else nr += dy > 0 ? 1 : -1;
+  if(nr < 0 || nr >= N || nc < 0 || nc >= N) return null;
+  return grid[nr]?.[nc] || null;
+}
+
+function clearSwipeTarget(){
+  document.querySelectorAll(".tile.swipe-target").forEach((node)=>node.classList.remove("swipe-target"));
+}
+
+function startTilePointer(e,obj){
+  e.preventDefault();
+  if(busy) return;
+  swipeStart = { id:e.pointerId, obj, x:e.clientX, y:e.clientY, swiped:false, target:null };
+  obj.el.classList.add("dragging");
+  try { obj.el.setPointerCapture(e.pointerId); } catch {}
+}
+
+function moveTilePointer(e,obj){
+  if(!swipeStart || swipeStart.id !== e.pointerId || swipeStart.obj !== obj || swipeStart.swiped) return;
+  if(busy || targetingBooster) return;
+  const target = neighborForSwipe(obj, e.clientX - swipeStart.x, e.clientY - swipeStart.y);
+  if(!target) return;
+  swipeStart.swiped = true;
+  swipeStart.target = target;
+  obj.el.classList.remove("dragging","sel");
+  target.el.classList.add("swipe-target");
+  window.setTimeout(clearSwipeTarget, 160);
+  if(sel){ sel.el.classList.remove("sel"); sel = null; }
+  trySwap(obj, target);
+}
+
+function endTilePointer(e,obj){
+  if(!swipeStart || swipeStart.id !== e.pointerId || swipeStart.obj !== obj) return;
+  const didSwipe = swipeStart.swiped;
+  swipeStart = null;
+  obj.el.classList.remove("dragging");
+  clearSwipeTarget();
+  try { obj.el.releasePointerCapture(e.pointerId); } catch {}
+  if(!didSwipe) onPick(obj);
 }
 
 function onPick(obj){
@@ -714,9 +774,14 @@ async function trySwap(a,b){
 
   const matches = findMatches();
   if (matches.size===0){
+    a.el.classList.add("bad-swap");
+    b.el.classList.add("bad-swap");
+    await wait(120);
     swapData(a,b);
     place(a,true); place(b,true);
     await wait(280);
+    a.el.classList.remove("bad-swap");
+    b.el.classList.remove("bad-swap");
     busy=false;
     return;
   }
