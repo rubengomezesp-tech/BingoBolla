@@ -40,12 +40,16 @@ export default function SignupClient() {
     }
 
     setLoading(true);
+    const referralCode =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("ref")?.slice(0, 80)
+        : null;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: { username },
+        data: referralCode ? { username, referral_code: referralCode } : { username },
       },
     });
     setLoading(false);
