@@ -133,7 +133,7 @@ export default function HomeScreen({
           </div>
         )}
 
-        <section className="hs-event" onClick={() => router.push("/mundo")}>
+        <section className="hs-event" onClick={() => router.push("/mundomiami")}>
           <div className="hs-eventCopy">
             <span>EVENTO ESPECIAL</span>
             <h1>FIESTA<br />TROPICAL</h1>
@@ -223,7 +223,7 @@ export default function HomeScreen({
         <nav className="hs-bottomNav" aria-label="Navegacion principal">
           <button className="active" onClick={() => router.push("/lobby")}><Home /><span>INICIO</span></button>
           <button onClick={() => router.push("/store")}><ShoppingCart /><b>1</b><span>TIENDA</span></button>
-          <button onClick={() => router.push("/mundo")}><Map /><span>MAPA</span></button>
+          <button onClick={() => router.push("/mundos")}><Map /><span>MAPA</span></button>
           <button onClick={() => router.push("/invitar")}><UsersRound /><b>5</b><span>AMIGOS</span></button>
           <button onClick={() => router.push("/vip")}><Gift /><b>2</b><span>COFRES</span></button>
         </nav>

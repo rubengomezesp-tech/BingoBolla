@@ -8,7 +8,7 @@ export default function BallMatchClient({ level }: { level: number }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"#08080C", zIndex:50 }}>
       <button
-        onClick={() => router.push("/mundo")}
+        onClick={() => router.push("/mundomiami")}
         style={{
           position:"absolute", top:"env(safe-area-inset-top, 12px)", left:12,
           zIndex:60, background:"rgba(20,8,40,.92)", border:"1.5px solid rgba(255,200,90,.4)",

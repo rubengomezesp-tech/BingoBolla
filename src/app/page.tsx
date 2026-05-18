@@ -27,7 +27,7 @@ export default function Home() {
       <header className="nav">
         <a href="/" className="logo"><b>BINGO</b><em>BOLLA</em></a>
         <nav className="nlinks">
-          <a href="#salas">Salas</a><a href="#feat">Juegos</a><a href="/mundo">Mundo</a>
+          <a href="#salas">Salas</a><a href="#feat">Juegos</a><a href="/mundos">Mundos</a>
         </nav>
         <a href="/login" className="btn ghost">Entrar</a>
       </header>
@@ -39,7 +39,7 @@ export default function Home() {
           que se ilumina con cada victoria. Juega gratis, gana de verdad.</p>
         <div className="cta">
           <a href="/login" className="btn gold">JUGAR GRATIS →</a>
-          <a href="/mundo" className="btn ghost">Ver el mundo</a>
+          <a href="/mundos" className="btn ghost">Ver mundos</a>
         </div>
         <div className="trust">
           <span>✓ Sin compra necesaria</span><span>✓ Sweepstakes legal</span><span>✓ +18</span>

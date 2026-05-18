@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 /* CUENTA · src/app/account/page.tsx · clon ref img6 */
-const A="https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/";
-const MASCOT=A+"mascot-miami/mascot-miami.PNG";
+const MASCOT="https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/mascot-miami/mascot-miami.PNG";
 const fmt=(n:number)=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?n.toLocaleString():String(n);
 
 export default function Account(){
@@ -31,7 +30,7 @@ export default function Account(){
     {i:"🅱️",t:"BINGOS",v:p?.bingos??0,c:"#FF4D9A"},
     {i:"🔥",t:"MEJOR RACHA",v:p?.best_streak??0,c:"#FF6B2B"},
   ];
-  const NAV=[{i:"🏠",t:"INICIO",h:"/"},{i:"🌐",t:"MUNDOS",h:"/mundo"},
+  const NAV=[{i:"🏠",t:"INICIO",h:"/"},{i:"🌐",t:"MUNDOS",h:"/mundos"},
     {i:"🎫",t:"EVENTOS",h:"/eventos",b:3},{i:"🏆",t:"RANKING",h:"/ranking"},
     {i:"🎁",t:"COFRES",h:"/cofres",b:2}];
 

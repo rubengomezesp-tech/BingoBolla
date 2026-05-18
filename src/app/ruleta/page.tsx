@@ -115,7 +115,7 @@ export default async function RuletaPage() {
             La vitrina de ruleta ya queda lista para sumar tiradas gratis, multiplicadores y premios diarios cuando conectemos la RPC dedicada.
           </p>
           <Link
-            href="/mundo"
+            href="/mundomiami"
             className="mt-6 flex h-14 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.08] px-4 font-black text-white transition hover:bg-white/[0.12]"
           >
             <RotateCw size={18} />

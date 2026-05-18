@@ -1,38 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import type { Profile } from "@/lib/supabase/types";
-import WorldMap from "@/components/WorldMap_v9";
-
-export const dynamic = "force-dynamic";
 
 export default async function MundoPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("*").eq("id", user.id).single<Profile>();
-  if (!profile?.kyc_status || profile.kyc_status === "unverified") redirect("/onboarding");
-
-  // Mundo (fondo + nombre). Fallback seguro.
-  const { data: world } = await supabase
-    .from("worlds").select("id,name,bg_image_url,bg_image_mobile_url").eq("id", "miami_nights").maybeSingle();
-
-  // XP / nivel real del jugador (funcion ya existente get_player_xp)
-  const { data: xpRow } = await supabase.rpc("get_player_xp", { p_player_id: user.id });
-  // get_player_xp puede devolver objeto o array de una fila; normalizamos
-  const xp = Array.isArray(xpRow) ? xpRow[0] : xpRow;
-
-  const bgUrl =
-    (world as any)?.bg_image_url ||
-    "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg.PNG";
-  const mobileBgUrl =
-    (world as any)?.bg_image_mobile_url ||
-    "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/miami-nights-bg-movil.PNG";
-
-  return (
-        <WorldMap
-      playerId={profile.id}
-    />
-  );
+  redirect("/mundomiami");
 }

@@ -38,7 +38,7 @@ export default function WorldEventPage({
   title,
   subtitle,
   accent = "#ff3d7f",
-  backHref = "/mundo",
+  backHref = "/mundomiami",
   backLabel = "Mundo",
   heroArt,
   children,

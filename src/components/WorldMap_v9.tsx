@@ -663,27 +663,27 @@ const WORLD_UI_CSS = `
   stroke-dasharray:1 0;
 }
 .wm-mascotMarker{
-  position:absolute;z-index:12;width:74px;height:74px;border:0;border-radius:50%;
-  transform:translate(-50%,-142%);background:transparent;padding:0;cursor:pointer;
+  position:absolute;z-index:12;width:104px;height:104px;border:0;border-radius:50%;
+  transform:translate(-50%,-124%);background:transparent;padding:0;cursor:pointer;
   animation:mascotBob 2s ease-in-out infinite;filter:drop-shadow(0 8px 15px rgba(0,0,0,.8));
 }
 .wm-mascotMarker img{
-  position:relative;z-index:2;width:100%;height:100%;object-fit:contain;
+  position:relative;z-index:2;width:112%;height:112%;object-fit:contain;transform:translate(-5%,-5%);
 }
 .wm-mascotFallback{
   position:relative;z-index:2;width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(circle at 32% 24%,#ffb7ff,#a934ff 58%,#55149a);
-  color:#fff;font-size:20px;font-weight:1000;border:2px solid rgba(255,255,255,.75);
+  color:#fff;font-size:26px;font-weight:1000;border:2px solid rgba(255,255,255,.75);
 }
 .wm-mascotGlow{
-  position:absolute;left:50%;bottom:0;width:48px;height:16px;border-radius:50%;transform:translateX(-50%);
+  position:absolute;left:50%;bottom:4px;width:72px;height:24px;border-radius:50%;transform:translateX(-50%);
   background:radial-gradient(ellipse,rgba(255,224,69,.74),rgba(183,92,255,.24) 55%,transparent 72%);
   filter:blur(1px);z-index:1;
 }
 .wm-mascotMarker b{
-  position:absolute;right:3px;bottom:1px;z-index:3;width:23px;height:23px;border-radius:50%;
+  position:absolute;right:5px;bottom:4px;z-index:3;width:28px;height:28px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#fff08b,#e6a61d);
-  color:#301300;border:2px solid #fff;font-size:11px;font-weight:1000;
+  color:#301300;border:2px solid #fff;font-size:13px;font-weight:1000;
 }
 .wm-playCta{
   position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);

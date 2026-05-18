@@ -4,8 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 
 /* TIENDA · src/app/store/page.tsx · clon ref img7
    VISUAL — conecta tu checkout en onBuy() (no toco tu lógica Stripe) */
-const A="https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/";
-const MASCOT=A+"mascot-miami/mascot-miami.PNG";
+const MASCOT="https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/mascot-miami/mascot-miami.PNG";
 const fmt=(n:number)=>n>=1e3?n.toLocaleString():String(n);
 
 export default function Store(){
@@ -37,7 +36,7 @@ export default function Store(){
   ];
   const CUSTOM=[["🧑","AVATARES"],["😎","EMOJIS"],["🐶","MASCOTAS"],
     ["🎴","TEMAS"],["🖼️","MARCOS"],["✨","EFECTOS"]];
-  const NAV=[{i:"🏠",t:"INICIO",h:"/"},{i:"🌐",t:"MUNDOS",h:"/mundo"},
+  const NAV=[{i:"🏠",t:"INICIO",h:"/"},{i:"🌐",t:"MUNDOS",h:"/mundos"},
     {i:"🎫",t:"EVENTOS",h:"/eventos",b:3},{i:"🏆",t:"RANKING",h:"/ranking"},
     {i:"🎁",t:"COFRES",h:"/cofres",b:2},{i:"🛒",t:"TIENDA",h:"/store",act:true}];
 
