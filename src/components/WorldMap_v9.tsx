@@ -7,12 +7,14 @@ import GameOverlay, { GameType } from "@/components/GameOverlay";
 type WNode = {
   node_id: string; node_index: number; node_type: string;
   title: string; pos_x: number; pos_y: number;
-  target_ref: string | null; max_stars: number;
+  target_ref: string | null; reward_xp: number; reward_gold: number; max_stars: number;
   completed: boolean; stars: number; unlocked: boolean;
 };
 type XPData = { level: number; xp_into_level: number; xp_needed_level: number; progress_pct: number; };
 type ProfileData = { gold_coins: number; sweeps_coins: number; diamonds?: number; };
 type JackpotRoom = { jackpot_gold?: number; jackpot_sweeps?: number; };
+type WorldAssetRow = { asset_key: string; url: string };
+type WorldAssetMap = Record<string, string>;
 
 const fmt = (n: number) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
 const BOSS = new Set([5,10,15,20]);
@@ -20,6 +22,20 @@ const WORLD_ID = "miami_nights";
 const MAP_IMG = "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/bg-miami-map.png";
 const MAX_ENERGY = 5;
 const WORLD_NAME = "Miami Nights";
+const DEFAULT_WORLD_ASSETS: WorldAssetMap = {
+  "bg-miami-map": MAP_IMG,
+  "node-locked": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/node-locked.PNG",
+  "icon-regalo-diario": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/icon-regalo-diario-v2.PNG",
+  "icon-gira-gana": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/icon-gira-gana.PNG",
+  "icon-cofre-vip": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/icon-cofre-vip.PNG",
+  "icon-invitar": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/world-assets/icon-invitar.PNG",
+  "mascot-global": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/mascot-miami/mascot-miami.PNG",
+  "avatar-global": "https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/mascot-miami/mascot-miami.PNG",
+};
+const GAME_CHAPTERS: Array<{ game: GameType; label: string; icon: string; assetKey: string }> = [
+  { game: "ballmatch", label: "Ball Match", icon: "🎮", assetKey: "game-ballmatch" },
+  { game: "neural_cascade", label: "Neural Cascade", icon: "⚡", assetKey: "game-neural-cascade" },
+];
 
 // Email admin — solo este usuario ve el editor drag-and-drop
 const ADMIN_EMAIL = "rubengomezesp@gmail.com";
@@ -34,6 +50,8 @@ function normalizeNode(raw: Partial<WNode> & { id?: string }): WNode {
     pos_x: Number(raw.pos_x ?? 50),
     pos_y: Number(raw.pos_y ?? 50),
     target_ref: raw.target_ref ?? null,
+    reward_xp: Number((raw as any).reward_xp ?? 50),
+    reward_gold: Number((raw as any).reward_gold ?? 20),
     max_stars: Number(raw.max_stars ?? 3),
     completed: Boolean(raw.completed),
     stars: Number(raw.stars ?? 0),
@@ -41,11 +59,60 @@ function normalizeNode(raw: Partial<WNode> & { id?: string }): WNode {
   };
 }
 
+function normalizeAssetMap(raw: unknown): WorldAssetMap {
+  if (Array.isArray(raw)) {
+    return raw.reduce<WorldAssetMap>((acc, row: Partial<WorldAssetRow>) => {
+      if (row.asset_key && row.url) acc[row.asset_key] = row.url;
+      return acc;
+    }, {});
+  }
+  if (raw && typeof raw === "object") {
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).filter((entry): entry is [string, string] => {
+        return typeof entry[1] === "string" && entry[1].length > 0;
+      })
+    );
+  }
+  return {};
+}
+
+function normalizeXp(raw: unknown): XPData | null {
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  if (!row || typeof row !== "object") return null;
+  const xp = row as Partial<XPData>;
+  return {
+    level: Math.max(1, Number(xp.level ?? 1)),
+    xp_into_level: Number(xp.xp_into_level ?? 0),
+    xp_needed_level: Number(xp.xp_needed_level ?? 100),
+    progress_pct: Number(xp.progress_pct ?? 0),
+  };
+}
+
+function gameForLevel(level: number) {
+  const chapter = Math.floor((Math.max(1, level) - 1) / 5) % GAME_CHAPTERS.length;
+  return GAME_CHAPTERS[chapter];
+}
+
+function gameForNode(node: WNode) {
+  const ref = node.target_ref?.toLowerCase() ?? "";
+  if (ref.includes("neural")) return GAME_CHAPTERS[1];
+  if (ref.includes("ball")) return gameForLevel(node.node_index);
+  return gameForLevel(node.node_index);
+}
+
+function buildSvgPath(nodes: WNode[]) {
+  return nodes
+    .slice()
+    .sort((a, b) => a.node_index - b.node_index)
+    .map((node, index) => `${index === 0 ? "M" : "L"} ${node.pos_x} ${node.pos_y}`)
+    .join(" ");
+}
+
 export default function WorldMap({ playerId }: { playerId: string }) {
   const sb = createClient();
   const router = useRouter();
   const [nodes, setNodes]     = useState<WNode[]>([]);
-  const [assets, setAssets]   = useState<Record<string,string>>({});
+  const [assets, setAssets]   = useState<WorldAssetMap>(DEFAULT_WORLD_ASSETS);
   const [xp, setXp]           = useState<XPData | null>(null);
   const [prof, setProf]       = useState<ProfileData | null>(null);
   const [jackpotGold, setJackpotGold] = useState(23450000);
@@ -70,12 +137,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         safe(sb.auth.getUser()),
       ]);
       if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data.map(normalizeNode));
-      if (Array.isArray(ar?.data)) {
-        const m: Record<string,string> = {};
-        for (const a of ar.data) m[a.asset_key] = a.url;
-        setAssets(m);
-      }
-      if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
+      setAssets({ ...DEFAULT_WORLD_ASSETS, ...normalizeAssetMap(ar?.data) });
+      setXp(normalizeXp(xr?.data));
       if (pr?.data) setProf(pr.data);
       if (Array.isArray(jr?.data)) {
         const total = (jr.data as JackpotRoom[]).reduce((sum, room) => sum + Number(room.jackpot_gold ?? 0), 0);
@@ -92,8 +155,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const openGame = useCallback((n: WNode) => {
     if (editMode) return; // en modo editor no se abren juegos
     if (!n.unlocked) return;
-    const g: GameType = n.target_ref === "neural_cascade" ? "neural_cascade" : "ballmatch";
-    setGame({ game:g, nodeId:n.node_id, level:n.node_index });
+    const nextGame = gameForNode(n);
+    setGame({ game: nextGame.game, nodeId:n.node_id, level:n.node_index });
   }, [editMode]);
 
   const handleDone = useCallback(async (r: {win:boolean;stars:number;xp:number}) => {
@@ -105,7 +168,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         safe(sb.from("profiles").select("gold_coins,sweeps_coins,diamonds").eq("id", playerId).single()),
       ]);
       if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data.map(normalizeNode));
-      if (Array.isArray(xr?.data) && xr.data[0]) setXp(xr.data[0]);
+      setXp(normalizeXp(xr?.data));
       if (pr?.data) setProf(pr.data);
     }
     setGame(null);
@@ -146,6 +209,28 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     alert("✅ Coordenadas guardadas en la BD");
   };
 
+  useEffect(() => {
+    if (loading || editMode || !nodes.length || !mapRef.current || !imgWrapRef.current) return;
+
+    const total = nodes.length || 20;
+    const level = Math.max(1, Math.min(Number(xp?.level ?? 1), total));
+    const active =
+      nodes.find((node) => node.node_index === level) ||
+      nodes.find((node) => node.unlocked && !node.completed) ||
+      nodes.find((node) => node.unlocked);
+
+    if (!active) return;
+
+    const scroller = mapRef.current;
+    const mapHeight = imgWrapRef.current.offsetHeight;
+    const target = (active.pos_y / 100) * mapHeight - scroller.clientHeight * 0.58;
+
+    scroller.scrollTo({
+      top: Math.max(0, target),
+      behavior: "smooth",
+    });
+  }, [editMode, loading, nodes, xp?.level]);
+
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
       height:"100dvh", background:"#06010d", color:"rgba(200,200,255,.5)" }}>
@@ -153,8 +238,10 @@ export default function WorldMap({ playerId }: { playerId: string }) {
     </div>
   );
 
-  const mascot = assets["mascot-global"];
-  const lockImg = assets["node-locked"];
+  const assetUrl = (key: string) => assets[key] || DEFAULT_WORLD_ASSETS[key] || "";
+  const mascot = assetUrl("mascot-global");
+  const lockImg = assetUrl("node-locked");
+  const mapImg = assetUrl("bg-miami-map") || MAP_IMG;
 
   const RAIL = [
     { key:"icon-regalo-diario", fallback:"🎁", lbl:"REGALO DIARIO",  timer:"⏱ 23h 48m",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
@@ -164,12 +251,34 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       action:()=>router.push("/invitar")
     },
   ];
-  const activeNode = nodes.find(n => n.unlocked && !n.completed) || nodes.find(n => n.unlocked) || null;
-  const completedCount = nodes.filter(n => n.completed).length;
-  const totalNodes = nodes.length || 20;
+  const sortedNodes = nodes.slice().sort((a, b) => a.node_index - b.node_index);
+  const totalNodes = sortedNodes.length || 20;
+  const rawLevel = Math.max(1, Number(xp?.level ?? 1));
+  const currentLevel = Math.max(1, Math.min(rawLevel, totalNodes));
+  const worldComplete = rawLevel > totalNodes;
+  const worldNodes = sortedNodes.map((node) => {
+    const levelUnlocked = node.node_index <= currentLevel;
+    const levelCompleted = worldComplete ? node.node_index <= currentLevel : node.node_index < currentLevel;
+    return {
+      ...node,
+      unlocked: levelUnlocked || node.unlocked || node.completed,
+      completed: levelCompleted || node.completed,
+      stars: levelCompleted && node.stars === 0 ? node.max_stars : node.stars,
+      node_type: BOSS.has(node.node_index) ? "boss" : node.node_type,
+    };
+  });
+  const activeNode =
+    worldNodes.find((node) => node.node_index === currentLevel) ||
+    worldNodes.find(n => n.unlocked && !n.completed) ||
+    worldNodes.find(n => n.unlocked) ||
+    null;
+  const completedCount = worldNodes.filter(n => n.completed).length;
+  const mapPath = buildSvgPath(worldNodes);
+  const unlockedPath = buildSvgPath(worldNodes.filter((node) => node.node_index <= currentLevel));
   const energy = MAX_ENERGY;
   const tickets = 12;
   const diamonds = prof?.diamonds ?? Math.floor(Number(prof?.sweeps_coins ?? 0));
+  const activeGame = activeNode ? gameForNode(activeNode) : GAME_CHAPTERS[0];
 
   return (
     <>
@@ -184,7 +293,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       {/* HUD superior estilo juego */}
       <div className="wm-topHud">
         <button className="wm-avatarPro" onClick={() => router.push("/account")} aria-label="Cuenta">
-          <div className="wm-avatarFace">{assets["avatar-global"] ? <img src={assets["avatar-global"]} alt="" /> : "BB"}</div>
+          <div className="wm-avatarFace">{assetUrl("avatar-global") ? <img src={assetUrl("avatar-global")} alt="" /> : "BB"}</div>
           <div className="wm-levelStar">{xp?.level ?? 1}</div>
         </button>
 
@@ -266,21 +375,22 @@ export default function WorldMap({ playerId }: { playerId: string }) {
 
       {/* Rail lateral izquierdo */}
       <div className="wm-sideRail">
-        {RAIL.map(({ key, fallback, lbl, timer, badge, bonus, action }) => (
-          <div key={key} onClick={action}
-            className="wm-sideRailBtn">
-            <div className="wm-sideRailIcon">
-              {assets[key]
-                ? <img src={assets[key]} alt={lbl}/>
-                : <span>{fallback}</span>}
+        {RAIL.map(({ key, fallback, lbl, timer, badge, bonus, action }) => {
+          const iconUrl = assetUrl(key);
+          return (
+            <div key={key} onClick={action}
+              className="wm-sideRailBtn">
+              <div className="wm-sideRailIcon">
+                {iconUrl ? <img src={iconUrl} alt={lbl}/> : <span>{fallback}</span>}
+              </div>
+              {badge && (
+                <div className="wm-sideBadge">{badge}</div>
+              )}
+              <div className="wm-sideLabel">{lbl}</div>
+              <div className={`wm-sideTimer${bonus ? " bonus" : ""}`}>{timer}</div>
             </div>
-            {badge && (
-              <div className="wm-sideBadge">{badge}</div>
-            )}
-            <div className="wm-sideLabel">{lbl}</div>
-            <div className={`wm-sideTimer${bonus ? " bonus" : ""}`}>{timer}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Mapa scrollable */}
@@ -294,15 +404,25 @@ export default function WorldMap({ playerId }: { playerId: string }) {
         onPointerLeave={onPointerUp}
       >
         <div ref={imgWrapRef} style={{ position:"relative", width:"100%" }}>
-          <img src={MAP_IMG} alt="Miami Map" draggable={false}
+          <img src={mapImg} alt="Miami Map" draggable={false}
             style={{ display:"block", width:"100%", height:"auto" }}/>
 
+          {mapPath && (
+            <svg className="wm-pathLayer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+              <path className="wm-pathBase" d={mapPath} />
+              {unlockedPath && <path className="wm-pathUnlocked" d={unlockedPath} />}
+            </svg>
+          )}
+
           {/* Nodos */}
-          {nodes.map(node => {
+          {worldNodes.map(node => {
             const isBoss   = BOSS.has(node.node_index);
             const isActive = node.unlocked && !node.completed;
             const sz = isBoss ? 54 : 44;
             const isDragging = dragId === node.node_id;
+            const nodeGame = gameForNode(node);
+            const nodeGameAsset = assetUrl(nodeGame.assetKey);
+            const state = !node.unlocked ? "locked" : node.completed ? "done" : "open";
 
             return (
               <div key={node.node_id}
@@ -338,14 +458,16 @@ export default function WorldMap({ playerId }: { playerId: string }) {
                   touchAction:"none",
                 }}>
                 {/* Icono según estado */}
-                {!node.unlocked ? (
+                {state === "locked" ? (
                   lockImg
-                    ? <img src={lockImg} alt="locked" style={{ width:sz*0.55, height:sz*0.55, objectFit:"contain" }}/>
+                    ? <img src={lockImg} alt="Bloqueado" style={{ width:sz*0.72, height:sz*0.72, objectFit:"contain" }}/>
                     : <span style={{ fontSize: isBoss ? 18 : 15 }}>🔒</span>
-                ) : node.completed ? (
+                ) : state === "done" ? (
                   <span style={{ fontSize: isBoss ? 18 : 15 }}>✅</span>
                 ) : (
-                  <span style={{ fontSize: isBoss ? 18 : 15 }}>🎮</span>
+                  nodeGameAsset
+                    ? <img src={nodeGameAsset} alt={nodeGame.label} style={{ width:sz*0.58, height:sz*0.58, objectFit:"contain" }}/>
+                    : <span style={{ fontSize: isBoss ? 18 : 15 }}>{nodeGame.icon}</span>
                 )}
                 {node.completed && !editMode && (
                   <div style={{ display:"flex", gap:1 }}>
@@ -365,18 +487,18 @@ export default function WorldMap({ playerId }: { playerId: string }) {
           })}
 
           {/* Mascota */}
-          {!editMode && (() => {
-            if (!activeNode) return null;
-            return mascot ? (
-              <img src={mascot} alt="mascot" style={{
-                position:"absolute", left:`${activeNode.pos_x}%`, top:`${activeNode.pos_y}%`,
-                transform:"translate(-50%,-165%)",
-                width:46, height:46, objectFit:"contain",
-                filter:"drop-shadow(0 4px 10px rgba(0,0,0,.8))",
-                animation:"mascotBob 2s ease-in-out infinite",
-                zIndex:8, pointerEvents:"none",
-              }}/>) : null;
-          })()}
+          {!editMode && activeNode && (
+            <button
+              className="wm-mascotMarker"
+              style={{ left:`${activeNode.pos_x}%`, top:`${activeNode.pos_y}%` }}
+              onClick={() => openGame(activeNode)}
+              aria-label={`Jugar nivel ${activeNode.node_index}: ${activeGame.label}`}
+            >
+              <span className="wm-mascotGlow" />
+              {mascot ? <img src={mascot} alt="" /> : <span className="wm-mascotFallback">BB</span>}
+              <b>{activeNode.node_index}</b>
+            </button>
+          )}
         </div>
       </div>
 
@@ -388,7 +510,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
             disabled={!activeNode}
           >
             <span>JUGAR</span>
-            <b>8</b>
+            <em>{activeGame.label}</em>
+            <b>{activeNode?.node_index ?? currentLevel}</b>
           </button>
 
           <div className="wm-dailyStreak">
@@ -411,8 +534,8 @@ export default function WorldMap({ playerId }: { playerId: string }) {
           50%{transform:translate(-50%,-50%) scale(1.1)}
         }
         @keyframes mascotBob {
-          0%,100%{transform:translate(-50%,-165%)}
-          50%{transform:translate(-50%,-178%)}
+          0%,100%{transform:translate(-50%,-142%)}
+          50%{transform:translate(-50%,-154%)}
         }
       `}</style>
     </>
@@ -532,18 +655,57 @@ const WORLD_UI_CSS = `
 .wm-sideLabel{margin-top:5px;font-size:10px;font-weight:900;color:#fff;line-height:1.05;text-shadow:0 2px 5px #000;}
 .wm-sideTimer{display:inline-block;margin-top:3px;padding:2px 6px;border-radius:9px;background:rgba(0,0,0,.48);font-size:10px;font-weight:800;color:#ffe18a;}
 .wm-sideTimer.bonus{color:#a8e8ff;}
+.wm-pathLayer{
+  position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;overflow:visible;
+}
+.wm-pathLayer path{
+  fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;
+}
+.wm-pathBase{
+  stroke:rgba(19,8,44,.56);stroke-width:8;
+  filter:drop-shadow(0 0 7px rgba(0,0,0,.8));
+}
+.wm-pathUnlocked{
+  stroke:#b75cff;stroke-width:5;
+  filter:drop-shadow(0 0 7px #b75cff) drop-shadow(0 0 14px #ff4dd8);
+  stroke-dasharray:1 0;
+}
+.wm-mascotMarker{
+  position:absolute;z-index:12;width:74px;height:74px;border:0;border-radius:50%;
+  transform:translate(-50%,-142%);background:transparent;padding:0;cursor:pointer;
+  animation:mascotBob 2s ease-in-out infinite;filter:drop-shadow(0 8px 15px rgba(0,0,0,.8));
+}
+.wm-mascotMarker img{
+  position:relative;z-index:2;width:100%;height:100%;object-fit:contain;
+}
+.wm-mascotFallback{
+  position:relative;z-index:2;width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 32% 24%,#ffb7ff,#a934ff 58%,#55149a);
+  color:#fff;font-size:20px;font-weight:1000;border:2px solid rgba(255,255,255,.75);
+}
+.wm-mascotGlow{
+  position:absolute;left:50%;bottom:0;width:48px;height:16px;border-radius:50%;transform:translateX(-50%);
+  background:radial-gradient(ellipse,rgba(255,224,69,.74),rgba(183,92,255,.24) 55%,transparent 72%);
+  filter:blur(1px);z-index:1;
+}
+.wm-mascotMarker b{
+  position:absolute;right:3px;bottom:1px;z-index:3;width:23px;height:23px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#fff08b,#e6a61d);
+  color:#301300;border:2px solid #fff;font-size:11px;font-weight:1000;
+}
 .wm-playCta{
   position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);
   z-index:58;height:74px;min-width:244px;border-radius:28px;border:3px solid #fff3c8;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:18px;padding:0 34px;
+  display:grid;grid-template-columns:1fr 43px;grid-template-rows:1fr 18px;align-items:center;justify-content:center;column-gap:18px;padding:0 28px;
   background:linear-gradient(180deg,#fff07f 0%,#ffc21e 45%,#ca7808 100%);
   box-shadow:0 11px 26px rgba(0,0,0,.55),0 0 32px rgba(255,199,42,.8),inset 0 2px 0 rgba(255,255,255,.72);
   font:inherit;animation:wmPlayBreath 2.1s ease-in-out infinite;
 }
 .wm-playCta:disabled{opacity:.55;cursor:default;animation:none;}
-.wm-playCta span{color:#351600;font-size:34px;font-weight:1000;line-height:1;text-shadow:0 1px 0 rgba(255,255,255,.45);}
+.wm-playCta span{grid-column:1;grid-row:1;color:#351600;font-size:34px;font-weight:1000;line-height:1;text-shadow:0 1px 0 rgba(255,255,255,.45);align-self:end;}
+.wm-playCta em{grid-column:1;grid-row:2;color:#5a2600;font-size:12px;font-weight:1000;font-style:normal;text-transform:uppercase;letter-spacing:.05em;align-self:start;}
 .wm-playCta b{
-  width:43px;height:43px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#111;
+  grid-column:2;grid-row:1/3;width:43px;height:43px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#111;
   border:3px solid #fff;box-shadow:inset 0 0 0 13px #fff,0 0 13px rgba(0,0,0,.45);font-size:17px;
 }
 .wm-dailyStreak{
