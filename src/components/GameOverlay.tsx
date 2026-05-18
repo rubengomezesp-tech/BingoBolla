@@ -1,12 +1,11 @@
 "use client";
 import { useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+
 export type GameType = "ballmatch" | "neural_cascade";
 interface GameResult { win:boolean; stars:number; xp:number; level:number; }
 interface Props { game:GameType|null; nodeId:string|null; level:number; playerId:string; onClose:()=>void; onComplete:(r:GameResult)=>void; }
 const PATHS:Record<GameType,string> = { ballmatch:"/games/ballmatch.html", neural_cascade:"/games/neural-cascade.html" };
 export default function GameOverlay({game,nodeId,level,playerId,onClose,onComplete}:Props) {
-  const sb = createClient();
   useEffect(() => {
     if (!game) return;
     async function onMsg(e:MessageEvent) {
@@ -14,25 +13,34 @@ export default function GameOverlay({game,nodeId,level,playerId,onClose,onComple
       if (e.data.type === "BB_GAME_EXIT") { onClose(); return; }
       if (e.data.type === "BB_GAME_RESULT") {
         const r:GameResult = {win:e.data.win??false,stars:e.data.stars??0,xp:e.data.xp??0,level:e.data.level??level};
+        let saved = true;
         if (r.win && nodeId) {
           try {
-            const now = new Date().toISOString();
-            await sb.from("player_world_progress").upsert({
-              player_id: playerId,
-              node_id: nodeId,
-              completed: true,
-              stars: Math.max(0, Math.min(3, r.stars)),
-              completed_at: now,
-              updated_at: now,
-            }, { onConflict: "player_id,node_id" });
-            if (r.xp>0) {
-              try {
-                await sb.rpc("add_xp",{p_player_id:playerId,p_amount:r.xp});
-              } catch (e) {
-                console.warn("XP award skipped", e);
-              }
+            const res = await fetch("/api/world/complete-node", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                node_id: nodeId,
+                stars: r.stars,
+                xp: r.xp,
+                score: Number(e.data.score ?? 0),
+                level: r.level,
+                game,
+              }),
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok || payload?.error) {
+              saved = false;
+              console.warn("World progress save failed", payload?.error ?? res.statusText);
             }
-          } catch(e){console.error(e);}
+          } catch(e){
+            saved = false;
+            console.error(e);
+          }
+        }
+        if (!saved) {
+          window.alert("No se pudo guardar el avance. Revisa conexion e intenta de nuevo.");
+          return;
         }
         onComplete(r);
       }

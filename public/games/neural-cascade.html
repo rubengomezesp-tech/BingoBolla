@@ -538,13 +538,14 @@ async function endLevel(win){
     document.getElementById("rov").classList.remove("show");loadPuzzle();
   };
   
-  if (window.parent !== window) {
+  if (bossComplete && window.parent !== window) {
     window.parent.postMessage({
       type: 'BB_GAME_RESULT',
       game: 'neural_cascade',
-      win: win,
+      win: true,
       stars: stars,
       xp: score,
+      score: score,
       bossLevel: currentBossLevel()
     }, '*');
   }

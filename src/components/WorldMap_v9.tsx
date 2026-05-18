@@ -212,12 +212,10 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   useEffect(() => {
     if (loading || editMode || !nodes.length || !mapRef.current || !imgWrapRef.current) return;
 
-    const total = nodes.length || 20;
-    const level = Math.max(1, Math.min(Number(xp?.level ?? 1), total));
     const active =
-      nodes.find((node) => node.node_index === level) ||
       nodes.find((node) => node.unlocked && !node.completed) ||
-      nodes.find((node) => node.unlocked);
+      nodes.find((node) => node.unlocked) ||
+      nodes[0];
 
     if (!active) return;
 
@@ -229,7 +227,7 @@ export default function WorldMap({ playerId }: { playerId: string }) {
       top: Math.max(0, target),
       behavior: "smooth",
     });
-  }, [editMode, loading, nodes, xp?.level]);
+  }, [editMode, loading, nodes]);
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
@@ -253,28 +251,22 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   ];
   const sortedNodes = nodes.slice().sort((a, b) => a.node_index - b.node_index);
   const totalNodes = sortedNodes.length || 20;
-  const rawLevel = Math.max(1, Number(xp?.level ?? 1));
-  const currentLevel = Math.max(1, Math.min(rawLevel, totalNodes));
-  const worldComplete = rawLevel > totalNodes;
   const worldNodes = sortedNodes.map((node) => {
-    const levelUnlocked = node.node_index <= currentLevel;
-    const levelCompleted = worldComplete ? node.node_index <= currentLevel : node.node_index < currentLevel;
     return {
       ...node,
-      unlocked: levelUnlocked || node.unlocked || node.completed,
-      completed: levelCompleted || node.completed,
-      stars: levelCompleted && node.stars === 0 ? node.max_stars : node.stars,
+      unlocked: node.node_index === 1 || node.unlocked || node.completed,
+      completed: node.completed,
       node_type: BOSS.has(node.node_index) ? "boss" : node.node_type,
     };
   });
   const activeNode =
-    worldNodes.find((node) => node.node_index === currentLevel) ||
     worldNodes.find(n => n.unlocked && !n.completed) ||
     worldNodes.find(n => n.unlocked) ||
     null;
   const completedCount = worldNodes.filter(n => n.completed).length;
+  const currentLevel = activeNode?.node_index ?? Math.min(completedCount + 1, totalNodes);
   const mapPath = buildSvgPath(worldNodes);
-  const unlockedPath = buildSvgPath(worldNodes.filter((node) => node.node_index <= currentLevel));
+  const unlockedPath = buildSvgPath(worldNodes.filter((node) => node.unlocked || node.completed));
   const energy = MAX_ENERGY;
   const tickets = 12;
   const diamonds = prof?.diamonds ?? Math.floor(Number(prof?.sweeps_coins ?? 0));

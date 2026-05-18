@@ -1137,6 +1137,16 @@ async function endLevel(win){
   btn.textContent = !realWin ? "Reintentar ↻"
     : canAdvance ? "Siguiente nivel ▶" : `Necesitas ${need}★ · Reintentar`;
   card._advance = realWin && canAdvance;
+  card._worldResult = card._advance ? {
+    type: "BB_GAME_RESULT",
+    game: "ballmatch",
+    win: true,
+    stars,
+    xp: xpWon,
+    score,
+    level,
+    nextLevel: level + 1
+  } : null;
 
   // estado inicial UI antes de animar
   document.getElementById("recCount").textContent = "0";
@@ -1237,6 +1247,10 @@ async function endLevel(win){
 
   // 5) mostrar botón
   await wait(200);
+  if (card._worldResult && window.parent !== window) {
+    window.parent.postMessage(card._worldResult, "*");
+    card._worldResult = null;
+  }
   btn.style.visibility="visible";
 }
 
