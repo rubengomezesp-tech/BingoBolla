@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CircleDollarSign, Play, RotateCw, Sparkles, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import WorldEventPage, { formatCompact, type WorldEventProfile } from "@/components/world-events/WorldEventPage";
+import RuletaSpinClient from "./RuletaSpinClient";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,8 @@ export default async function RuletaPage() {
       accent="#ff3d7f"
       heroArt={<WheelArt jackpotGold={jackpotGold} />}
     >
+      <RuletaSpinClient />
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
         <section>
           <div className="mb-4 flex items-end justify-between gap-3">

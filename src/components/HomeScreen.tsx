@@ -114,7 +114,7 @@ export default function HomeScreen({
           </button>
 
           <div className="hs-actions">
-            <button className="hs-actionGift" onClick={() => router.push("/regalo")} aria-label="Regalo diario">
+            <button className="hs-actionGift" onClick={() => router.push("/cofres")} aria-label="Cofres">
               <Gift /> <b>3</b>
             </button>
             <button className="hs-menu" onClick={() => router.push("/account")} aria-label="Menu">
@@ -133,7 +133,7 @@ export default function HomeScreen({
           </div>
         )}
 
-        <section className="hs-event" onClick={() => router.push("/mundomiami")}>
+        <section className="hs-event" onClick={() => router.push("/eventos")}>
           <div className="hs-eventCopy">
             <span>EVENTO ESPECIAL</span>
             <h1>FIESTA<br />TROPICAL</h1>
@@ -199,7 +199,7 @@ export default function HomeScreen({
             </div>
             <div className="hs-chestArt">🎁</div>
           </button>
-          <button className="hs-offerCard" onClick={() => router.push("/regalo")}>
+          <button className="hs-offerCard" onClick={() => router.push("/cofres")}>
             <div>
               <h3>COFRE GRATIS</h3>
               <p>Siguiente en:</p>
@@ -225,7 +225,7 @@ export default function HomeScreen({
           <button onClick={() => router.push("/store")}><ShoppingCart /><b>1</b><span>TIENDA</span></button>
           <button onClick={() => router.push("/mundos")}><Map /><span>MAPA</span></button>
           <button onClick={() => router.push("/invitar")}><UsersRound /><b>5</b><span>AMIGOS</span></button>
-          <button onClick={() => router.push("/vip")}><Gift /><b>2</b><span>COFRES</span></button>
+          <button onClick={() => router.push("/cofres")}><Gift /><b>2</b><span>COFRES</span></button>
         </nav>
 
         <section className="hs-friends">
@@ -246,7 +246,7 @@ export default function HomeScreen({
 
         <div className="hs-liveCount">
           <i />
-          {online.toLocaleString()} jugadores conectados ahora
+          {money(online)} jugadores conectados ahora
         </div>
       </main>
 

@@ -84,12 +84,13 @@ export default async function MundosPage() {
         <nav>
           <a href="/lobby" className="on">🏠 INICIO</a>
           <a href="/lobby#salas">🛡 SALAS EN VIVO <em>LIVE</em></a>
-          <a href="/regalo">✅ MISIONES <i>2</i></a>
+          <a href="/eventos">✅ MISIONES <i>2</i></a>
           <a href="/store">🛒 TIENDA</a>
           <a href="/invitar">👥 AMIGOS</a>
-          <a href="/regalo">🎁 EVENTOS</a>
+          <a href="/eventos">🎁 EVENTOS</a>
+          <a href="/mascota">😎 MASCOTA</a>
         </nav>
-        <a className="mw-pass" href="/vip">
+        <a className="mw-pass" href="/cofres">
           <div>12</div>
           <b>BOLLA PASS</b>
           <span><i style={{ width: "62%" }} /></span>
@@ -109,7 +110,7 @@ export default async function MundosPage() {
             <a href="/store">💎 {fmt(profile.sweeps_coins)} <b>+</b></a>
             <a href="/store">⚡ 5 <b>+</b><small>01:25</small></a>
           </div>
-          <a className="mw-gift" href="/regalo">🎁<i>3</i></a>
+          <a className="mw-gift" href="/cofres">🎁<i>3</i></a>
           <a className="mw-menu" href="/account">☰</a>
         </header>
 
@@ -134,17 +135,17 @@ export default async function MundosPage() {
             </a>
           ))}
 
-          <a className="mw-event" href="/regalo">
+          <a className="mw-event" href="/eventos">
             <div><span>EVENTO GLOBAL</span><b>FIESTA BINGO</b><em>⭐ 125,000 / 250,000</em></div>
             <img src={MASCOT} alt="" />
           </a>
-          <a className="mw-daily" href="/regalo"><strong>🎁</strong><b>COFRE DIARIO</b><span>ABRIR</span></a>
+          <a className="mw-daily" href="/cofres"><strong>🎁</strong><b>COFRE DIARIO</b><span>ABRIR</span></a>
           <a className="mw-playNow" href="/lobby#salas"><b>JUGAR AHORA</b><span>Encuentra salas, gana premios y diviértete.</span></a>
           <nav className="mw-quick">
-            <a href="/account">🏆<span>RANKING</span></a>
+            <a href="/ranking">🏆<span>RANKING</span></a>
             <a href="/invitar">👥<i>8</i><span>SQUAD</span></a>
-            <a href="/vip">🎁<i>3</i><span>COFRES</span></a>
-            <a href="/regalo">🎯<i>2</i><span>MISIONES</span></a>
+            <a href="/cofres">🎁<i>3</i><span>COFRES</span></a>
+            <a href="/eventos">🎯<i>2</i><span>MISIONES</span></a>
           </nav>
         </section>
 
