@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "caller": "node --env-file=.env.local scripts/caller.mjs"
+    "caller": "node --env-file=.env.local scripts/caller.mjs",
+    "check:repo": "node scripts/repo-health.mjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.5.0",
