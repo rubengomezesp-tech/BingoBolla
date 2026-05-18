@@ -1,396 +1,192 @@
 "use client";
 import { useEffect, useState } from "react";
 
-/* ============================================================
-   BingoBolla — Home / Landing  (src/app/page.tsx)
-   Estética: Miami neon synthwave · case con /mundo
-   Autocontenido: solo React + <a> (sin next/navigation ni supabase)
-   ============================================================ */
+/* BingoBolla — HOME público  ·  src/app/page.tsx
+   Estética: morado/oro glossy game-style (ref mockups) */
 
 export default function Home() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const [on, setOn] = useState(false);
+  useEffect(() => setOn(true), []);
 
-  const GAMES = [
-    { tag: "EN VIVO", name: "Bingo Salas", desc: "Cartones en tiempo real con jugadores de todo el mundo. Línea, dos líneas y bingo.", c: "#FF4D9A" },
-    { tag: "PUZZLE",  name: "Ball Match", desc: "Empareja bolas, encadena combos y desata el Bolla Fever ×10.", c: "#3DE8FF" },
-    { tag: "BOSS",    name: "Neural Cascade", desc: "Reto de enrutado cada 5 niveles. Estrategia pura para subir de nivel.", c: "#C8941A" },
+  const ROOMS = [
+    { n:"BINGO FIESTA", c:"#FF4D9A", players:75,  jp:"25,000" },
+    { n:"BINGO 90",     c:"#3DE8FF", players:132, jp:"50,000" },
+    { n:"POWER BINGO",  c:"#FFB323", players:54,  jp:"15,000" },
   ];
-
-  const STEPS = [
-    { n: "01", t: "Regístrate gratis", d: "Crea tu cuenta en segundos y recibe Gold Coins de bienvenida." },
-    { n: "02", t: "Juega y gana", d: "Usa Gold Coins para divertirte o Sweeps Coins para premios reales." },
-    { n: "03", t: "Canjea premios", d: "Convierte tus Sweeps Coins en recompensas. Sin comprar nada." },
+  const FEAT = [
+    { i:"🎰", t:"Salas en vivo", d:"Bingo 90 en tiempo real con jugadores de todo el mundo." },
+    { i:"🧩", t:"Minijuegos", d:"Ball Match, Neural Cascade y más retos para ganar." },
+    { i:"🗺️", t:"Mundo Miami", d:"20 niveles de neón. Sube y desbloquea recompensas." },
+    { i:"🎁", t:"Cofres diarios", d:"Premios gratis cada día. Sin comprar nada nunca." },
   ];
 
   return (
-    <div className="bb-root">
-      {/* ---------- Fondo synthwave ---------- */}
-      <div className="bb-bg" aria-hidden>
-        <div className="bb-sky" />
-        <div className="bb-sun" />
-        <div className="bb-grid" />
-        <div className="bb-grain" />
-      </div>
+    <div className="bb">
+      <div className="bb-bg" aria-hidden><i className="g1"/><i className="g2"/><i className="g3"/></div>
 
-      {/* ---------- Nav ---------- */}
-      <header className="bb-nav">
-        <a href="/" className="bb-logo">BINGOBOLLA</a>
-        <nav className="bb-links">
-          <a href="/mundo">Mundo</a>
-          <a href="#juegos">Juegos</a>
-          <a href="#como">Cómo funciona</a>
+      <header className="nav">
+        <a href="/" className="logo"><b>BINGO</b><em>BOLLA</em></a>
+        <nav className="nlinks">
+          <a href="#salas">Salas</a><a href="#feat">Juegos</a><a href="/mundo">Mundo</a>
         </nav>
-        <a href="/mundo" className="bb-btn bb-btn-ghost">Entrar</a>
+        <a href="/login" className="btn ghost">Entrar</a>
       </header>
 
-      {/* ---------- Hero ---------- */}
-      <main className="bb-hero">
-        <div className={`bb-hero-in ${mounted ? "on" : ""}`}>
-          <span className="bb-eyebrow">SOCIAL CASINO · MIAMI NIGHTS</span>
-          <h1 className="bb-h1">
-            Juega bingo.<br />
-            <span className="bb-h1-glow">Gana premios reales.</span>
-          </h1>
-          <p className="bb-sub">
-            El bingo social más vibrante del mundo. Salas en vivo, juegos arcade
-            y un mapa de Miami Beach que se ilumina con cada victoria.
-          </p>
-          <div className="bb-cta">
-            <a href="/mundo" className="bb-btn bb-btn-primary">Jugar gratis →</a>
-            <a href="#como" className="bb-btn bb-btn-ghost">Cómo funciona</a>
-          </div>
-          <div className="bb-trust">
-            <span>✓ Sin compra necesaria</span>
-            <span>✓ Modelo sweepstakes legal</span>
-            <span>✓ Premios canjeables</span>
-          </div>
+      <main className={`hero ${on?"on":""}`}>
+        <span className="eye">★ SOCIAL BINGO · MIAMI NIGHTS ★</span>
+        <h1>Bingo. Premios.<br/><span>Pura fiesta.</span></h1>
+        <p className="sub">Salas en vivo, minijuegos arcade y un mundo de Miami Beach
+          que se ilumina con cada victoria. Juega gratis, gana de verdad.</p>
+        <div className="cta">
+          <a href="/login" className="btn gold">JUGAR GRATIS →</a>
+          <a href="/mundo" className="btn ghost">Ver el mundo</a>
         </div>
-
-        {/* Bolas flotantes */}
-        <div className="bb-balls" aria-hidden>
-          {["B7","I22","N41","G58","O73"].map((b,i)=>(
-            <div key={b} className={`bb-ball b${i}`}><span>{b}</span></div>
-          ))}
+        <div className="trust">
+          <span>✓ Sin compra necesaria</span><span>✓ Sweepstakes legal</span><span>✓ +18</span>
+        </div>
+        <div className="balls" aria-hidden>
+          {["B7","I22","N41","G58","O73"].map((b,i)=>
+            <div key={b} className={`ball x${i}`}><span>{b}</span></div>)}
         </div>
       </main>
 
-      {/* ---------- Monedas ---------- */}
-      <section className="bb-coins">
-        <div className="bb-coin-card gold">
-          <div className="bb-coin-ico">🪙</div>
-          <h3>Gold Coins</h3>
-          <p>Para jugar por pura diversión. Reponibles cada día, sin coste y sin presión.</p>
-        </div>
-        <div className="bb-coin-card sweep">
-          <div className="bb-coin-ico">💎</div>
-          <h3>Sweeps Coins</h3>
-          <p>Las ganas jugando o de regalo. Canjéalas por premios reales. Nunca hace falta comprar.</p>
-        </div>
-      </section>
-
-      {/* ---------- Juegos ---------- */}
-      <section id="juegos" className="bb-section">
-        <h2 className="bb-h2">Tres formas de ganar</h2>
-        <div className="bb-games">
-          {GAMES.map(g => (
-            <div key={g.name} className="bb-game" style={{ ["--c" as string]: g.c }}>
-              <span className="bb-game-tag">{g.tag}</span>
-              <h3>{g.name}</h3>
-              <p>{g.desc}</p>
-              <a href="/mundo" className="bb-game-link">Jugar ahora →</a>
+      <section id="salas" className="sec">
+        <h2>Salas en vivo</h2>
+        <div className="rooms">
+          {ROOMS.map(r=>(
+            <div key={r.n} className="room" style={{["--c" as string]:r.c}}>
+              <span className="live">● LIVE</span>
+              <h3>{r.n}</h3>
+              <div className="rinfo">👤 {r.players} jugadores</div>
+              <div className="jp">Premio mayor<br/><b>🪙 {r.jp}</b></div>
+              <a href="/login" className="btn vio">JUGAR</a>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ---------- Mundo teaser ---------- */}
-      <section className="bb-world">
-        <div className="bb-world-in">
-          <span className="bb-eyebrow">EL MAPA</span>
-          <h2 className="bb-h2">Miami Nights — 20 niveles de neón</h2>
-          <p className="bb-sub">
-            Recorre Ocean Drive nivel a nivel. Cada parada desbloquea un juego nuevo
-            y cada 5 niveles te espera un Boss. Llega hasta la corona.
-          </p>
-          <a href="/mundo" className="bb-btn bb-btn-primary">Explorar el mundo →</a>
-        </div>
-      </section>
-
-      {/* ---------- Cómo funciona ---------- */}
-      <section id="como" className="bb-section">
-        <h2 className="bb-h2">Empieza en 3 pasos</h2>
-        <div className="bb-steps">
-          {STEPS.map(s => (
-            <div key={s.n} className="bb-step">
-              <div className="bb-step-n">{s.n}</div>
-              <h3>{s.t}</h3>
-              <p>{s.d}</p>
+      <section id="feat" className="sec">
+        <h2>Todo en un solo lugar</h2>
+        <div className="feat">
+          {FEAT.map(f=>(
+            <div key={f.t} className="fcard">
+              <div className="fico">{f.i}</div>
+              <h3>{f.t}</h3><p>{f.d}</p>
             </div>
           ))}
         </div>
-        <div className="bb-final-cta">
-          <a href="/mundo" className="bb-btn bb-btn-primary lg">Crear cuenta gratis →</a>
-        </div>
       </section>
 
-      {/* ---------- Footer ---------- */}
-      <footer className="bb-foot">
-        <div className="bb-foot-top">
-          <span className="bb-logo sm">BINGOBOLLA</span>
-          <nav className="bb-foot-links">
-            <a href="/mundo">Mundo</a>
-            <a href="#juegos">Juegos</a>
-            <a href="#como">Cómo funciona</a>
-            <a href="/tienda">Tienda</a>
-          </nav>
-        </div>
-        <p className="bb-legal">
-          BingoBolla opera bajo un modelo de sweepstakes. No es necesario realizar
-          ninguna compra para jugar ni para ganar. Las Gold Coins no tienen valor
-          monetario. Las Sweeps Coins pueden canjearse según los términos del
-          programa. Solo para mayores de 18 años. Juega de forma responsable.
-        </p>
-        <p className="bb-copy">© {new Date().getFullYear()} BingoBolla · Miami, FL</p>
+      <section className="band">
+        <h2>¿Listo para ganar?</h2>
+        <p className="sub">Crea tu cuenta gratis y recibe monedas de bienvenida.</p>
+        <a href="/login" className="btn gold lg">EMPEZAR AHORA →</a>
+      </section>
+
+      <footer className="foot">
+        <a href="/" className="logo sm"><b>BINGO</b><em>BOLLA</em></a>
+        <p className="legal">BingoBolla opera bajo un modelo de sweepstakes. No es necesario
+          comprar para jugar ni ganar. Las Gold Coins no tienen valor monetario.
+          Solo mayores de 18 años. Juega de forma responsable.</p>
+        <p className="copy">© {new Date().getFullYear()} BingoBolla · Miami, FL</p>
       </footer>
 
-      {/* ---------- Estilos ---------- */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Monoton&family=Syne:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600&display=swap');
-
-        .bb-root{
-          --bg:#06010D; --magenta:#FF4D9A; --cyan:#3DE8FF; --gold:#C8941A;
-          --ink:#F4ECFF; --mut:rgba(244,236,255,.62);
-          position:relative; min-height:100vh; background:var(--bg);
-          color:var(--ink); font-family:'Hanken Grotesk',sans-serif;
-          overflow-x:hidden;
-        }
-        .bb-root *{box-sizing:border-box; margin:0; padding:0;}
-        .bb-root a{color:inherit; text-decoration:none;}
-
-        /* ----- Fondo ----- */
-        .bb-bg{position:fixed; inset:0; z-index:0; pointer-events:none;}
-        .bb-sky{position:absolute; inset:0;
-          background:
-            radial-gradient(120% 80% at 50% 0%, #2a0a3d 0%, #14041f 42%, var(--bg) 75%);
-        }
-        .bb-sun{
-          position:absolute; left:50%; top:14%; width:340px; height:340px;
-          transform:translateX(-50%);
-          background:radial-gradient(circle at 50% 45%,
-            #ffd36b 0%, var(--magenta) 38%, transparent 70%);
-          border-radius:50%; filter:blur(6px); opacity:.55;
-          animation:bbpulse 6s ease-in-out infinite;
-        }
-        @keyframes bbpulse{0%,100%{opacity:.5}50%{opacity:.72}}
-        .bb-grid{
-          position:absolute; left:-25%; right:-25%; bottom:0; height:46vh;
-          background-image:
-            linear-gradient(rgba(61,232,255,.45) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,77,154,.4) 1px, transparent 1px);
-          background-size:64px 64px;
-          transform:perspective(420px) rotateX(68deg);
-          transform-origin:bottom center;
-          mask-image:linear-gradient(transparent, #000 30%);
-          -webkit-mask-image:linear-gradient(transparent, #000 30%);
-          animation:bbgrid 1.8s linear infinite;
-        }
-        @keyframes bbgrid{from{background-position:0 0,0 0}to{background-position:0 64px,0 0}}
-        .bb-grain{
-          position:absolute; inset:0; opacity:.05; mix-blend-mode:overlay;
-          background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23n)'/%3E%3C/svg%3E");
-        }
-
-        /* ----- Nav ----- */
-        .bb-nav{
-          position:relative; z-index:5; max-width:1180px; margin:0 auto;
-          padding:26px 28px; display:flex; align-items:center; justify-content:space-between;
-        }
-        .bb-logo{
-          font-family:'Monoton',cursive; font-size:26px; letter-spacing:1px;
-          color:#fff; text-shadow:0 0 12px var(--magenta),0 0 28px var(--magenta);
-        }
-        .bb-logo.sm{font-size:20px;}
-        .bb-links{display:flex; gap:30px; font-weight:500; font-size:14px;}
-        .bb-links a{color:var(--mut); transition:.2s;}
-        .bb-links a:hover{color:var(--cyan); text-shadow:0 0 10px var(--cyan);}
-
-        .bb-btn{
-          display:inline-flex; align-items:center; gap:6px;
-          padding:13px 24px; border-radius:999px; font-weight:600;
-          font-size:14px; cursor:pointer; transition:.22s; white-space:nowrap;
-        }
-        .bb-btn.lg{padding:17px 34px; font-size:16px;}
-        .bb-btn-primary{
-          background:linear-gradient(100deg,var(--magenta),#ff7ac0);
-          color:#1a0010; box-shadow:0 0 0 1px rgba(255,255,255,.15),
-          0 10px 30px rgba(255,77,154,.45);
-        }
-        .bb-btn-primary:hover{transform:translateY(-2px);
-          box-shadow:0 0 0 1px rgba(255,255,255,.25),0 14px 40px rgba(255,77,154,.6);}
-        .bb-btn-ghost{
-          border:1.5px solid rgba(61,232,255,.4); color:var(--cyan);
-          background:rgba(61,232,255,.05);
-        }
-        .bb-btn-ghost:hover{border-color:var(--cyan);
-          box-shadow:0 0 22px rgba(61,232,255,.35); transform:translateY(-2px);}
-
-        /* ----- Hero ----- */
-        .bb-hero{
-          position:relative; z-index:5; max-width:1180px; margin:0 auto;
-          padding:70px 28px 90px; display:grid;
-          grid-template-columns:1.15fr .85fr; align-items:center; gap:40px;
-        }
-        .bb-hero-in{opacity:0; transform:translateY(26px);
-          transition:opacity .9s ease,transform .9s ease;}
-        .bb-hero-in.on{opacity:1; transform:none;}
-        .bb-eyebrow{
-          display:inline-block; font-size:12px; font-weight:700; letter-spacing:3px;
-          color:var(--cyan); margin-bottom:20px; text-shadow:0 0 12px rgba(61,232,255,.5);
-        }
-        .bb-h1{
-          font-family:'Syne',sans-serif; font-weight:800; font-size:clamp(40px,6vw,72px);
-          line-height:1.02; letter-spacing:-1.5px;
-        }
-        .bb-h1-glow{
-          color:#fff;
-          text-shadow:0 0 16px var(--magenta),0 0 40px rgba(255,77,154,.7);
-        }
-        .bb-sub{
-          margin:24px 0 34px; max-width:520px; font-size:17px;
-          line-height:1.65; color:var(--mut);
-        }
-        .bb-cta{display:flex; gap:14px; flex-wrap:wrap;}
-        .bb-trust{
-          margin-top:30px; display:flex; gap:22px; flex-wrap:wrap;
-          font-size:13px; color:var(--mut);
-        }
-        .bb-trust span{color:rgba(244,236,255,.5);}
-
-        /* ----- Bolas ----- */
-        .bb-balls{position:relative; height:380px;}
-        .bb-ball{
-          position:absolute; width:90px; height:90px; border-radius:50%;
-          display:flex; align-items:center; justify-content:center;
-          font-family:'Syne',sans-serif; font-weight:800; font-size:20px;
-          color:#1a0010;
-          background:radial-gradient(circle at 32% 28%,#fff 0%,#ffd36b 30%,var(--gold) 70%);
-          box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 -8px 14px rgba(120,70,0,.4);
-          animation:bbfloat 5s ease-in-out infinite;
-        }
-        .bb-ball span{transform:translateY(-1px);}
-        .bb-ball.b0{top:6%;  left:18%; animation-delay:0s;}
-        .bb-ball.b1{top:0%;  right:6%; width:74px; height:74px;
-          background:radial-gradient(circle at 32% 28%,#fff,#7af0ff 30%,var(--cyan) 70%);
-          animation-delay:.8s;}
-        .bb-ball.b2{top:42%; left:0%;  width:80px; height:80px;
-          background:radial-gradient(circle at 32% 28%,#fff,#ff9ccb 30%,var(--magenta) 70%);
-          animation-delay:1.6s;}
-        .bb-ball.b3{bottom:6%; left:30%; width:68px; height:68px; animation-delay:.4s;}
-        .bb-ball.b4{bottom:14%; right:10%;
-          background:radial-gradient(circle at 32% 28%,#fff,#7af0ff 30%,var(--cyan) 70%);
-          animation-delay:1.2s;}
-        @keyframes bbfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-22px)}}
-
-        /* ----- Monedas ----- */
-        .bb-coins{
-          position:relative; z-index:5; max-width:1000px; margin:0 auto;
-          padding:20px 28px 70px; display:grid;
-          grid-template-columns:1fr 1fr; gap:22px;
-        }
-        .bb-coin-card{
-          padding:34px; border-radius:22px; backdrop-filter:blur(14px);
-          background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
-        }
-        .bb-coin-card.gold{border-color:rgba(200,148,26,.4);
-          box-shadow:0 0 36px rgba(200,148,26,.12) inset;}
-        .bb-coin-card.sweep{border-color:rgba(61,232,255,.4);
-          box-shadow:0 0 36px rgba(61,232,255,.12) inset;}
-        .bb-coin-ico{font-size:38px; margin-bottom:14px;}
-        .bb-coin-card h3{font-family:'Syne',sans-serif; font-size:22px; margin-bottom:10px;}
-        .bb-coin-card p{color:var(--mut); font-size:15px; line-height:1.6;}
-
-        /* ----- Secciones ----- */
-        .bb-section{
-          position:relative; z-index:5; max-width:1180px; margin:0 auto;
-          padding:70px 28px;
-        }
-        .bb-h2{
-          font-family:'Syne',sans-serif; font-weight:800;
-          font-size:clamp(28px,4vw,44px); letter-spacing:-1px;
-          text-align:center; margin-bottom:48px;
-        }
-        .bb-games{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
-        .bb-game{
-          padding:32px 28px; border-radius:20px;
-          background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
-          border:1px solid rgba(255,255,255,.08);
-          border-top:3px solid var(--c); transition:.25s;
-        }
-        .bb-game:hover{transform:translateY(-6px);
-          box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 30px color-mix(in srgb,var(--c) 30%,transparent);}
-        .bb-game-tag{
-          font-size:11px; font-weight:700; letter-spacing:2px; color:var(--c);
-        }
-        .bb-game h3{font-family:'Syne',sans-serif; font-size:24px; margin:14px 0 10px;}
-        .bb-game p{color:var(--mut); font-size:15px; line-height:1.6; margin-bottom:20px;}
-        .bb-game-link{color:var(--c); font-weight:600; font-size:14px;}
-
-        /* ----- Mundo ----- */
-        .bb-world{
-          position:relative; z-index:5; max-width:1180px; margin:30px auto;
-          padding:0 28px;
-        }
-        .bb-world-in{
-          padding:60px 48px; border-radius:28px; text-align:center;
-          background:
-            radial-gradient(120% 140% at 50% 0%, rgba(255,77,154,.18), transparent 60%),
-            rgba(255,255,255,.03);
-          border:1px solid rgba(255,77,154,.3);
-        }
-        .bb-world-in .bb-sub{margin-left:auto; margin-right:auto;}
-
-        /* ----- Pasos ----- */
-        .bb-steps{display:grid; grid-template-columns:repeat(3,1fr); gap:22px;}
-        .bb-step{
-          padding:30px; border-radius:18px; background:rgba(255,255,255,.03);
-          border:1px solid rgba(255,255,255,.07);
-        }
-        .bb-step-n{
-          font-family:'Syne',sans-serif; font-weight:800; font-size:34px;
-          color:transparent; -webkit-text-stroke:1.5px var(--cyan);
-          margin-bottom:14px;
-        }
-        .bb-step h3{font-family:'Syne',sans-serif; font-size:19px; margin-bottom:8px;}
-        .bb-step p{color:var(--mut); font-size:14px; line-height:1.6;}
-        .bb-final-cta{text-align:center; margin-top:50px;}
-
-        /* ----- Footer ----- */
-        .bb-foot{
-          position:relative; z-index:5; max-width:1180px; margin:40px auto 0;
-          padding:50px 28px 60px; border-top:1px solid rgba(255,255,255,.08);
-        }
-        .bb-foot-top{
-          display:flex; align-items:center; justify-content:space-between;
-          flex-wrap:wrap; gap:20px; margin-bottom:30px;
-        }
-        .bb-foot-links{display:flex; gap:24px; font-size:14px; color:var(--mut);}
-        .bb-foot-links a:hover{color:var(--cyan);}
-        .bb-legal{
-          font-size:12px; line-height:1.7; color:rgba(244,236,255,.4);
-          max-width:760px; margin-bottom:16px;
-        }
-        .bb-copy{font-size:12px; color:rgba(244,236,255,.35);}
-
-        /* ----- Responsive ----- */
-        @media (max-width:860px){
-          .bb-links{display:none;}
-          .bb-hero{grid-template-columns:1fr; padding-top:40px;}
-          .bb-balls{height:240px; order:-1;}
-          .bb-ball{width:64px!important; height:64px!important; font-size:15px;}
-          .bb-coins,.bb-games,.bb-steps{grid-template-columns:1fr;}
-          .bb-world-in{padding:40px 24px;}
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600&display=swap');
+        .bb{--bg1:#1B0A33;--bg2:#0C0418;--gold:#FFB323;--gold2:#FFD55E;
+          --vio:#7B2FF7;--vio2:#A45BFF;--pink:#FF4D9A;--cyan:#3DE8FF;--live:#FF3B5C;
+          --ink:#fff;--mut:rgba(255,255,255,.62);
+          position:relative;min-height:100vh;background:var(--bg2);color:var(--ink);
+          font-family:'Hanken Grotesk',sans-serif;overflow-x:hidden;}
+        .bb *{box-sizing:border-box;margin:0;padding:0}.bb a{color:inherit;text-decoration:none}
+        .bb-bg{position:fixed;inset:0;z-index:0;
+          background:radial-gradient(130% 90% at 50% 0%,#3a1260 0%,#1B0A33 45%,var(--bg2) 80%)}
+        .bb-bg i{position:absolute;border-radius:50%;filter:blur(80px);opacity:.4}
+        .g1{width:480px;height:480px;background:var(--vio);top:-120px;left:-100px}
+        .g2{width:420px;height:420px;background:var(--pink);top:30%;right:-140px;opacity:.28}
+        .g3{width:520px;height:520px;background:#5a1a8a;bottom:-180px;left:30%;opacity:.3}
+        .nav{position:relative;z-index:5;max-width:1180px;margin:0 auto;
+          padding:24px 26px;display:flex;align-items:center;justify-content:space-between}
+        .logo{font-family:'Fredoka',sans-serif;font-weight:700;font-size:26px;line-height:1}
+        .logo b{color:#fff}.logo em{color:var(--gold);font-style:normal;
+          text-shadow:0 0 16px rgba(255,179,35,.6)}
+        .logo.sm{font-size:20px}
+        .nlinks{display:flex;gap:28px;font-weight:500;font-size:14px}
+        .nlinks a{color:var(--mut)}.nlinks a:hover{color:var(--gold)}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:13px 26px;
+          border-radius:14px;font-family:'Fredoka',sans-serif;font-weight:600;
+          font-size:14px;cursor:pointer;transition:.2s}
+        .btn.lg{padding:18px 38px;font-size:17px}
+        .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));
+          color:#3a1e00;box-shadow:0 8px 26px rgba(255,179,35,.45),
+          inset 0 1px 0 rgba(255,255,255,.6)}
+        .btn.gold:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(255,179,35,.6)}
+        .btn.vio{background:linear-gradient(180deg,var(--vio2),var(--vio));color:#fff;
+          width:100%;justify-content:center;
+          box-shadow:0 6px 20px rgba(123,47,247,.5),inset 0 1px 0 rgba(255,255,255,.3)}
+        .btn.vio:hover{transform:translateY(-2px)}
+        .btn.ghost{border:1.5px solid rgba(255,255,255,.2);color:#fff;
+          background:rgba(255,255,255,.05)}
+        .btn.ghost:hover{border-color:var(--gold);color:var(--gold)}
+        .hero{position:relative;z-index:5;max-width:920px;margin:0 auto;
+          padding:60px 26px 90px;text-align:center;opacity:0;transform:translateY(24px);
+          transition:.9s}
+        .hero.on{opacity:1;transform:none}
+        .eye{font-family:'Fredoka',sans-serif;font-size:13px;font-weight:600;
+          letter-spacing:2px;color:var(--gold)}
+        .hero h1{font-family:'Fredoka',sans-serif;font-weight:700;
+          font-size:clamp(40px,7vw,76px);line-height:1.05;margin:18px 0}
+        .hero h1 span{color:var(--gold);text-shadow:0 0 28px rgba(255,179,35,.55)}
+        .sub{max-width:560px;margin:0 auto;color:var(--mut);font-size:17px;line-height:1.6}
+        .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:34px 0 22px}
+        .trust{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;
+          font-size:13px;color:rgba(255,255,255,.45)}
+        .balls{position:relative;height:90px;margin-top:30px}
+        .ball{position:absolute;width:62px;height:62px;border-radius:50%;
+          display:flex;align-items:center;justify-content:center;
+          font-family:'Fredoka',sans-serif;font-weight:700;font-size:15px;color:#3a1e00;
+          background:radial-gradient(circle at 32% 28%,#fff,var(--gold2) 35%,var(--gold) 72%);
+          box-shadow:0 12px 28px rgba(0,0,0,.5);animation:fl 5s ease-in-out infinite}
+        .ball.x0{left:8%;top:10px}
+        .ball.x1{left:28%;top:-10px;background:radial-gradient(circle at 32% 28%,#fff,#7af0ff 35%,var(--cyan) 72%);animation-delay:.6s}
+        .ball.x2{left:48%;top:14px;background:radial-gradient(circle at 32% 28%,#fff,#ff9ccb 35%,var(--pink) 72%);animation-delay:1.2s}
+        .ball.x3{left:68%;top:-6px;animation-delay:.9s}
+        .ball.x4{left:86%;top:12px;background:radial-gradient(circle at 32% 28%,#fff,#c69bff 35%,var(--vio) 72%);animation-delay:1.5s}
+        @keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+        .sec{position:relative;z-index:5;max-width:1080px;margin:0 auto;padding:60px 26px}
+        .sec h2,.band h2{font-family:'Fredoka',sans-serif;font-weight:700;
+          font-size:clamp(26px,4vw,40px);text-align:center;margin-bottom:40px}
+        .rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+        .room{position:relative;padding:26px 22px;border-radius:20px;text-align:center;
+          background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+          border:1px solid rgba(255,255,255,.08);border-top:3px solid var(--c)}
+        .live{position:absolute;top:14px;right:14px;font-size:10px;font-weight:700;
+          color:#fff;background:var(--live);padding:3px 9px;border-radius:8px;
+          letter-spacing:1px}
+        .room h3{font-family:'Fredoka',sans-serif;font-size:24px;color:var(--c);
+          margin:8px 0 14px;text-shadow:0 0 18px color-mix(in srgb,var(--c) 45%,transparent)}
+        .rinfo{font-size:13px;color:var(--mut);margin-bottom:14px}
+        .jp{font-size:13px;color:var(--mut);margin-bottom:18px;line-height:1.5}
+        .jp b{font-family:'Fredoka',sans-serif;font-size:22px;color:var(--gold)}
+        .feat{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+        .fcard{padding:28px 22px;border-radius:18px;background:rgba(255,255,255,.04);
+          border:1px solid rgba(255,255,255,.07);transition:.2s}
+        .fcard:hover{transform:translateY(-5px);border-color:rgba(255,179,35,.3)}
+        .fico{font-size:34px;margin-bottom:12px}
+        .fcard h3{font-family:'Fredoka',sans-serif;font-size:18px;margin-bottom:8px}
+        .fcard p{color:var(--mut);font-size:14px;line-height:1.55}
+        .band{position:relative;z-index:5;max-width:760px;margin:30px auto;
+          padding:60px 30px;text-align:center;border-radius:28px;
+          background:radial-gradient(120% 140% at 50% 0%,rgba(255,179,35,.15),transparent 62%),
+          rgba(255,255,255,.03);border:1px solid rgba(255,179,35,.3)}
+        .band .sub{margin-bottom:30px}
+        .foot{position:relative;z-index:5;max-width:1080px;margin:40px auto 0;
+          padding:46px 26px 56px;border-top:1px solid rgba(255,255,255,.08);text-align:center}
+        .legal{font-size:12px;line-height:1.7;color:rgba(255,255,255,.4);
+          max-width:720px;margin:18px auto 14px}
+        .copy{font-size:12px;color:rgba(255,255,255,.32)}
+        @media(max-width:820px){.nlinks{display:none}
+          .rooms,.feat{grid-template-columns:1fr}}
       `}</style>
     </div>
   );
