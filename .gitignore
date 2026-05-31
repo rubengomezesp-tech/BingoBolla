@@ -40,3 +40,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Capacitor — plataformas nativas generadas en la Mac del usuario
+# (descomenta si NO quieres versionar los proyectos nativos)
+# /ios
+# /android
+
+# Capacitor — archivos sensibles que nunca deben subirse
+/android/keystore.properties
+/android/app/google-services.json
+*.keystore
+*.jks
+/ios/App/App/GoogleService-Info.plist

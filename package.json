@@ -6,7 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "caller": "node --env-file=.env.local scripts/caller.mjs"
+    "caller": "node --env-file=.env.local scripts/caller.mjs",
+    "cap:add:ios": "cap add ios",
+    "cap:add:android": "cap add android",
+    "cap:sync": "cap sync",
+    "cap:sync:ios": "cap sync ios",
+    "cap:sync:android": "cap sync android",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android",
+    "cap:run:ios": "cap run ios",
+    "cap:run:android": "cap run android"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
