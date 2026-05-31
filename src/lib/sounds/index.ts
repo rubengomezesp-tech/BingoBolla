@@ -3,13 +3,24 @@
 
 let ctx: AudioContext | null = null;
 let muted = false;
+// AudioContext solo se crea tras gesto del usuario para evitar el warning
+// "AudioContext was not allowed to start" en navegadores modernos.
+let gestureUnlocked = false;
 
 if (typeof window !== "undefined") {
   muted = localStorage.getItem("bb_muted") === "1";
 }
 
+/** Llamado desde PWARegister tras el primer gesto del usuario. */
+export function unlockAudio() {
+  gestureUnlocked = true;
+  const c = getCtx();
+  if (c && c.state === "suspended") c.resume();
+}
+
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
+  if (!gestureUnlocked) return null;
   if (!ctx) {
     try {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)();

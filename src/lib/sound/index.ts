@@ -6,9 +6,14 @@
 
 let ctx: AudioContext | null = null;
 let enabled = true;
+// El AudioContext SOLO puede instanciarse tras un gesto del usuario.
+// PWARegister llama initAudio() en el primer pointerdown/keydown/touchstart.
+// Hasta entonces, getCtx() devuelve null y los sonidos quedan en silencio.
+let gestureUnlocked = false;
 
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
+  if (!gestureUnlocked) return null;
   if (!ctx) {
     try {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -22,6 +27,7 @@ function getCtx(): AudioContext | null {
 
 // Inicializa el audio en el primer gesto del usuario (requerido por navegadores)
 export function initAudio() {
+  gestureUnlocked = true;
   const c = getCtx();
   if (c && c.state === "suspended") c.resume();
 }
