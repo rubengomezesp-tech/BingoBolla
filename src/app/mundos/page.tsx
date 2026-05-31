@@ -39,9 +39,16 @@ export default async function MundosPage() {
     try { return await promise; } catch { return { data: null } as any; }
   };
 
-  const [mapResult, xpResult] = await Promise.all([
+  const [mapResult, xpResult, worldsResult] = await Promise.all([
     safe(supabase.rpc("get_world_map", { p_world_id: "miami_nights" })),
     safe(supabase.rpc("get_player_xp", { p_player_id: user.id })),
+    safe(
+      supabase
+        .from("worlds")
+        .select("id, name, ordinal, unlock_level, total_nodes, active")
+        .eq("active", true)
+        .order("ordinal", { ascending: true })
+    ),
   ]);
 
   const miamiNodes = Array.isArray(mapResult?.data) ? mapResult.data : [];
@@ -55,11 +62,38 @@ export default async function MundosPage() {
     user.email?.split("@")[0] ||
     "BingoStar";
 
-  const worlds = [
-    { index: 1, name: "MIAMI NIGHTS", stars: miamiStars, max: miamiMax, href: "/mundomiami", active: true },
-    { index: 2, name: "VEGAS LIGHTS", stars: 0, max: 30, href: "/mundomiami", soon: true },
-    { index: 3, name: "TOKYO RUSH", stars: 0, max: 30, href: "/mundomiami", soon: true },
+  // Fallback estático si la tabla worlds aún no tiene los 3 mundos sembrados.
+  const FALLBACK_WORLDS = [
+    { id: "miami_nights", name: "MIAMI NIGHTS", ordinal: 1, unlock_level: 1 },
+    { id: "vegas_lights", name: "VEGAS LIGHTS", ordinal: 2, unlock_level: 5 },
+    { id: "tokyo_rush",   name: "TOKYO RUSH",   ordinal: 3, unlock_level: 10 },
   ];
+  const dbWorlds = Array.isArray(worldsResult?.data) ? worldsResult.data : [];
+  const sourceWorlds = dbWorlds.length >= 3
+    ? dbWorlds.map((w: any) => ({
+        id: w.id,
+        name: String(w.name ?? "").toUpperCase(),
+        ordinal: Number(w.ordinal ?? 0),
+        unlock_level: Number(w.unlock_level ?? 1),
+      }))
+    : FALLBACK_WORLDS;
+
+  const worlds = sourceWorlds.slice(0, 3).map((w: any, i: number) => {
+    const index = w.ordinal || i + 1;
+    const isMiami = w.id === "miami_nights";
+    const unlocked = xp.level >= w.unlock_level;
+    return {
+      index,
+      id: w.id,
+      name: w.name,
+      unlock_level: w.unlock_level,
+      stars: isMiami ? miamiStars : 0,
+      max: isMiami ? miamiMax : 30,
+      href: isMiami && unlocked ? "/mundomiami" : "#",
+      active: isMiami && unlocked,
+      locked: !unlocked,
+    };
+  });
 
   return (
     <div className="mw-root">
@@ -122,16 +156,27 @@ export default async function MundosPage() {
           </div>
 
           <div className="mw-route" aria-hidden />
-          {worlds.map((world) => (
+          {worlds.map((world: any) => (
             <a
-              key={world.name}
-              href={world.active ? world.href : "#"}
-              className={`mw-world mw-w${world.index}${world.soon ? " locked" : ""}`}
-              aria-disabled={world.soon ? "true" : undefined}
+              key={world.id}
+              data-testid={`world-card-${world.id}`}
+              href={world.locked ? "#" : world.href}
+              onClick={world.locked ? (e) => e.preventDefault() : undefined}
+              className={`mw-world mw-w${world.index}${world.locked ? " locked" : ""}`}
+              aria-disabled={world.locked ? "true" : undefined}
+              aria-label={
+                world.locked
+                  ? `${world.name} bloqueado. Nivel ${world.unlock_level} requerido.`
+                  : world.name
+              }
             >
-              <span>{world.soon ? "🔒" : world.index}</span>
+              <span>{world.locked ? "🔒" : world.index}</span>
               <b>{world.name}</b>
-              <em>{world.soon ? "PRÓXIMAMENTE" : `⭐ ${world.stars} / ${world.max}`}</em>
+              <em data-testid={`world-status-${world.id}`}>
+                {world.locked
+                  ? `NIVEL ${world.unlock_level} REQUERIDO`
+                  : `⭐ ${world.stars} / ${world.max}`}
+              </em>
             </a>
           ))}
 

@@ -30,6 +30,16 @@ MVP móvil: login, lobby, mapa de mundos (Miami → Vegas por niveles), sala de 
 - Actualizado `.gitignore` para ignorar keystores, `google-services.json`, `GoogleService-Info.plist`.
 - Creado `/app/MOBILE_BUILD.md` (231 líneas) — guía completa paso a paso para que el usuario genere los proyectos nativos, firme y suba a TestFlight / Play Console en su Mac.
 
+### ✅ Completado en sesión actual (feb-2026)
+- **AudioContext autoplay fix** — `lib/sound/index.ts` y `lib/sounds/index.ts` ahora instancian `AudioContext` solo después de un gesto (`gestureUnlocked` flag activado por `pointerdown`/`click`).
+- **PWA mejorada** — `sw.js` con estrategias network-first (HTML), cache-first (assets) y SWR (imágenes); `PWARegister.tsx` con banner de instalación reutilizable (cooldown 14 días).
+- **Progresión de mundos por nivel** ✅ (este turno):
+  - Nueva migration `026_worlds_seed_more.sql` que siembra Vegas Lights (`unlock_level=5`) y Tokyo Rush (`unlock_level=10`).
+  - `/app/src/app/mundos/page.tsx` ahora consulta la tabla `worlds` (con fallback estático de 3 mundos), compara `xp.level >= unlock_level` y muestra `🔒 NIVEL X REQUERIDO` cuando bloqueado.
+  - Click bloqueado (`preventDefault` + `aria-disabled`) cuando el mundo está locked.
+  - `data-testid` añadidos: `world-card-<id>`, `world-status-<id>`.
+  - `tsc --noEmit` ✅ limpio; `next build` compila `/mundos` sin errores.
+
 ### ⏳ Pendiente para el usuario (en su Mac, fuera de este contenedor)
 1. Actualizar Node a v22+.
 2. `npm install && npm run cap:add:ios && npm run cap:add:android`.
@@ -40,17 +50,13 @@ MVP móvil: login, lobby, mapa de mundos (Miami → Vegas por niveles), sala de 
 ## Backlog priorizado
 
 ### P1 — Próxima sesión
-- **Fix AudioContext warning**: mover `initAudio()` en `/app/src/components/PWARegister.tsx` desde `useEffect` a un gesto del usuario (click en el lobby).
-- **Mejorar PWA**: cache de assets en `sw.js` + prompt de instalación en `PWARegister.tsx`.
 - **Notificaciones Push**: integrar APNs (iOS) + FCM (Android) en flujo de juego (cuando el bingo está por empezar, premio ganado, etc.).
+- **Smoke test E2E en producción Vercel** (login → lobby → mapa mundos → sala bingo) tras el deploy del cambio de progresión.
 
-### P2 — Progresión de mundos
-- Implementar desbloqueo de mundos por XP/nivel en `/app/src/app/mundos/page.tsx`:
-  - Miami Nights → Lv 1 (activo).
-  - Vegas Lights → Lv 5.
-  - Tokyo Rush → Lv 10.
-  - etc.
-- Conectar con migraciones existentes `023_xp_hooks.sql` y `025_worlds_map.sql`.
+### P2 — Más mundos y nodos
+- Sembrar nodos (`world_nodes`) reales para Vegas Lights y Tokyo Rush en una migration posterior.
+- Páginas de mundo individuales (`/mundovegas`, `/mundotokyo`) cuando sus nodos estén sembrados.
+- Consolidar las dos librerías de audio duplicadas (`lib/sound/` + `lib/sounds/`) en una sola.
 
 ### P3 — Producción y cumplimiento
 - Política de privacidad y términos legales para tiendas (obligatorio).
