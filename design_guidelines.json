@@ -1,0 +1,114 @@
+{
+  "theme": "dark",
+  "archetype": "7 (Electric & Neon) combined with 5 (Luxury) for a Premium Arcade feel",
+  "typography": {
+    "heading_font": "Outfit",
+    "body_font": "Plus Jakarta Sans",
+    "scale": {
+      "h1": "text-4xl md:text-5xl tracking-tight font-black",
+      "h2": "text-2xl md:text-3xl tracking-tight font-bold",
+      "h3": "text-xl md:text-2xl font-bold",
+      "body": "text-base font-medium",
+      "small": "text-sm font-medium tracking-wide"
+    }
+  },
+  "colors": {
+    "background": "#09090B",
+    "surface": "#18181B",
+    "surface_glass": "rgba(24, 24, 27, 0.7)",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#A1A1AA",
+    "worlds": {
+      "miami": {
+        "primary": "#FF2A6D",
+        "secondary": "#05D9E8",
+        "gradient": "bg-gradient-to-br from-[#FF2A6D] to-[#05D9E8]"
+      },
+      "vegas": {
+        "primary": "#FFD700",
+        "secondary": "#E5E5E5",
+        "gradient": "bg-gradient-to-br from-[#FFD700] to-[#E5E5E5]"
+      },
+      "la": {
+        "primary": "#FF5E00",
+        "secondary": "#C026D3",
+        "gradient": "bg-gradient-to-br from-[#FF5E00] to-[#C026D3]"
+      },
+      "california": {
+        "primary": "#3EB489",
+        "secondary": "#F4E4C1",
+        "gradient": "bg-gradient-to-br from-[#3EB489] to-[#F4E4C1]"
+      },
+      "new_york": {
+        "primary": "#FFCC00",
+        "secondary": "#0047AB",
+        "gradient": "bg-gradient-to-br from-[#FFCC00] to-[#0047AB]"
+      }
+    }
+  },
+  "layout_and_spacing": {
+    "container": "w-full max-w-md mx-auto h-[100dvh] overflow-hidden relative shadow-2xl bg-[#09090B] sm:rounded-3xl sm:h-[90vh] sm:my-[5vh]",
+    "safe_areas": "px-4 py-6 md:p-8",
+    "radius": "rounded-2xl md:rounded-3xl",
+    "button": "h-14 px-8 rounded-full font-bold text-lg w-full flex items-center justify-center transition-all",
+    "map_nodes": "w-16 h-16 rounded-full border-4 border-[#18181B] shadow-xl flex items-center justify-center text-xl font-bold z-10 relative"
+  },
+  "surfaces_and_effects": {
+    "glass_header": "backdrop-blur-xl bg-[#09090B]/80 border-b border-white/10 z-50",
+    "card": "bg-[#18181B] rounded-3xl border border-white/5 shadow-2xl",
+    "glow_active": "shadow-[0_0_20px_var(--world-primary)]",
+    "modal_overlay": "backdrop-blur-md bg-black/60 z-50 fixed inset-0 flex items-center justify-center"
+  },
+  "components_strategy": {
+    "buttons": "Custom Framer Motion buttons (whileTap scale 0.95). Primary buttons use world-specific gradient.",
+    "level_map": "Vertical scrolling container. SVG dashed line connecting absolute-positioned level nodes. Nodes alternate left/right to create a winding path.",
+    "world_selector": "Horizontal swiper/carousel (Framer Motion) showing large cards with world background images.",
+    "game_board": "CSS Grid based on the game type. Match-3 (8x8 grid), Memory (4x5 grid), Slide (4x4 grid), Word Search (10x10 grid).",
+    "auth": "Shadcn UI forms customized heavily with glassmorphism and large tap targets. Social login buttons.",
+    "icons": "lucide-react for system icons (settings, back, profile). Custom SVGs or emojis for game pieces."
+  },
+  "motion_and_animations": {
+    "page_transition": "Framer Motion layout animations. Slide in from right.",
+    "level_unlock": "Particle burst (using framer-motion or canvas) + scale pop.",
+    "game_interactions": "Spring animations for tile swaps, card flips (rotateY), and tile slides.",
+    "stars": "Staggered pop-in with slight overshoot (spring, bounce: 0.5)."
+  },
+  "media": {
+    "game_icon": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/0c37dffe-63b8-4546-9e18-38814e0f9d7f/images/58d6ef91a5c1a2ab215040d29a4fa88a9ff9d49e7738d3b01561acea228f538f.png",
+      "description": "App icon/logo - USA map with puzzle pieces"
+    },
+    "world_backgrounds": {
+      "miami": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/0c37dffe-63b8-4546-9e18-38814e0f9d7f/images/9d22d1c315a702212a7b448d518daba2d62b451a0b8b2f91017c46238f19fda2.png",
+        "description": "Miami world background - Ocean sunset, neon pink/cyan"
+      },
+      "vegas": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/0c37dffe-63b8-4546-9e18-38814e0f9d7f/images/9c62d1b7a475ad48eca36dd475135f72fa0c6361a796ad31e93874727e0d8b96.png",
+        "description": "Vegas world background - Night skyline, gold/charcoal"
+      },
+      "la": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/0c37dffe-63b8-4546-9e18-38814e0f9d7f/images/df9afbc5df44dd8e6ccb7243519c11087b7473ae10f0de6df19d562d253b8e8e.png",
+        "description": "LA world background - Sunset orange, palm silhouettes"
+      },
+      "california": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/0c37dffe-63b8-4546-9e18-38814e0f9d7f/images/5d9cdd9d1c1045b83e9d6327e7cf82e2fd696c281b70e2e7ff57db9085e516ed.png",
+        "description": "California world background - Golden beach, surf, mint"
+      },
+      "new_york": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/0c37dffe-63b8-4546-9e18-38814e0f9d7f/images/10bbc99c91c15e25dafedf237e6b59b63c027efe5e9835e53954feb042db9839.png",
+        "description": "New York world background - Urban street, cobalt/yellow"
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Build a mobile-first responsive PWA. Use a max-w-md container centered on desktop to emulate a mobile device.",
+    "Implement navigation using a bottom tab bar or top header depending on the screen (e.g., Map, Profile).",
+    "Use Framer Motion for all route transitions and micro-interactions (bouncing buttons, level unlocks).",
+    "For the level map, create a scrolling vertical container with an SVG winding path connecting 20 nodes. Color the nodes and path based on the current world's primary color.",
+    "Integrate the provided generated background images for the world selection cards and as a blurred/darkened background for the level map.",
+    "For the game screens, build 4 distinct grid-based boards (Match-3, Memory, Slide, Word Search). Use pure HTML/Tailwind and React state for the logic, don't overcomplicate with Shadcn cards here.",
+    "Ensure all interactive elements have data-testid attributes (e.g., data-testid='level-node-1', data-testid='login-button').",
+    "Do NOT use placeholder text or images. Rely entirely on the provided media URLs."
+  ]
+}
