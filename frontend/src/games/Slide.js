@@ -3,16 +3,32 @@ import { motion } from "framer-motion";
 
 /**
  * Slide puzzle (sliding tiles) using theme.icons.
- * Levels 11-15 -> sub 1..5 -> size 3x3 (sub 1-2) or 4x4 (sub 3-5).
- * Player taps a tile adjacent to the empty slot to slide it in.
+ * Progressive difficulty per sub (1..5):
+ *  sub 1 → 3×3, easy shuffle (40 moves)
+ *  sub 2 → 3×3, harder shuffle (80 moves)
+ *  sub 3 → 4×4, easy (120 moves)
+ *  sub 4 → 4×4, hard (200 moves)
+ *  sub 5 → 5×5 (280 moves)
+ *
+ * UX: Tiles already in their solved position get a soft green glow.
+ * Hold "Ver" to peek at the solved layout.
  */
-function shuffleSolvable(tiles, size) {
-  // Perform N valid random moves from solved state -> always solvable
+function diff(sub) {
+  const cfg = [
+    { size: 3, shuffleMoves: 40,  par: 35  },
+    { size: 3, shuffleMoves: 80,  par: 55  },
+    { size: 4, shuffleMoves: 120, par: 80  },
+    { size: 4, shuffleMoves: 200, par: 120 },
+    { size: 5, shuffleMoves: 280, par: 180 },
+  ];
+  return cfg[Math.max(0, Math.min(4, sub - 1))];
+}
+
+function shuffleSolvable(tiles, size, totalMoves) {
   const a = tiles.slice();
   let empty = a.indexOf(null);
-  const moves = size === 3 ? 80 : 160;
   let last = -1;
-  for (let i = 0; i < moves; i++) {
+  for (let i = 0; i < totalMoves; i++) {
     const r = Math.floor(empty / size);
     const c = empty % size;
     const cand = [];
@@ -20,8 +36,9 @@ function shuffleSolvable(tiles, size) {
     if (r < size - 1) cand.push(empty + size);
     if (c > 0) cand.push(empty - 1);
     if (c < size - 1) cand.push(empty + 1);
-    const filt = cand.filter((x) => x !== last);
-    const pick = filt[Math.floor(Math.random() * filt.length)];
+    const noBacktrack = cand.filter((x) => x !== last);
+    const pool = noBacktrack.length ? noBacktrack : cand;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     [a[empty], a[pick]] = [a[pick], a[empty]];
     last = empty;
     empty = pick;
@@ -35,12 +52,13 @@ function isSolved(tiles) {
 }
 
 export default function Slide({ level, theme, onComplete }) {
-  const sub = ((level - 1) % 5) + 1; // 1..5
-  const size = sub <= 2 ? 3 : 4; // 3x3 or 4x4
+  const sub = ((level - 1) % 5) + 1;
+  const D = useMemo(() => diff(sub), [sub]);
+  const size = D.size;
   const total = size * size;
 
   const palette = useMemo(() => {
-    const pool = theme.icons.slice();
+    const pool = [];
     while (pool.length < total - 1) pool.push(...theme.icons);
     return pool.slice(0, total - 1);
   }, [theme, total]);
@@ -51,7 +69,7 @@ export default function Slide({ level, theme, onComplete }) {
     return arr;
   }, [palette]);
 
-  const [tiles, setTiles] = useState(() => shuffleSolvable(solved, size));
+  const [tiles, setTiles] = useState(() => shuffleSolvable(solved, size, D.shuffleMoves));
   const [moves, setMoves] = useState(0);
   const [showOriginal, setShowOriginal] = useState(false);
   const startedAt = useRef(Date.now());
@@ -75,18 +93,19 @@ export default function Slide({ level, theme, onComplete }) {
     if (isSolved(tiles)) {
       finished.current = true;
       const time = Math.round((Date.now() - startedAt.current) / 1000);
-      const par = size === 3 ? 40 : 90;
       let stars = 1;
-      if (moves <= par * 0.7) stars = 3;
-      else if (moves <= par) stars = 2;
-      const score = Math.max(150, 1200 - moves * 8 - time * 2);
+      if (moves <= D.par * 0.7) stars = 3;
+      else if (moves <= D.par) stars = 2;
+      const score = Math.max(150, 1500 - moves * 6 - time * 2);
       setTimeout(() => onComplete({ win: true, stars, score, moves, time_seconds: time }), 500);
     }
-  }, [tiles, moves, size, onComplete]);
+  }, [tiles, moves, D.par, onComplete]);
+
+  const correctCount = tiles.filter((t, i) => t === i).length;
 
   return (
     <div className="h-full flex flex-col" data-testid="game-slide">
-      <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+      <div className="grid grid-cols-3 gap-2 mb-2 text-center">
         <Stat label="Movs" value={moves} />
         <Stat label="Tablero" value={`${size}×${size}`} accent={theme.primary} />
         <button
@@ -102,6 +121,10 @@ export default function Slide({ level, theme, onComplete }) {
           <div className="h-display text-base font-black">Ver</div>
         </button>
       </div>
+      <div className="flex items-center justify-between text-[10px] mb-2 px-1">
+        <span className="text-zinc-400">Sub-nivel {sub}/5 · Par {D.par} movs</span>
+        <span className="text-zinc-400">Correctas: <b className="text-white">{correctCount}/{total - 1}</b></span>
+      </div>
 
       <div className="flex-1 flex items-center justify-center">
         <div
@@ -111,19 +134,32 @@ export default function Slide({ level, theme, onComplete }) {
         >
           {(showOriginal ? solved : tiles).map((t, i) => {
             const empty = t === null;
+            const inPlace = !showOriginal && !empty && t === i;
             return (
               <motion.button
                 key={i}
                 onClick={() => !showOriginal && onTap(i)}
                 data-testid={`slide-tile-${i}`}
                 whileTap={!empty ? { scale: 0.94 } : {}}
+                layout
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
                 className="aspect-square rounded-xl grid place-items-center text-2xl relative overflow-hidden"
                 style={{
                   background: empty
                     ? "transparent"
+                    : inPlace
+                    ? `linear-gradient(135deg, #3EB489, #22c55e)`
                     : `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
-                  border: empty ? "1px dashed rgba(255,255,255,0.18)" : "2px solid rgba(255,255,255,0.18)",
-                  boxShadow: empty ? "none" : `inset 0 -3px 0 rgba(0,0,0,.25), 0 6px 14px rgba(0,0,0,.35)`,
+                  border: empty
+                    ? "1px dashed rgba(255,255,255,0.18)"
+                    : inPlace
+                    ? "2px solid #86efac"
+                    : "2px solid rgba(255,255,255,0.18)",
+                  boxShadow: empty
+                    ? "none"
+                    : inPlace
+                    ? "inset 0 -3px 0 rgba(0,0,0,.25), 0 0 14px rgba(62,180,137,.6)"
+                    : `inset 0 -3px 0 rgba(0,0,0,.25), 0 6px 14px rgba(0,0,0,.35)`,
                   cursor: empty ? "default" : "pointer",
                 }}
               >
@@ -139,7 +175,7 @@ export default function Slide({ level, theme, onComplete }) {
         </div>
       </div>
       <div className="text-center text-xs text-zinc-400 mt-2">
-        Ordena las fichas. Mantén "Ver" para previsualizar el orden final.
+        Ordena las fichas. Las correctas brillan en verde. Mantén "Ver" para previsualizar.
       </div>
     </div>
   );
