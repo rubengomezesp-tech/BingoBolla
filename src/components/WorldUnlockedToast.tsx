@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { sounds } from "@/lib/sound";
 
 type WorldInfo = {
   id: string;
@@ -54,6 +55,15 @@ export default function WorldUnlockedToast({ level, worlds }: Props) {
     if (!justUnlocked) return;
 
     setUnlocked(justUnlocked);
+    // Sonido épico + vibración (móvil) para reforzar el momento "wow".
+    // Ambos se ignoran silenciosamente si el navegador no los soporta o
+    // si el AudioContext aún no fue desbloqueado por gesto.
+    try { sounds.bigWin(); } catch {}
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate([60, 30, 120, 30, 200]);
+      }
+    } catch {}
     // Pequeño delay para que la animación de entrada se note tras la hidratación.
     const showTimer = window.setTimeout(() => setVisible(true), 250);
     const hideTimer = window.setTimeout(() => setVisible(false), 7250);
