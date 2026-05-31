@@ -33,12 +33,16 @@ MVP móvil: login, lobby, mapa de mundos (Miami → Vegas por niveles), sala de 
 ### ✅ Completado en sesión actual (feb-2026)
 - **AudioContext autoplay fix** — `lib/sound/index.ts` y `lib/sounds/index.ts` ahora instancian `AudioContext` solo después de un gesto (`gestureUnlocked` flag activado por `pointerdown`/`click`).
 - **PWA mejorada** — `sw.js` con estrategias network-first (HTML), cache-first (assets) y SWR (imágenes); `PWARegister.tsx` con banner de instalación reutilizable (cooldown 14 días).
-- **Progresión de mundos por nivel** ✅ (este turno):
+- **Progresión de mundos por nivel** ✅:
   - Nueva migration `026_worlds_seed_more.sql` que siembra Vegas Lights (`unlock_level=5`) y Tokyo Rush (`unlock_level=10`).
   - `/app/src/app/mundos/page.tsx` ahora consulta la tabla `worlds` (con fallback estático de 3 mundos), compara `xp.level >= unlock_level` y muestra `🔒 NIVEL X REQUERIDO` cuando bloqueado.
   - Click bloqueado (`preventDefault` + `aria-disabled`) cuando el mundo está locked.
   - `data-testid` añadidos: `world-card-<id>`, `world-status-<id>`.
-  - `tsc --noEmit` ✅ limpio; `next build` compila `/mundos` sin errores.
+- **Toast "¡Nuevo mundo desbloqueado!"** ✅:
+  - Nuevo componente client `/app/src/components/WorldUnlockedToast.tsx`.
+  - Detecta level-up vía `localStorage[bb:lastSeenLevel]` y muestra toast celebratorio cuando se cruza un `unlock_level`.
+  - Auto-hide a 7s, dismissible, animaciones pop-in + shine, accesible (`role="status"`, `aria-live`).
+  - Mostrado solo una vez por desbloqueo. Primera visita no dispara toast (solo registra nivel base).
 
 ### ⏳ Pendiente para el usuario (en su Mac, fuera de este contenedor)
 1. Actualizar Node a v22+.

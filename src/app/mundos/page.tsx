@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/supabase/types";
+import WorldUnlockedToast from "@/components/WorldUnlockedToast";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,14 @@ export default async function MundosPage() {
   return (
     <div className="mw-root">
       <style>{CSS}</style>
+      <WorldUnlockedToast
+        level={xp.level}
+        worlds={sourceWorlds.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          unlock_level: w.unlock_level,
+        }))}
+      />
       <div className="mw-stars" aria-hidden>
         {Array.from({ length: 54 }).map((_, index) => (
           <i
