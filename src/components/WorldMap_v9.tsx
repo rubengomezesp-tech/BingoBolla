@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Check,
   Coins,
@@ -52,6 +53,14 @@ const DEFAULT_WORLD_ASSETS: WorldAssetMap = {
 const GAME_CHAPTERS: Array<{ game: GameType; label: string; short: string; assetKey: string }> = [
   { game: "ballmatch", label: "Ball Match", short: "BM", assetKey: "game-ballmatch" },
   { game: "neural_cascade", label: "Neural Cascade", short: "NC", assetKey: "game-neural-cascade" },
+];
+const REWARD_SPARKS = [
+  { x: "-78px", y: "-34px", delay: "0ms" },
+  { x: "74px", y: "-42px", delay: "45ms" },
+  { x: "-52px", y: "45px", delay: "90ms" },
+  { x: "58px", y: "38px", delay: "130ms" },
+  { x: "0px", y: "-68px", delay: "165ms" },
+  { x: "0px", y: "58px", delay: "210ms" },
 ];
 
 function normalizeNode(raw: Partial<WNode> & { id?: string }): WNode {
@@ -124,6 +133,7 @@ function buildSvgPath(nodes: WNode[]) {
 
 export default function WorldMap({ playerId: _playerId }: { playerId: string }) {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const [nodes, setNodes]     = useState<WNode[]>([]);
   const [assets, setAssets]   = useState<WorldAssetMap>(DEFAULT_WORLD_ASSETS);
   const [xp, setXp]           = useState<XPData | null>(null);
@@ -329,6 +339,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const currentLevel = activeNode?.node_index ?? Math.min(completedCount + 1, totalNodes);
   const mapPath = buildSvgPath(worldNodes);
   const unlockedPath = buildSvgPath(worldNodes.filter((node) => node.unlocked || node.completed));
+  const progressPct = totalNodes > 0 ? Math.round((completedCount / totalNodes) * 100) : 0;
   const energy = MAX_ENERGY;
   const tickets = 12;
   const diamonds = prof?.diamonds ?? Math.floor(Number(prof?.sweeps_coins ?? 0));
@@ -391,17 +402,42 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
         </div>
       </div>
 
-      {rewardToast && (
-        <div className="wm-rewardToast" role="status" aria-live="polite">
-          {rewardToast.stars > 0 && (
-            <span><Star size={15} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{rewardToast.stars}</span>
-          )}
-          {rewardToast.xp > 0 && <span>+{fmt(rewardToast.xp)} XP</span>}
-          {rewardToast.gold > 0 && (
-            <span><Coins size={15} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{fmt(rewardToast.gold)}</span>
-          )}
-        </div>
-      )}
+      <AnimatePresence>
+        {rewardToast && (
+          <motion.div
+            key="world-reward-toast"
+            className="wm-rewardToast"
+            role="status"
+            aria-live="polite"
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.94 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.96 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            {!prefersReducedMotion && (
+              <div className="wm-rewardBurst" aria-hidden="true">
+                {REWARD_SPARKS.map((spark, index) => (
+                  <i
+                    key={`${spark.x}-${spark.y}-${index}`}
+                    style={{
+                      "--spark-x": spark.x,
+                      "--spark-y": spark.y,
+                      "--spark-delay": spark.delay,
+                    } as CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
+            {rewardToast.stars > 0 && (
+              <span><Star size={15} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{rewardToast.stars}</span>
+            )}
+            {rewardToast.xp > 0 && <span>+{fmt(rewardToast.xp)} XP</span>}
+            {rewardToast.gold > 0 && (
+              <span><Coins size={15} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{fmt(rewardToast.gold)}</span>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="wm-jackpotPro">
         <div className="wm-jackpotTitle"><Crown size={20} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> Jackpot</div>
@@ -437,6 +473,31 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           boxShadow:"0 4px 16px rgba(0,0,0,.5)" }}>
           Arrastra cada nodo sobre su anillo → pulsa Guardar
         </div>
+      )}
+
+      {!editMode && activeNode && (
+        <motion.section
+          className="wm-missionCard"
+          aria-label={`Siguiente mision. Nivel ${activeNode.node_index}: ${activeGame.label}`}
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+        >
+          <div className="wm-missionTop">
+            <span>{BOSS.has(activeNode.node_index) ? "Boss room" : "Siguiente sala"}</span>
+            <b>Nivel {activeNode.node_index}</b>
+          </div>
+          <strong>{activeGame.label}</strong>
+          <div className="wm-missionRewards">
+            <span><Star size={14} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> {activeNode.max_stars}</span>
+            <span>+{fmt(activeNode.reward_xp)} XP</span>
+            <span><Coins size={14} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{fmt(activeNode.reward_gold)}</span>
+          </div>
+          <div className="wm-missionTrack" aria-hidden="true">
+            <i style={{ width: `${progressPct}%` }} />
+          </div>
+          <small>{completedCount}/{totalNodes} nodos completados</small>
+        </motion.section>
       )}
 
       {/* Rail lateral izquierdo */}
@@ -549,6 +610,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
                   zIndex: isDragging ? 20 : isBoss ? 5 : 3,
                   touchAction:"none",
                 }}>
+                {isActive && !editMode && <span className="wm-nodeHalo" aria-hidden="true" />}
                 {/* Icono según estado */}
                 {state === "locked" ? (
                   lockImg
@@ -775,13 +837,62 @@ const WORLD_UI_CSS = `
   background:linear-gradient(180deg,rgba(255,240,127,.98),rgba(255,172,30,.97));
   color:#351500;border:2px solid rgba(255,255,255,.78);
   box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 30px rgba(255,213,61,.62);
-  font-size:13px;font-weight:1000;animation:wmRewardIn .24s ease-out;
-  pointer-events:none;white-space:nowrap;
+  font-size:13px;font-weight:1000;
+  pointer-events:none;white-space:nowrap;overflow:visible;
 }
 .wm-rewardToast span{
-  min-height:29px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
+  position:relative;z-index:2;min-height:29px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
   background:rgba(255,255,255,.44);box-shadow:inset 0 1px 0 rgba(255,255,255,.45);
 }
+.wm-rewardBurst{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+}
+.wm-rewardBurst i{
+  position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;
+  background:radial-gradient(circle,#fff 0 30%,#ffe56e 34% 64%,rgba(255,77,154,.94) 70%);
+  box-shadow:0 0 12px rgba(255,231,99,.95);
+  animation:wmSpark .78s cubic-bezier(.16,1,.3,1) var(--spark-delay) both;
+}
+.wm-missionCard{
+  position:fixed;left:116px;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);z-index:57;
+  width:286px;padding:13px 14px 14px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(21,11,50,.9),rgba(7,3,22,.96));
+  border:1px solid rgba(0,229,255,.34);
+  box-shadow:0 13px 32px rgba(0,0,0,.46),0 0 28px rgba(0,229,255,.16),inset 0 1px 0 rgba(255,255,255,.12);
+  color:#fff;backdrop-filter:blur(14px);
+}
+.wm-missionCard:before{
+  content:"";position:absolute;inset:1px;border-radius:17px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,77,154,.18),transparent 36%,rgba(0,229,255,.12));
+}
+.wm-missionCard > *{position:relative;z-index:1;}
+.wm-missionTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;}
+.wm-missionTop span{
+  min-width:0;color:#a8f4ff;font-size:10px;font-weight:950;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.wm-missionTop b{
+  flex:0 0 auto;border-radius:999px;padding:4px 8px;background:rgba(255,217,61,.14);
+  color:#ffe58a;border:1px solid rgba(255,217,61,.28);font-size:11px;font-weight:1000;
+}
+.wm-missionCard strong{display:block;font-size:20px;font-weight:1000;line-height:1.05;}
+.wm-missionRewards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:11px 0 10px;}
+.wm-missionRewards span{
+  min-height:30px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  color:rgba(245,240,255,.88);font-size:11px;font-weight:950;
+}
+.wm-missionRewards svg{color:#ffd95c;}
+.wm-missionTrack{
+  height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.45);
+}
+.wm-missionTrack i{
+  display:block;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,#00e5ff,#ffd93d,#ff4d9a);
+  box-shadow:0 0 12px rgba(255,217,61,.52);
+}
+.wm-missionCard small{display:block;margin-top:7px;color:rgba(238,232,255,.68);font-size:11px;font-weight:750;}
 .wm-jackpotPro{
   position:fixed;right:24px;top:calc(env(safe-area-inset-top,0px) + 92px);z-index:54;
   min-width:210px;padding:12px 18px 14px;border-radius:18px;text-align:center;
@@ -829,9 +940,9 @@ const WORLD_UI_CSS = `
   filter:drop-shadow(0 0 7px rgba(0,0,0,.8));
 }
 .wm-pathUnlocked{
-  stroke:#b75cff;stroke-width:5;
+  stroke:#b75cff;stroke-width:5;stroke-dasharray:12 10;
+  animation:wmPathFlow 2.4s linear infinite;
   filter:drop-shadow(0 0 7px #b75cff) drop-shadow(0 0 14px #ff4dd8);
-  stroke-dasharray:1 0;
 }
 .wm-mapEndPad{height:180px;background:linear-gradient(180deg,#06010d,rgba(6,1,13,.96));}
 .wm-mascotMarker{
@@ -857,7 +968,15 @@ const WORLD_UI_CSS = `
   display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#fff08b,#e6a61d);
   color:#301300;border:2px solid #fff;font-size:13px;font-weight:1000;
 }
+.wm-nodeMarker{isolation:isolate;}
 .wm-nodeMarker svg{color:#fff;}
+.wm-nodeHalo{
+  position:absolute;inset:-10px;border-radius:50%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,222,78,.52),rgba(255,77,154,.18) 54%,transparent 72%);
+  border:1px solid rgba(255,232,121,.48);
+  box-shadow:0 0 22px rgba(255,217,61,.54),0 0 34px rgba(255,77,154,.22);
+  animation:wmHaloSweep 1.55s ease-in-out infinite;
+}
 .wm-nodeLetters{font-size:12px;font-weight:1000;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.75);}
 .wm-playCta{
   position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);
@@ -898,9 +1017,17 @@ const WORLD_UI_CSS = `
   0%{transform:translateX(-110%)}
   100%{transform:translateX(250%)}
 }
-@keyframes wmRewardIn{
-  from{opacity:0;transform:translate(-50%,-10px) scale(.96)}
-  to{opacity:1;transform:translate(-50%,0) scale(1)}
+@keyframes wmSpark{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  22%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--spark-x)),calc(-50% + var(--spark-y))) scale(1.12)}
+}
+@keyframes wmPathFlow{
+  to{stroke-dashoffset:-22}
+}
+@keyframes wmHaloSweep{
+  0%,100%{opacity:.72;transform:scale(.96)}
+  50%{opacity:1;transform:scale(1.12)}
 }
 @media(max-width:900px){
   .wm-topHud{grid-template-columns:58px minmax(0,1fr) 48px;padding-left:10px;padding-right:10px;gap:7px;}
@@ -917,8 +1044,12 @@ const WORLD_UI_CSS = `
   .wm-worldKicker{font-size:10px;padding:3px 10px;margin-bottom:4px;}
   .wm-neonTitle{min-width:252px;font-size:26px;padding:8px 18px 7px;}
   .wm-completed{font-size:12px;padding:5px 14px;gap:8px;}
-  .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 140px);max-width:calc(100vw - 18px);overflow:hidden;}
+  .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 140px);max-width:calc(100vw - 18px);overflow:visible;}
   .wm-jackpotPro{display:none;}
+  .wm-missionCard{left:88px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:242px;padding:12px;}
+  .wm-missionCard strong{font-size:17px;}
+  .wm-missionRewards{gap:5px;}
+  .wm-missionRewards span{font-size:10px;}
   .wm-sideRail{left:8px;top:calc(env(safe-area-inset-top,0px) + 150px);gap:11px;}
   .wm-sideRailBtn{width:66px;}
   .wm-sideRailIcon{width:58px;height:58px;border-radius:16px;}
@@ -934,6 +1065,7 @@ const WORLD_UI_CSS = `
   .wm-titleCard{top:calc(env(safe-area-inset-top,0px) + 76px);}
   .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 146px);gap:5px;font-size:12px;}
   .wm-rewardToast span{padding:0 7px;}
+  .wm-missionCard{left:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);width:calc(100vw - 84px);max-width:292px;}
   .wm-sideRail{left:auto;right:8px;top:calc(env(safe-area-inset-top,0px) + 156px);gap:9px;}
   .wm-sideRailBtn{width:52px;}
   .wm-sideRailIcon{width:48px;height:48px;border-radius:14px;}
@@ -951,7 +1083,7 @@ const WORLD_UI_CSS = `
   .wm-completed{font-size:11px;}
 }
 @media(prefers-reduced-motion:reduce){
-  .wm-playCta,.wm-mascotMarker,.wm-nodeMarker,.wm-loading i:before{animation:none!important;}
+  .wm-playCta,.wm-mascotMarker,.wm-nodeMarker,.wm-loading i:before,.wm-rewardBurst i,.wm-nodeHalo,.wm-pathUnlocked{animation:none!important;}
   .wm-resource,.wm-sideRailIcon{transition:none!important;}
 }
 `;

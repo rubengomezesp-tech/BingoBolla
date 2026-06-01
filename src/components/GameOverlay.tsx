@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -70,6 +71,15 @@ const GAME_META: Record<GameType, { title: string; detail: string }> = {
 };
 
 const IS_DEV = process.env.NODE_ENV === "development";
+const RESULT_SPARKS = [
+  { x: "-96px", y: "-84px", delay: "0ms" },
+  { x: "90px", y: "-76px", delay: "45ms" },
+  { x: "-112px", y: "8px", delay: "85ms" },
+  { x: "112px", y: "18px", delay: "120ms" },
+  { x: "-64px", y: "76px", delay: "155ms" },
+  { x: "70px", y: "82px", delay: "195ms" },
+  { x: "0px", y: "-116px", delay: "235ms" },
+];
 
 function boundedInt(value: unknown, fallback: number, min: number, max: number) {
   const n = Math.trunc(Number(value));
@@ -98,6 +108,7 @@ export default function GameOverlay({
   onClose,
   onComplete,
 }: Props) {
+  const prefersReducedMotion = useReducedMotion();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [sessionId, setSessionId] = useState(0);
   const [frameLoaded, setFrameLoaded] = useState(false);
@@ -400,9 +411,38 @@ export default function GameOverlay({
         ) : null}
       </div>
 
-      {result && (
-        <div className="go-resultLayer" role="status" aria-live="polite">
-          <div className={`go-resultCard ${result.win ? "win" : "loss"}`}>
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            key="game-result"
+            className="go-resultLayer"
+            role="status"
+            aria-live="polite"
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+          <motion.div
+            className={`go-resultCard ${result.win ? "win" : "loss"}`}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 20 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+          >
+            {result.win && !prefersReducedMotion && (
+              <div className="go-winBurst" aria-hidden="true">
+                {RESULT_SPARKS.map((spark, index) => (
+                  <i
+                    key={`${spark.x}-${spark.y}-${index}`}
+                    style={{
+                      "--spark-x": spark.x,
+                      "--spark-y": spark.y,
+                      "--spark-delay": spark.delay,
+                    } as CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
             <div className="go-resultIcon" aria-hidden="true">
               {result.win ? <Trophy size={25} strokeWidth={2.4} /> : <RotateCcw size={25} strokeWidth={2.4} />}
             </div>
@@ -422,6 +462,14 @@ export default function GameOverlay({
                     : "Puedes reintentar este nivel sin salir del mundo."}
               </span>
             </div>
+
+            {result.win && (
+              <div className="go-prizeRibbon" aria-label="Premio del nivel">
+                <span><Star size={14} fill="currentColor" strokeWidth={2.3} aria-hidden="true" /> +{saveSummary?.starDelta ?? result.stars}</span>
+                <span>+{shownXp} XP</span>
+                <span><Coins size={14} fill="currentColor" strokeWidth={2.3} aria-hidden="true" /> +{Math.round(shownGold).toLocaleString("en-US")}</span>
+              </div>
+            )}
 
             <div className="go-stars" aria-label={`${result.stars} de 3 estrellas`}>
               {[0, 1, 2].map((index) => (
@@ -491,9 +539,10 @@ export default function GameOverlay({
                 </>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -571,11 +620,22 @@ const GAME_OVERLAY_CSS = `
   background:linear-gradient(180deg,rgba(3,0,10,.2),rgba(3,0,10,.84));
 }
 .go-resultCard{
-  width:min(430px,100%);border-radius:16px;padding:18px;
+  position:relative;overflow:hidden;width:min(430px,100%);border-radius:16px;padding:18px;
   background:linear-gradient(180deg,rgba(25,12,58,.98),rgba(8,3,24,.98));
   border:1px solid rgba(255,255,255,.16);box-shadow:0 22px 48px rgba(0,0,0,.56);
-  animation:goResultIn .22s ease-out;
 }
+.go-resultCard.win{
+  border-color:rgba(255,217,61,.34);
+  box-shadow:0 22px 54px rgba(0,0,0,.62),0 0 32px rgba(255,217,61,.22),inset 0 1px 0 rgba(255,255,255,.12);
+}
+.go-winBurst{position:absolute;left:50%;top:34%;z-index:0;pointer-events:none;}
+.go-winBurst i{
+  position:absolute;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle,#fff 0 28%,#ffe56e 34% 66%,rgba(255,77,154,.92) 72%);
+  box-shadow:0 0 14px rgba(255,229,110,.96);
+  animation:goBurst .82s cubic-bezier(.16,1,.3,1) var(--spark-delay) both;
+}
+.go-resultCard > *{position:relative;z-index:1;}
 .go-resultIcon{
   width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;
   background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#ffd93d;
@@ -583,6 +643,16 @@ const GAME_OVERLAY_CSS = `
 .go-resultCard.loss .go-resultIcon{color:#ff7fb0;}
 .go-resultCopy strong{display:block;font-size:22px;font-weight:1000;line-height:1.05;}
 .go-resultCopy span{display:block;margin-top:5px;color:rgba(238,232,255,.72);font-size:14px;font-weight:650;line-height:1.4;}
+.go-prizeRibbon{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:14px 0 3px;
+  padding:6px;border-radius:14px;background:linear-gradient(180deg,rgba(255,217,61,.14),rgba(255,77,154,.08));
+  border:1px solid rgba(255,217,61,.24);
+}
+.go-prizeRibbon span{
+  min-height:31px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  background:rgba(255,255,255,.1);color:#fff7be;font-size:12px;font-weight:1000;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+}
 .go-stars{display:flex;gap:8px;margin:16px 0 12px;color:rgba(255,255,255,.26);}
 .go-stars .on{color:#ffd93d;filter:drop-shadow(0 0 9px rgba(255,217,61,.78));animation:goStar .34s ease-out;}
 .go-resultStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px;}
@@ -610,20 +680,25 @@ const GAME_OVERLAY_CSS = `
 }
 @keyframes goSpin{to{transform:rotate(360deg)}}
 @keyframes goLoad{0%{transform:translateX(-115%)}100%{transform:translateX(250%)}}
-@keyframes goResultIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 @keyframes goStar{0%{transform:scale(.65) rotate(-12deg)}70%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes goBurst{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.42)}
+  20%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--spark-x)),calc(-50% + var(--spark-y))) scale(1.15)}
+}
 @media(max-width:560px){
   .go-topbar{grid-template-columns:42px minmax(0,1fr) auto;padding-left:10px;padding-right:10px;}
   .go-status{min-width:78px;padding:0 9px;font-size:11px;}
   .go-titleBlock strong{font-size:15px;}
   .go-resultLayer{padding-left:10px;padding-right:10px;}
   .go-resultCard{padding:16px;}
+  .go-prizeRibbon{grid-template-columns:1fr;}
   .go-resultStats{grid-template-columns:1fr;}
   .go-actions{flex-direction:column-reverse;}
   .go-primary,.go-secondary{width:100%;flex:auto;}
 }
 @media(prefers-reduced-motion:reduce){
-  .go-status.saving svg,.go-saveLine svg,.go-loading i:before,.go-stars .on,.go-resultCard{animation:none!important;}
+  .go-status.saving svg,.go-saveLine svg,.go-loading i:before,.go-stars .on,.go-winBurst i{animation:none!important;}
   .go-back,.go-primary,.go-secondary{transition:none!important;}
 }
 `;
