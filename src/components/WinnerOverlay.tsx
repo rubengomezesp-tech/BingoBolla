@@ -55,7 +55,12 @@ export default function WinnerOverlay({ gameId }: { gameId: string | null }) {
         { event: "INSERT", schema: "public", table: "claims", filter: `game_id=eq.${gameId}` },
         async () => {
           // Al detectar un claim nuevo, pedir info con el username
-          const { data } = await supabase.rpc("claim_winner_info", { p_game_id: gameId });
+          const response = await fetch("/api/room/winner-info", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ game_id: gameId }),
+          });
+          const { data } = await response.json().catch(() => ({}));
           if (!Array.isArray(data) || data.length === 0) return;
 
           // Mostrar el más reciente que no se haya mostrado aún

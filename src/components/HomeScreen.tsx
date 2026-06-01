@@ -195,8 +195,9 @@ export default function HomeScreen({
     if (bonusState === "loading") return;
 
     setBonusState("loading");
-    const { data, error } = await supabase.rpc("claim_daily_bonus");
-    if (error) {
+    const response = await fetch("/api/rewards/daily", { method: "POST" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
       setBonusState("error");
       showToast({
         icon: <Bell size={22} aria-hidden="true" />,
@@ -207,7 +208,17 @@ export default function HomeScreen({
       return;
     }
 
-    const reward = (data ?? {}) as Record<string, unknown>;
+    const reward = (payload?.data ?? {}) as Record<string, unknown>;
+    if (reward.error) {
+      setBonusState("error");
+      showToast({
+        icon: <Bell size={22} aria-hidden="true" />,
+        title: "Bonus no disponible",
+        detail: "Ese cofre ya fue reclamado o esta esperando cooldown.",
+        tone: "pink",
+      });
+      return;
+    }
     const goldAwarded = Number(reward.gold_awarded ?? reward.gold ?? 500);
     const sweepsAwarded = Number(reward.sweeps_awarded ?? reward.sweeps ?? 0.5);
 

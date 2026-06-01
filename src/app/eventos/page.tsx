@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CalendarDays, Gift, Sparkles, Target, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/server/supabase-admin";
 import WorldEventPage, { type WorldEventProfile } from "@/components/world-events/WorldEventPage";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +20,16 @@ export default async function EventosPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const service = createSupabaseServiceClient();
   const [{ data: profile }, { data: dailyStatus }] = await Promise.all([
     supabase
       .from("profiles")
       .select("username,display_name,gold_coins,sweeps_coins,diamonds")
       .eq("id", user.id)
       .single<WorldEventProfile>(),
-    supabase.rpc("daily_bonus_status"),
+    service
+      ? service.rpc("service_daily_bonus_status", { p_actor_id: user.id })
+      : Promise.resolve({ data: null }),
   ]);
 
   const daily = (dailyStatus ?? {}) as DailyStatus;

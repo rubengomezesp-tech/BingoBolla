@@ -41,7 +41,8 @@ export default function XpBar({
     (async () => {
       // 1) Login diario automático (+15 EXP, 1 vez/día)
       try {
-        const { data: daily } = await supabase.rpc("claim_daily_xp");
+        const response = await fetch("/api/rewards/xp", { method: "POST" });
+        const { data: daily } = await response.json().catch(() => ({}));
         const d = daily?.[0];
         if (!cancelled && d?.claimed) {
           onToast?.("Diario", "+15 EXP", "Por entrar hoy");

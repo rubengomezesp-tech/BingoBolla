@@ -2,19 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 export default function DailyBonus() {
   const router = useRouter();
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [claimed, setClaimed] = useState<{ gold: number; sweeps: number } | null>(null);
 
   async function claim() {
     setLoading(true);
-    const { data, error } = await supabase.rpc("claim_daily_bonus");
+    const response = await fetch("/api/rewards/daily", { method: "POST" });
+    const { data } = await response.json().catch(() => ({}));
     setLoading(false);
-    if (error) return;
+    if (!response.ok || data?.error) return;
     const reward = (data ?? {}) as any;
     setClaimed({
       gold: Number(reward.gold_awarded ?? reward.gold ?? 500),

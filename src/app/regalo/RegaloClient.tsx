@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock3, Gift, Loader2, Sparkles, Ticket } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 type DailyStatus = {
   available?: boolean;
@@ -31,7 +30,6 @@ type PromoResult = {
 };
 
 export default function RegaloClient() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "available" | "claimed">("loading");
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -44,7 +42,8 @@ export default function RegaloClient() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await supabase.rpc("daily_bonus_status");
+      const response = await fetch("/api/rewards/daily");
+      const { data } = await response.json().catch(() => ({}));
       if (!active) return;
       const daily = (data ?? {}) as DailyStatus;
       if (daily.available) {
@@ -58,7 +57,7 @@ export default function RegaloClient() {
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (status !== "claimed" || secondsLeft <= 0) return;
@@ -77,10 +76,11 @@ export default function RegaloClient() {
   async function claimDaily() {
     setClaiming(true);
     setPromoMessage(null);
-    const { data, error } = await supabase.rpc("claim_daily_bonus");
+    const response = await fetch("/api/rewards/daily", { method: "POST" });
+    const { data } = await response.json().catch(() => ({}));
     setClaiming(false);
 
-    if (error) {
+    if (!response.ok) {
       setPromoMessage({ tone: "error", text: "No se pudo reclamar ahora. Intenta de nuevo en unos segundos." });
       return;
     }
@@ -107,10 +107,15 @@ export default function RegaloClient() {
     if (!normalized) return;
     setRedeeming(true);
     setPromoMessage(null);
-    const { data, error } = await supabase.rpc("redeem_code", { p_code: normalized });
+    const response = await fetch("/api/rewards/code", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: normalized }),
+    });
+    const { data } = await response.json().catch(() => ({}));
     setRedeeming(false);
 
-    if (error) {
+    if (!response.ok) {
       setPromoMessage({ tone: "error", text: "No se pudo validar el código." });
       return;
     }

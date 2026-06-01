@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sounds } from "@/lib/sound";
-import { createClient } from "@/lib/supabase/client";
 
 export default function DailyBonusButton({ onClaimed }: { onClaimed?: () => void }) {
-  const supabase = createClient();
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "available" | "claimed">("loading");
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -15,7 +13,8 @@ export default function DailyBonusButton({ onClaimed }: { onClaimed?: () => void
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.rpc("daily_bonus_status");
+      const response = await fetch("/api/rewards/daily");
+      const { data } = await response.json().catch(() => ({}));
       if (data?.available) setStatus("available");
       else { setStatus("claimed"); setSecondsLeft(data?.seconds_left ?? 0); }
     })();
@@ -34,9 +33,10 @@ export default function DailyBonusButton({ onClaimed }: { onClaimed?: () => void
 
   async function claim() {
     setClaiming(true);
-    const { data, error } = await supabase.rpc("claim_daily_bonus");
+    const response = await fetch("/api/rewards/daily", { method: "POST" });
+    const { data } = await response.json().catch(() => ({}));
     setClaiming(false);
-    if (error || data?.error) {
+    if (!response.ok || data?.error) {
       if (data?.seconds_left) { setStatus("claimed"); setSecondsLeft(data.seconds_left); }
       return;
     }

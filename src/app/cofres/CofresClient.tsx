@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock3, Crown, Gift, Loader2, Sparkles, Ticket } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 type DailyStatus = {
   available?: boolean;
@@ -23,7 +22,6 @@ type ClaimResult = {
 };
 
 export default function CofresClient() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "available" | "claimed">("loading");
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -34,7 +32,8 @@ export default function CofresClient() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await supabase.rpc("daily_bonus_status");
+      const response = await fetch("/api/rewards/daily");
+      const { data } = await response.json().catch(() => ({}));
       if (!active) return;
       const daily = (data ?? {}) as DailyStatus;
       if (daily.available) {
@@ -48,7 +47,7 @@ export default function CofresClient() {
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (status !== "claimed" || secondsLeft <= 0) return;
@@ -67,10 +66,11 @@ export default function CofresClient() {
   async function claimDailyChest() {
     setClaiming(true);
     setMessage(null);
-    const { data, error } = await supabase.rpc("claim_daily_bonus");
+    const response = await fetch("/api/rewards/daily", { method: "POST" });
+    const { data } = await response.json().catch(() => ({}));
     setClaiming(false);
 
-    if (error) {
+    if (!response.ok) {
       setMessage("No se pudo abrir ahora. Intenta otra vez en unos segundos.");
       return;
     }

@@ -50,9 +50,10 @@ export default function ProgressPanel() {
 
   async function claimStreak() {
     setClaiming(true);
-    const { data, error } = await supabase.rpc("claim_streak");
+    const response = await fetch("/api/rewards/streak", { method: "POST" });
+    const { data } = await response.json().catch(() => ({}));
     setClaiming(false);
-    if (error || data?.error) return;
+    if (!response.ok || data?.error) return;
     const reward = Number(data?.reward_sweeps ?? 0);
     setFlash(`+${reward.toFixed(2)} 💎`);
     setTimeout(() => setFlash(null), 3000);
