@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 const US_STATES = [
@@ -29,7 +28,6 @@ export default function OnboardingForm({
   username: string;
 }) {
   const router = useRouter();
-  const supabase = createClient();
   const [dob, setDob] = useState("");
   const [state, setState] = useState(suggestedState ?? "FL");
   const [loading, setLoading] = useState(false);
@@ -41,14 +39,19 @@ export default function OnboardingForm({
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error: rpcErr } = await supabase.rpc("submit_onboarding", {
-      p_date_of_birth: dob,
-      p_state: state,
-      p_country: "US",
+    const response = await fetch("/api/account/onboarding", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        date_of_birth: dob,
+        state,
+        country: "US",
+      }),
     });
-    if (rpcErr) {
-      const key = rpcErr.message.replace(/^.*: /, "").trim();
-      setError(ERROR_LABELS[key] ?? rpcErr.message);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const key = String(payload?.error ?? "").replace(/^.*: /, "").trim();
+      setError(ERROR_LABELS[key] ?? key ?? "Verification failed.");
       setLoading(false);
       return;
     }

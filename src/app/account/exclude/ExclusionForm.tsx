@@ -26,10 +26,15 @@ export default function ExclusionForm() {
     if (!period) return;
     setLoading(true);
     setError(null);
-    const { error } = await supabase.rpc("request_self_exclusion", { p_period: period, p_reason: reason || null });
+    const response = await fetch("/api/account/exclusion", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ period, reason: reason || null }),
+    });
+    const payload = await response.json().catch(() => ({}));
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (!response.ok) {
+      setError(payload?.error ?? "self_exclusion_failed");
       return;
     }
     // Sign out and redirect

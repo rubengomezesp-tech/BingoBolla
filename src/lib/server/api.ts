@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from "@/lib/server/supabase-admin";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const CURRENCIES = new Set(["gold", "sweeps", "diamonds"]);
+const SAFE_RPC_ERROR_RE = /^[a-z0-9_]+$/i;
 
 export function apiError(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
@@ -32,6 +33,11 @@ export function readInt(value: unknown, min: number, max: number) {
   const number = Math.trunc(Number(value));
   if (!Number.isFinite(number) || number < min || number > max) return null;
   return number;
+}
+
+export function safeRpcError(error: unknown, fallback: string) {
+  const message = typeof error === "object" && error && "message" in error ? String(error.message) : "";
+  return SAFE_RPC_ERROR_RE.test(message) ? message : fallback;
 }
 
 export async function requireAuthenticatedUser() {

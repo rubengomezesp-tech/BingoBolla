@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 const REDEEM_RATE = 0.08;  // 1 Diamond = $0.08 USD
 
@@ -18,7 +17,6 @@ export default function DiamondsClient({
   recentTx: any[];
 }) {
   const router = useRouter();
-  const supabase = createClient();
   const [mode, setMode] = useState<"buy" | "redeem" | "history">("buy");
   const [redeemAmount, setRedeemAmount] = useState<number>(100);
   const [redeemMethod, setRedeemMethod] = useState<"paypal" | "bank_transfer">("paypal");
@@ -72,15 +70,20 @@ export default function DiamondsClient({
     }
 
     setLoading(true);
-    const { data, error } = await supabase.rpc("request_diamond_redemption", {
-      p_diamond_amount: redeemAmount,
-      p_payment_method: redeemMethod,
-      p_payment_details: { [redeemMethod === "paypal" ? "email" : "iban"]: paymentDetail },
+    const response = await fetch("/api/account/diamonds/redeem", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        diamond_amount: redeemAmount,
+        payment_method: redeemMethod,
+        payment_detail: paymentDetail,
+      }),
     });
+    const { data, error } = await response.json().catch(() => ({}));
     setLoading(false);
 
-    if (error) {
-      setError(translateError(error.message));
+    if (!response.ok || error) {
+      setError(translateError(error ?? "diamond_redemption_failed"));
       return;
     }
     setSuccess(`Canje solicitado: $${(data as any).usd_amount.toFixed(2)} en 3-5 días`);

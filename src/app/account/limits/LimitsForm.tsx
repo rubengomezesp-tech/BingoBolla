@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Limits = {
   daily_deposit_limit?: number;
@@ -18,10 +17,10 @@ type Limits = {
 
 export default function LimitsForm({ initial }: { initial: Limits | null }) {
   const router = useRouter();
-  const supabase = createClient();
   const [form, setForm] = useState<Limits>(initial ?? { reality_check_interval_minutes: 30 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function set<K extends keyof Limits>(k: K, v: any) {
     setForm((prev) => ({ ...prev, [k]: v === "" || v === "0" ? undefined : Number(v) }));
@@ -30,8 +29,18 @@ export default function LimitsForm({ initial }: { initial: Limits | null }) {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await supabase.rpc("upsert_rg_limits", { p_limits: form });
+    setError(null);
+    const response = await fetch("/api/account/limits", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ limits: form }),
+    });
     setSaving(false);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      setError(payload?.error ?? "No se pudieron guardar los límites");
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
     router.refresh();
@@ -73,6 +82,8 @@ export default function LimitsForm({ initial }: { initial: Limits | null }) {
           {saving ? "Guardando..." : saved ? "✓ Guardado" : "Guardar límites"}
         </button>
       </div>
+
+      {error && <div className="text-sm text-[var(--color-magenta)]">{error}</div>}
 
       <div className="text-xs text-[var(--color-fg-muted)] leading-relaxed pt-4">
         Cuando alcances un límite, no podrás comprar más cartones con Sweeps hasta que pase el período.
