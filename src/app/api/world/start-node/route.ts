@@ -64,7 +64,8 @@ export async function POST(request: Request) {
       return jsonError("server_not_configured", 500);
     }
 
-    const { data: mapRows, error: mapError } = await sessionSupabase.rpc("get_world_map", {
+    const { data: mapRows, error: mapError } = await adminDb.rpc("service_get_world_map", {
+      p_actor_id: user.id,
       p_world_id: WORLD_ID,
     });
     if (mapError) {

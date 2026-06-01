@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 type Node = {
@@ -61,7 +60,6 @@ export default function WorldMap({
   xpIntoLevel?: number;
   xpNeededLevel?: number;
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [assets, setAssets] = useState<Assets>({});
@@ -69,18 +67,15 @@ export default function WorldMap({
   const [selected, setSelected] = useState<Node | null>(null);
 
   const load = useCallback(async () => {
-    // Nodos del mundo (igual que antes, no se toca la logica)
-    const { data, error } = await supabase.rpc("get_world_map", {
-      p_world_id: worldId,
+    const response = await fetch(`/api/world/map?worldId=${encodeURIComponent(worldId)}`, {
+      cache: "no-store",
     });
-    if (!error && data) setNodes(data as Node[]);
-
-    // Assets editables desde el panel admin
-    const { data: a } = await supabase.rpc("get_world_assets");
-    if (a) setAssets(a as Assets);
+    const payload = await response.json().catch(() => null);
+    if (response.ok && Array.isArray(payload?.map)) setNodes(payload.map as Node[]);
+    if (response.ok && payload?.assets) setAssets(payload.assets as Assets);
 
     setLoading(false);
-  }, [supabase, worldId]);
+  }, [worldId]);
 
   useEffect(() => {
     load();

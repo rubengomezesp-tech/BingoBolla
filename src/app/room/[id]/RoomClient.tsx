@@ -133,8 +133,11 @@ export default function RoomClient({
 
   async function refetch() {
     if (!room?.id) return;
-    const { data, error } = await supabase.rpc("get_room_state", { p_room_id: room.id });
-    if (!error && data) setState(data as RoomState);
+    const response = await fetch(`/api/room/state?roomId=${encodeURIComponent(room.id)}`, {
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => null);
+    if (response.ok && data) setState(data as RoomState);
   }
 
   // Realtime

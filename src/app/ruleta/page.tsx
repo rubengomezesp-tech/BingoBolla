@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CircleDollarSign, Play, RotateCw, Sparkles, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/server/supabase-admin";
 import WorldEventPage, { formatCompact, type WorldEventProfile } from "@/components/world-events/WorldEventPage";
 import RuletaSpinClient from "./RuletaSpinClient";
 
@@ -29,6 +30,9 @@ type JackpotRoom = {
 
 export default async function RuletaPage() {
   const supabase = await createClient();
+  const serviceSupabase = createSupabaseServiceClient();
+  if (!serviceSupabase) throw new Error("Supabase service role is not configured");
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -41,7 +45,7 @@ export default async function RuletaPage() {
       .eq("id", user.id)
       .single<WorldEventProfile>(),
     supabase.from("slot_machines").select("*").eq("active", true).order("display_order"),
-    supabase.rpc("room_jackpots"),
+    serviceSupabase.rpc("service_room_jackpots", { p_actor_id: user.id }),
   ]);
 
   const jackpotGold = Array.isArray(jackpots)

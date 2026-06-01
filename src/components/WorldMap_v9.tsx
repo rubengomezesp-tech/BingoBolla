@@ -19,7 +19,6 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import GameOverlay, { GameType } from "@/components/GameOverlay";
 
 type WNode = {
@@ -54,9 +53,6 @@ const GAME_CHAPTERS: Array<{ game: GameType; label: string; short: string; asset
   { game: "ballmatch", label: "Ball Match", short: "BM", assetKey: "game-ballmatch" },
   { game: "neural_cascade", label: "Neural Cascade", short: "NC", assetKey: "game-neural-cascade" },
 ];
-
-// Email admin — solo este usuario ve el editor drag-and-drop
-const ADMIN_EMAIL = "rubengomezesp@gmail.com";
 
 function normalizeNode(raw: Partial<WNode> & { id?: string }): WNode {
   const index = Number(raw.node_index ?? 0);
@@ -126,8 +122,7 @@ function buildSvgPath(nodes: WNode[]) {
     .join(" ");
 }
 
-export default function WorldMap({ playerId }: { playerId: string }) {
-  const sb = createClient();
+export default function WorldMap({ playerId: _playerId }: { playerId: string }) {
   const router = useRouter();
   const [nodes, setNodes]     = useState<WNode[]>([]);
   const [assets, setAssets]   = useState<WorldAssetMap>(DEFAULT_WORLD_ASSETS);
@@ -144,32 +139,43 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const imgWrapRef = useRef<HTMLDivElement>(null);
 
+  const loadWorldState = useCallback(async () => {
+    const response = await fetch(`/api/world/map?worldId=${encodeURIComponent(WORLD_ID)}`, {
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload) return null;
+    return payload as {
+      map?: WNode[];
+      assets?: unknown;
+      xp?: unknown;
+      profile?: ProfileData | null;
+      jackpots?: JackpotRoom[];
+      is_admin?: boolean;
+    };
+  }, []);
+
   useEffect(() => {
     async function load() {
-      const safe = async (p: any) => { try { return await Promise.resolve(p); } catch { return { data: null }; } };
-      const [nr, ar, xr, pr, jr, ur] = await Promise.all([
-        safe(sb.rpc("get_world_map", { p_world_id: WORLD_ID })),
-        safe(sb.rpc("get_world_assets")),
-        safe(sb.rpc("get_player_xp", { p_player_id: playerId })),
-        safe(sb.from("profiles").select("gold_coins,sweeps_coins,diamonds").eq("id", playerId).single()),
-        safe(sb.rpc("room_jackpots")),
-        safe(sb.auth.getUser()),
-      ]);
-      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data.map(normalizeNode));
-      setAssets({ ...DEFAULT_WORLD_ASSETS, ...normalizeAssetMap(ar?.data) });
-      setXp(normalizeXp(xr?.data));
-      if (pr?.data) setProf(pr.data);
-      if (Array.isArray(jr?.data)) {
-        const total = (jr.data as JackpotRoom[]).reduce((sum, room) => sum + Number(room.jackpot_gold ?? 0), 0);
+      const state = await loadWorldState();
+      if (!state) {
+        setLoading(false);
+        return;
+      }
+
+      if (Array.isArray(state.map) && state.map.length) setNodes(state.map.map(normalizeNode));
+      setAssets({ ...DEFAULT_WORLD_ASSETS, ...normalizeAssetMap(state.assets) });
+      setXp(normalizeXp(state.xp));
+      if (state.profile) setProf(state.profile);
+      if (Array.isArray(state.jackpots)) {
+        const total = state.jackpots.reduce((sum, room) => sum + Number(room.jackpot_gold ?? 0), 0);
         if (total > 0) setJackpotGold(total);
       }
-      // Detectar admin
-      const email = ur?.data?.user?.email;
-      if (email === ADMIN_EMAIL) setIsAdmin(true);
+      setIsAdmin(Boolean(state.is_admin));
       setLoading(false);
     }
     load();
-  }, [playerId]);
+  }, [loadWorldState]);
 
   const openGame = useCallback((n: WNode) => {
     if (editMode) return; // en modo editor no se abren juegos
@@ -180,18 +186,19 @@ export default function WorldMap({ playerId }: { playerId: string }) {
 
   const handleDone = useCallback(async (r: {win:boolean;stars:number;xp:number}) => {
     if (r.win) {
-      const safe = async (p: any) => { try { return await Promise.resolve(p); } catch { return { data: null }; } };
-      const [nr, xr, pr] = await Promise.all([
-        safe(sb.rpc("get_world_map", { p_world_id: WORLD_ID })),
-        safe(sb.rpc("get_player_xp", { p_player_id: playerId })),
-        safe(sb.from("profiles").select("gold_coins,sweeps_coins,diamonds").eq("id", playerId).single()),
-      ]);
-      if (Array.isArray(nr?.data) && nr.data.length) setNodes(nr.data.map(normalizeNode));
-      setXp(normalizeXp(xr?.data));
-      if (pr?.data) setProf(pr.data);
+      const state = await loadWorldState();
+      if (state) {
+        if (Array.isArray(state.map) && state.map.length) setNodes(state.map.map(normalizeNode));
+        setXp(normalizeXp(state.xp));
+        if (state.profile) setProf(state.profile);
+        if (Array.isArray(state.jackpots)) {
+          const total = state.jackpots.reduce((sum, room) => sum + Number(room.jackpot_gold ?? 0), 0);
+          if (total > 0) setJackpotGold(total);
+        }
+      }
     }
     setGame(null);
-  }, [playerId]);
+  }, [loadWorldState]);
 
   // === DRAG & DROP (modo editor admin) ===
   const onPointerDown = (e: React.PointerEvent, nodeId: string) => {
@@ -219,11 +226,23 @@ export default function WorldMap({ playerId }: { playerId: string }) {
   const onPointerUp = () => setDragId(null);
 
   const saveCoords = async () => {
-    for (const n of nodes) {
-      await sb.from("world_nodes")
-        .update({ pos_x: n.pos_x, pos_y: n.pos_y })
-        .eq("id", n.node_id);
+    const response = await fetch("/api/world/node-coordinates", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        nodes: nodes.map((node) => ({
+          node_id: node.node_id,
+          pos_x: node.pos_x,
+          pos_y: node.pos_y,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      alert("No se pudieron guardar las coordenadas");
+      return;
     }
+
     setDirty(false);
     alert("Coordenadas guardadas en la BD");
   };

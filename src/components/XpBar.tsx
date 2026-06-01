@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 type XpData = {
   xp: number;
@@ -16,15 +15,14 @@ export default function XpBar({
 }: {
   onToast?: (label: string, msg: string, detail: string) => void;
 }) {
-  const supabase = createClient();
   const [data, setData] = useState<XpData | null>(null);
   const [animPct, setAnimPct] = useState(0);
 
   const load = useCallback(async () => {
-    const { data: rows, error } = await supabase.rpc("get_player_xp", {
-      p_player_id: (await supabase.auth.getUser()).data.user?.id,
-    });
-    if (error || !rows || !rows[0]) return;
+    const response = await fetch("/api/progress", { cache: "no-store" });
+    const payload = await response.json().catch(() => null);
+    const rows = payload?.player_xp;
+    if (!response.ok || !rows?.[0]) return;
     const r = rows[0];
     setData({
       xp: Number(r.xp),
@@ -33,7 +31,7 @@ export default function XpBar({
       xp_needed_level: Number(r.xp_needed_level),
       progress_pct: Number(r.progress_pct),
     });
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +61,7 @@ export default function XpBar({
     return () => {
       cancelled = true;
     };
-  }, [supabase, load, onToast]);
+  }, [load, onToast]);
 
   // animar la barra al cargar (de 0 al % real, estilo Monopoly GO)
   useEffect(() => {

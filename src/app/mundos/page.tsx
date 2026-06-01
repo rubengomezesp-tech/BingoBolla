@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import WorldUnlockedToast from "@/components/WorldUnlockedToast";
 import { createClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/server/supabase-admin";
 import type { Profile } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -203,6 +204,9 @@ function displayName(value: string) {
 
 export default async function MundosPage() {
   const supabase = await createClient();
+  const serviceSupabase = createSupabaseServiceClient();
+  if (!serviceSupabase) throw new Error("Supabase service role is not configured");
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
@@ -217,8 +221,18 @@ export default async function MundosPage() {
   if (!profile?.kyc_status || profile.kyc_status === "unverified") redirect("/onboarding");
 
   const [mapRows, xpRows, worldRows] = await Promise.all([
-    safeData<MapNode[]>(supabase.rpc("get_world_map", { p_world_id: "miami_nights" })),
-    safeData<unknown>(supabase.rpc("get_player_xp", { p_player_id: user.id })),
+    safeData<MapNode[]>(
+      serviceSupabase.rpc("service_get_world_map", {
+        p_actor_id: user.id,
+        p_world_id: "miami_nights",
+      })
+    ),
+    safeData<unknown>(
+      serviceSupabase.rpc("service_get_player_xp", {
+        p_actor_id: user.id,
+        p_player_id: user.id,
+      })
+    ),
     safeData<WorldRow[]>(
       supabase
         .from("worlds")

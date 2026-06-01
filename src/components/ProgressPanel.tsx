@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Progress = {
   level: number;
@@ -25,7 +24,6 @@ type Mission = {
 };
 
 export default function ProgressPanel() {
-  const supabase = createClient();
   const router = useRouter();
   const [prog, setProg] = useState<Progress | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -34,12 +32,10 @@ export default function ProgressPanel() {
   const [flash, setFlash] = useState<string | null>(null);
 
   async function load() {
-    const [{ data: p }, { data: m }] = await Promise.all([
-      supabase.rpc("my_progress"),
-      supabase.rpc("my_missions"),
-    ]);
-    if (p) setProg(p as Progress);
-    if (m) setMissions((m as Mission[]) ?? []);
+    const response = await fetch("/api/progress", { cache: "no-store" });
+    const payload = await response.json().catch(() => null);
+    if (response.ok && payload?.progress) setProg(payload.progress as Progress);
+    if (response.ok) setMissions((payload?.missions as Mission[]) ?? []);
     setLoading(false);
   }
 

@@ -59,15 +59,16 @@ export async function POST(request: Request) {
 
     const adminDb = createAdminClient();
     const requireRun = shouldRequireGameRun({ adminAvailable: Boolean(adminDb) });
-    if (requireRun && !adminDb) {
+    if (!adminDb) {
       return jsonError("server_not_configured", 500);
     }
     if (requireRun && !hasRunCredentials) {
       return jsonError("run_required", 428);
     }
-    const db = adminDb ?? sessionSupabase;
+    const db = adminDb;
 
-    const { data: mapRows, error: mapError } = await sessionSupabase.rpc("get_world_map", {
+    const { data: mapRows, error: mapError } = await adminDb.rpc("service_get_world_map", {
+      p_actor_id: user.id,
       p_world_id: WORLD_ID,
     });
     if (mapError) {
@@ -209,9 +210,15 @@ export async function POST(request: Request) {
       xpErrorMessage = xpError?.message ?? null;
     }
 
-    const [{ data: nextMap }, { data: xpRows }] = await Promise.all([
-      sessionSupabase.rpc("get_world_map", { p_world_id: WORLD_ID }),
-      sessionSupabase.rpc("get_player_xp", { p_player_id: user.id }),
+    const [nextMapResult, xpRowsResult] = await Promise.all([
+      adminDb.rpc("service_get_world_map", {
+        p_actor_id: user.id,
+        p_world_id: WORLD_ID,
+      }),
+      adminDb.rpc("service_get_player_xp", {
+        p_actor_id: user.id,
+        p_player_id: user.id,
+      }),
     ]);
 
     return NextResponse.json({
@@ -225,8 +232,8 @@ export async function POST(request: Request) {
       server_validated: true,
       run_validated: runValidated,
       run_id: runValidated ? runId : null,
-      map: nextMap,
-      xp: xpRows,
+      map: nextMapResult.data,
+      xp: xpRowsResult.data,
     });
   } catch (err) {
     console.error("complete-node error:", err);

@@ -20,8 +20,10 @@ export default function JackpotBadge({ roomId, compact = false }: { roomId?: str
   useEffect(() => {
     let alive = true;
     async function load() {
-      const { data } = await supabase.rpc("room_jackpots");
-      if (alive && Array.isArray(data)) setPots(data as Pot[]);
+      const response = await fetch("/api/jackpots", { cache: "no-store" });
+      const payload = await response.json().catch(() => null);
+      const data = payload?.data;
+      if (alive && response.ok && Array.isArray(data)) setPots(data as Pot[]);
     }
     load();
 
