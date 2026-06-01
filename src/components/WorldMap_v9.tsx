@@ -130,6 +130,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const [prof, setProf]       = useState<ProfileData | null>(null);
   const [jackpotGold, setJackpotGold] = useState(23450000);
   const [game, setGame]       = useState<{game:GameType;nodeId:string;level:number}|null>(null);
+  const [rewardToast, setRewardToast] = useState<{ stars: number; xp: number; gold: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapReady, setMapReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -138,6 +139,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const [dirty, setDirty]     = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const imgWrapRef = useRef<HTMLDivElement>(null);
+  const rewardToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadWorldState = useCallback(async () => {
     const response = await fetch(`/api/world/map?worldId=${encodeURIComponent(WORLD_ID)}`, {
@@ -184,8 +186,17 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
     setGame({ game: nextGame.game, nodeId:n.node_id, level:n.node_index });
   }, [editMode]);
 
-  const handleDone = useCallback(async (r: {win:boolean;stars:number;xp:number}) => {
+  const handleDone = useCallback(async (r: {win:boolean;stars:number;xp:number;gold?:number;starDelta?:number}) => {
     if (r.win) {
+      const xpGain = Math.max(0, Number(r.xp ?? 0));
+      const goldGain = Math.max(0, Number(r.gold ?? 0));
+      const starGain = Math.max(0, Number(r.starDelta ?? 0));
+      if (xpGain > 0 || goldGain > 0 || starGain > 0) {
+        setRewardToast({ stars: starGain, xp: xpGain, gold: goldGain });
+        if (rewardToastTimerRef.current) clearTimeout(rewardToastTimerRef.current);
+        rewardToastTimerRef.current = setTimeout(() => setRewardToast(null), 3600);
+      }
+
       const state = await loadWorldState();
       if (state) {
         if (Array.isArray(state.map) && state.map.length) setNodes(state.map.map(normalizeNode));
@@ -199,6 +210,12 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
     }
     setGame(null);
   }, [loadWorldState]);
+
+  useEffect(() => {
+    return () => {
+      if (rewardToastTimerRef.current) clearTimeout(rewardToastTimerRef.current);
+    };
+  }, []);
 
   // === DRAG & DROP (modo editor admin) ===
   const onPointerDown = (e: React.PointerEvent, nodeId: string) => {
@@ -373,6 +390,18 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           <span>Nivel {currentLevel}</span>
         </div>
       </div>
+
+      {rewardToast && (
+        <div className="wm-rewardToast" role="status" aria-live="polite">
+          {rewardToast.stars > 0 && (
+            <span><Star size={15} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{rewardToast.stars}</span>
+          )}
+          {rewardToast.xp > 0 && <span>+{fmt(rewardToast.xp)} XP</span>}
+          {rewardToast.gold > 0 && (
+            <span><Coins size={15} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> +{fmt(rewardToast.gold)}</span>
+          )}
+        </div>
+      )}
 
       <div className="wm-jackpotPro">
         <div className="wm-jackpotTitle"><Crown size={20} fill="currentColor" strokeWidth={2.4} aria-hidden="true" /> Jackpot</div>
@@ -739,6 +768,20 @@ const WORLD_UI_CSS = `
 .wm-completed span{display:inline-flex;align-items:center;gap:5px;}
 .wm-completed svg{color:#ffd45c;filter:drop-shadow(0 0 8px rgba(255,205,70,.8));}
 .wm-completed i{width:1px;height:14px;background:rgba(255,255,255,.22);}
+.wm-rewardToast{
+  position:fixed;top:calc(env(safe-area-inset-top,0px) + 156px);left:50%;z-index:82;
+  transform:translateX(-50%);min-height:44px;padding:7px 10px;border-radius:999px;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  background:linear-gradient(180deg,rgba(255,240,127,.98),rgba(255,172,30,.97));
+  color:#351500;border:2px solid rgba(255,255,255,.78);
+  box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 30px rgba(255,213,61,.62);
+  font-size:13px;font-weight:1000;animation:wmRewardIn .24s ease-out;
+  pointer-events:none;white-space:nowrap;
+}
+.wm-rewardToast span{
+  min-height:29px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
+  background:rgba(255,255,255,.44);box-shadow:inset 0 1px 0 rgba(255,255,255,.45);
+}
 .wm-jackpotPro{
   position:fixed;right:24px;top:calc(env(safe-area-inset-top,0px) + 92px);z-index:54;
   min-width:210px;padding:12px 18px 14px;border-radius:18px;text-align:center;
@@ -855,6 +898,10 @@ const WORLD_UI_CSS = `
   0%{transform:translateX(-110%)}
   100%{transform:translateX(250%)}
 }
+@keyframes wmRewardIn{
+  from{opacity:0;transform:translate(-50%,-10px) scale(.96)}
+  to{opacity:1;transform:translate(-50%,0) scale(1)}
+}
 @media(max-width:900px){
   .wm-topHud{grid-template-columns:58px minmax(0,1fr) 48px;padding-left:10px;padding-right:10px;gap:7px;}
   .wm-avatarPro{width:52px;height:52px;}
@@ -870,6 +917,7 @@ const WORLD_UI_CSS = `
   .wm-worldKicker{font-size:10px;padding:3px 10px;margin-bottom:4px;}
   .wm-neonTitle{min-width:252px;font-size:26px;padding:8px 18px 7px;}
   .wm-completed{font-size:12px;padding:5px 14px;gap:8px;}
+  .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 140px);max-width:calc(100vw - 18px);overflow:hidden;}
   .wm-jackpotPro{display:none;}
   .wm-sideRail{left:8px;top:calc(env(safe-area-inset-top,0px) + 150px);gap:11px;}
   .wm-sideRailBtn{width:66px;}
@@ -884,6 +932,8 @@ const WORLD_UI_CSS = `
 @media(max-width:560px){
   .wm-dailyStreak{display:none;}
   .wm-titleCard{top:calc(env(safe-area-inset-top,0px) + 76px);}
+  .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 146px);gap:5px;font-size:12px;}
+  .wm-rewardToast span{padding:0 7px;}
   .wm-sideRail{left:auto;right:8px;top:calc(env(safe-area-inset-top,0px) + 156px);gap:9px;}
   .wm-sideRailBtn{width:52px;}
   .wm-sideRailIcon{width:48px;height:48px;border-radius:14px;}

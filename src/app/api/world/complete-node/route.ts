@@ -4,7 +4,6 @@ import {
   RUN_TOKEN_RE,
   UUID_RE,
   WORLD_ID,
-  clampInt,
   constantTimeEqual,
   createAdminClient,
   explicitGameForTarget,
@@ -14,7 +13,6 @@ import {
   isRecord,
   shouldRequireGameRun,
   validateWorldGameResult,
-  xpForNodeCompletion,
 } from "@/lib/world/game-runs";
 
 export const dynamic = "force-dynamic";
@@ -140,8 +138,6 @@ export async function POST(request: Request) {
       return jsonError("game_node_mismatch", 409);
     }
 
-    const now = new Date().toISOString();
-    const maxStars = clampInt(node.max_stars, 1, 3);
     const resultValidation = validateWorldGameResult({ body, game: effectiveGame, node });
     if (!resultValidation.ok) {
       return jsonError(resultValidation.error, resultValidation.status);
@@ -149,65 +145,18 @@ export async function POST(request: Request) {
 
     const incomingStars = resultValidation.stars;
     const attemptScore = resultValidation.score;
-    const existingStars = clampInt(node.stars, 0, maxStars);
-    const stars = Math.max(existingStars, incomingStars);
 
-    if (runValidated && adminDb) {
-      const { data: closedRun, error: runCloseError } = await adminDb
-        .from("world_game_runs")
-        .update({
-          status: "completed",
-          completed_at: now,
-          score: attemptScore,
-          stars: incomingStars,
-        })
-        .eq("id", runId)
-        .eq("status", "started")
-        .select("id")
-        .maybeSingle();
+    const { data: reward, error: rewardError } = await db.rpc("service_complete_world_node_reward", {
+      p_actor_id: user.id,
+      p_node_id: nodeId,
+      p_run_id: runValidated ? runId : null,
+      p_score: attemptScore,
+      p_stars: incomingStars,
+    });
 
-      if (runCloseError || !closedRun) {
-        console.error("world_game_runs close failed:", runCloseError);
-        return jsonError("run_close_failed", 500);
-      }
-    }
-
-    const { data: previous } = await db
-      .from("player_world_progress")
-      .select("best_score,completed_at")
-      .eq("player_id", user.id)
-      .eq("node_id", nodeId)
-      .maybeSingle();
-
-    const savedBestScore = Math.max(Number((previous as any)?.best_score ?? 0), attemptScore);
-
-    const { error: progressError } = await db.from("player_world_progress").upsert(
-      {
-        player_id: user.id,
-        node_id: nodeId,
-        completed: true,
-        stars,
-        best_score: savedBestScore,
-        completed_at: (previous as any)?.completed_at ?? now,
-        updated_at: now,
-      },
-      { onConflict: "player_id,node_id" }
-    );
-
-    if (progressError) {
-      console.error("player_world_progress upsert failed:", progressError);
+    if (rewardError || !reward) {
+      console.error("world node reward failed:", rewardError);
       return jsonError("progress_save_failed", 500);
-    }
-
-    const firstCompletion = !(previous as any)?.completed_at;
-    const xp = xpForNodeCompletion(node, incomingStars, firstCompletion);
-    let xpErrorMessage: string | null = null;
-    if (xp > 0) {
-      const { error: xpError } = await db.rpc("add_xp", {
-        p_player_id: user.id,
-        p_amount: xp,
-      });
-      xpErrorMessage = xpError?.message ?? null;
     }
 
     const [nextMapResult, xpRowsResult] = await Promise.all([
@@ -224,11 +173,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       node_id: nodeId,
-      stars,
-      best_score: savedBestScore,
-      completed_first_time: firstCompletion,
-      xp_awarded: xp > 0 && !xpErrorMessage ? xp : 0,
-      xp_error: xpErrorMessage ? "xp_award_failed" : null,
+      stars: Number((reward as any).stars ?? incomingStars),
+      best_score: Number((reward as any).best_score ?? attemptScore),
+      completed_first_time: Boolean((reward as any).completed_first_time),
+      star_delta: Number((reward as any).star_delta ?? 0),
+      xp_awarded: Number((reward as any).xp_awarded ?? 0),
+      gold_awarded: Number((reward as any).gold_awarded ?? 0),
+      new_gold_balance: Number((reward as any).new_gold_balance ?? 0),
       server_validated: true,
       run_validated: runValidated,
       run_id: runValidated ? runId : null,

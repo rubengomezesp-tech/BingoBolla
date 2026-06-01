@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronLeft,
+  Coins,
   Loader2,
   RotateCcw,
   ShieldCheck,
@@ -18,6 +19,8 @@ interface GameResult {
   win: boolean;
   stars: number;
   xp: number;
+  gold?: number;
+  starDelta?: number;
   level: number;
   score?: number;
 }
@@ -35,6 +38,8 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 type SaveSummary = {
   stars: number;
   xpAwarded: number;
+  goldAwarded: number;
+  starDelta: number;
   bestScore: number;
   firstCompletion: boolean;
   runValidated: boolean;
@@ -222,6 +227,8 @@ export default function GameOverlay({
         setSaveSummary({
           stars: Math.max(0, Math.min(3, Number(payload?.stars ?? nextResult.stars))),
           xpAwarded: Math.max(0, Number(payload?.xp_awarded ?? 0)),
+          goldAwarded: Math.max(0, Number(payload?.gold_awarded ?? 0)),
+          starDelta: Math.max(0, Number(payload?.star_delta ?? 0)),
           bestScore: Math.max(0, Number(payload?.best_score ?? nextResult.score ?? 0)),
           firstCompletion: Boolean(payload?.completed_first_time),
           runValidated: Boolean(payload?.run_validated),
@@ -297,6 +304,8 @@ export default function GameOverlay({
       ...result,
       stars: saveSummary?.stars ?? result.stars,
       xp: saveSummary?.xpAwarded ?? result.xp,
+      gold: saveSummary?.goldAwarded ?? 0,
+      starDelta: saveSummary?.starDelta ?? 0,
       score: saveSummary?.bestScore ?? result.score,
     });
   }, [onComplete, result, saveSummary]);
@@ -309,6 +318,7 @@ export default function GameOverlay({
   const isPreparing = startState === "idle" || startState === "starting";
   const hasStartError = startState === "error";
   const shownXp = saveSummary?.xpAwarded ?? result?.xp ?? 0;
+  const shownGold = saveSummary?.goldAwarded ?? 0;
   const shownScore = saveSummary?.bestScore ?? result?.score ?? 0;
   const statusClass = hasStartError ? "error" : isPreparing ? "saving" : saveState;
 
@@ -402,11 +412,13 @@ export default function GameOverlay({
                 {hasSaveError
                   ? "El juego terminó, pero el avance no se guardó."
                   : result.win
-                    ? saveSummary?.firstCompletion === false
-                      ? "Resultado validado. Este nivel ya estaba completado."
-                      : saveSummary?.runValidated
-                        ? "Partida y resultado validados por el servidor."
-                        : "Resultado validado por el servidor."
+                    ? saveSummary?.starDelta
+                      ? `Mejora validada: +${saveSummary.starDelta} estrella${saveSummary.starDelta === 1 ? "" : "s"} con recompensa acreditada.`
+                      : saveSummary?.firstCompletion === false
+                        ? "Resultado validado. Ya habías cobrado estas estrellas."
+                        : saveSummary?.runValidated
+                          ? "Partida y resultado validados por el servidor."
+                          : "Resultado validado por el servidor."
                     : "Puedes reintentar este nivel sin salir del mundo."}
               </span>
             </div>
@@ -427,7 +439,11 @@ export default function GameOverlay({
             <div className="go-resultStats">
               <span>
                 <b>{shownXp}</b>
-                XP validada
+                XP
+              </span>
+              <span>
+                <b><Coins size={15} aria-hidden="true" /> {Math.round(shownGold).toLocaleString("en-US")}</b>
+                Gold
               </span>
               <span>
                 <b>{Math.round(shownScore).toLocaleString("en-US")}</b>
@@ -569,13 +585,13 @@ const GAME_OVERLAY_CSS = `
 .go-resultCopy span{display:block;margin-top:5px;color:rgba(238,232,255,.72);font-size:14px;font-weight:650;line-height:1.4;}
 .go-stars{display:flex;gap:8px;margin:16px 0 12px;color:rgba(255,255,255,.26);}
 .go-stars .on{color:#ffd93d;filter:drop-shadow(0 0 9px rgba(255,217,61,.78));animation:goStar .34s ease-out;}
-.go-resultStats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.go-resultStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px;}
 .go-resultStats span{
   min-height:54px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   color:rgba(238,232,255,.68);font-size:11px;font-weight:850;
 }
-.go-resultStats b{color:#fff;font-size:18px;font-weight:1000;}
+.go-resultStats b{color:#fff;font-size:18px;font-weight:1000;display:inline-flex;align-items:center;justify-content:center;gap:4px;}
 .go-saveLine{
   min-height:34px;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;
   background:rgba(255,217,61,.08);border:1px solid rgba(255,217,61,.18);color:#ffe68a;font-size:13px;font-weight:850;
@@ -602,6 +618,7 @@ const GAME_OVERLAY_CSS = `
   .go-titleBlock strong{font-size:15px;}
   .go-resultLayer{padding-left:10px;padding-right:10px;}
   .go-resultCard{padding:16px;}
+  .go-resultStats{grid-template-columns:1fr;}
   .go-actions{flex-direction:column-reverse;}
   .go-primary,.go-secondary{width:100%;flex:auto;}
 }
