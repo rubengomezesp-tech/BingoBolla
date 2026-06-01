@@ -5,6 +5,16 @@ import { stripeAdapter } from "@/lib/payments/stripe";
 
 export const dynamic = "force-dynamic";
 
+function getCanonicalOrigin() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.bingobolla.com";
+  try {
+    const url = new URL(raw);
+    return url.origin;
+  } catch {
+    return "https://www.bingobolla.com";
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { package_id } = await req.json();
@@ -42,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "package_not_found" }, { status: 404 });
     }
 
-    const origin = req.headers.get("origin") ?? "https://www.bingobolla.com";
+    const origin = getCanonicalOrigin();
 
     const session = await stripeAdapter.createCheckoutSession({
       userId: user.id,

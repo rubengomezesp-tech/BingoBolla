@@ -105,11 +105,19 @@ export default function HoldWinSlot({
     }, 70);
 
     try {
-      const { data, error: rpcErr } = await supabase.rpc("spin_hold_win", {
-        p_slug: machine.slug, p_currency: currency, p_bet: bet,
+      const response = await fetch("/api/slots/spin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          engine: "hold_win",
+          slug: machine.slug,
+          currency,
+          bet,
+        }),
       });
-      if (rpcErr) throw rpcErr;
-      const res = data as any;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error ?? "spin_failed");
+      const res = payload?.data as any;
       if (res?.error) throw new Error(res.error);
 
       // grid viene como [[col0_r0,col0_r1,col0_r2],[col1...],[col2...]]

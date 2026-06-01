@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Coins, Trophy } from "lucide-react";
 
 type Pot = {
   room_id: string;
@@ -43,12 +44,12 @@ export default function JackpotBadge({ roomId, compact = false }: { roomId?: str
 
   if (compact && roomId) {
     const p = shown[0];
-    const val = p.jackpot_sweeps > 0 ? `$${p.jackpot_sweeps.toFixed(2)}` : `${p.jackpot_gold.toLocaleString()} 🪙`;
+    const val = p.jackpot_sweeps > 0 ? `$${p.jackpot_sweeps.toFixed(2)}` : formatGold(p.jackpot_gold);
     if (p.jackpot_gold === 0 && p.jackpot_sweeps === 0) return null;
     return (
       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono"
         style={{ background: "linear-gradient(135deg,rgba(255,217,61,0.15),rgba(200,148,26,0.1))", border: "1px solid rgba(255,217,61,0.3)" }}>
-        <span>🎰</span>
+        {p.jackpot_sweeps > 0 ? <Trophy size={13} aria-hidden="true" /> : <Coins size={13} aria-hidden="true" />}
         <span className="text-[var(--color-gold)] font-bold">BOTE {val}</span>
       </div>
     );
@@ -57,8 +58,8 @@ export default function JackpotBadge({ roomId, compact = false }: { roomId?: str
   return (
     <div className="rounded-2xl p-4 border"
       style={{ background: "linear-gradient(135deg,rgba(255,217,61,0.08),rgba(200,148,26,0.05))", borderColor: "rgba(255,217,61,0.25)" }}>
-      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-gold)] mb-2">
-        🎰 Bote acumulado
+      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-gold)] mb-2 flex items-center gap-1.5">
+        <Trophy size={13} aria-hidden="true" /> Bote acumulado
       </div>
       <div className="space-y-1.5">
         {shown.map((p) => {
@@ -66,8 +67,8 @@ export default function JackpotBadge({ roomId, compact = false }: { roomId?: str
           return (
             <div key={p.room_id} className="flex items-center justify-between text-sm">
               <span className="text-[var(--color-fg-dim)]">{p.name}</span>
-              <span className="font-mono font-bold text-[var(--color-gold)]">
-                {p.jackpot_sweeps > 0 ? `$${p.jackpot_sweeps.toFixed(2)}` : `${p.jackpot_gold.toLocaleString()} 🪙`}
+              <span className="font-mono font-bold text-[var(--color-gold)] inline-flex items-center gap-1">
+                {p.jackpot_sweeps > 0 ? `$${p.jackpot_sweeps.toFixed(2)}` : <><Coins size={13} aria-hidden="true" />{formatGold(p.jackpot_gold)}</>}
                 <span className="text-[10px] text-[var(--color-fg-muted)] ml-1.5">≤{p.max_balls} bolas</span>
               </span>
             </div>
@@ -76,4 +77,8 @@ export default function JackpotBadge({ roomId, compact = false }: { roomId?: str
       </div>
     </div>
   );
+}
+
+function formatGold(value: number) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }

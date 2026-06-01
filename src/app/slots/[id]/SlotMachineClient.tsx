@@ -147,18 +147,28 @@ export default function SlotMachineClient({
       ));
     }, 70);
 
-    const { data, error } = await supabase.rpc("spin_slot", {
-      p_slug: M.id, p_currency: M.currency, p_bet: bet,
+    const response = await fetch("/api/slots/spin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        engine: "slot",
+        slug: M.id,
+        currency: M.currency,
+        bet,
+      }),
     });
+    const payload = await response.json().catch(() => ({}));
+    const data = payload?.data;
 
     // Tiempo mínimo de giro para que se sienta (cascada de paradas)
     await new Promise((r) => setTimeout(r, 600));
     clearInterval(spinAnim);
 
-    if (error || !data || data.error) {
+    if (!response.ok || !data || data.error) {
       setReelSpinning(Array(M.reels).fill(false));
       setSpinning(false);
-      setToast(data?.error === "insufficient_funds" ? "Saldo insuficiente" : (data?.error ?? "Error"));
+      const error = data?.error ?? payload?.error;
+      setToast(error === "insufficient_funds" ? "Saldo insuficiente" : (error ?? "Error"));
       setTimeout(() => setToast(null), 2500);
       return;
     }

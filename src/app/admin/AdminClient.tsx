@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 export default function AdminClient({
   initialStats, initialCodes,
 }: { initialStats: any; initialCodes: any[] }) {
-  const supabase = createClient();
   const [stats, setStats] = useState(initialStats);
   const [codes, setCodes] = useState(initialCodes);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -33,43 +31,67 @@ export default function AdminClient({
     setTimeout(() => setMsg(null), 4000);
   }
 
+  async function adminRequest(body?: Record<string, unknown>) {
+    const response = await fetch("/api/admin", {
+      method: body ? "POST" : "GET",
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error ?? "admin_request_failed");
+    }
+    return payload;
+  }
+
   async function refreshStats() {
-    const { data } = await supabase.rpc("admin_stats");
-    if (data && !data.error) setStats(data);
-    const { data: c } = await supabase.rpc("admin_list_codes");
-    if (c) setCodes(c);
+    try {
+      const data = await adminRequest();
+      if (data.stats && !data.stats.error) setStats(data.stats);
+      if (data.codes) setCodes(data.codes);
+    } catch (error: any) {
+      flash(false, error?.message ?? "Error");
+    }
   }
 
   async function grantCoins() {
     if (!gEmail) return flash(false, "Email requerido");
-    const { data, error } = await supabase.rpc("admin_grant_coins", {
-      p_email: gEmail,
-      p_gold: Number(gGold) || 0,
-      p_sweeps: Number(gSweeps) || 0,
-      p_diamonds: Number(gDiamonds) || 0,
-    });
-    if (error || data?.error) return flash(false, data?.error ?? error?.message ?? "Error");
-    flash(true, `✅ Coins dados a ${gEmail}`);
-    setGGold(""); setGSweeps(""); setGDiamonds("");
-    refreshStats();
+    try {
+      await adminRequest({
+        action: "grant_coins",
+        email: gEmail,
+        gold: Number(gGold) || 0,
+        sweeps: Number(gSweeps) || 0,
+        diamonds: Number(gDiamonds) || 0,
+      });
+      flash(true, `✅ Coins dados a ${gEmail}`);
+      setGGold(""); setGSweeps(""); setGDiamonds("");
+      refreshStats();
+    } catch (error: any) {
+      flash(false, error?.message ?? "Error");
+    }
   }
 
   async function createCode() {
     if (!cCode) return flash(false, "Código requerido");
-    const { data, error } = await supabase.rpc("admin_create_code", {
-      p_code: cCode,
-      p_kind: cKind,
-      p_gold: Number(cGold) || 0,
-      p_sweeps: Number(cSweeps) || 0,
-      p_diamonds: Number(cDiamonds) || 0,
-      p_discount_pct: Number(cDiscount) || 0,
-      p_max_uses: Number(cMaxUses) || 1,
-      p_expires_days: Number(cExpires) || 0,
-    });
-    if (error || data?.error) return flash(false, data?.error ?? error?.message ?? "Error");
-    flash(true, `✅ Código ${data.code} creado`);
-    setCCode(""); setCGold(""); setCSweeps(""); setCDiamonds(""); setCDiscount("");
-    refreshStats();
+    try {
+      const data = await adminRequest({
+        action: "create_code",
+        code: cCode,
+        kind: cKind,
+        gold: Number(cGold) || 0,
+        sweeps: Number(cSweeps) || 0,
+        diamonds: Number(cDiamonds) || 0,
+        discount_pct: Number(cDiscount) || 0,
+        max_uses: Number(cMaxUses) || 1,
+        expires_days: Number(cExpires) || 0,
+      });
+      flash(true, `✅ Código ${data.code} creado`);
+      setCCode(""); setCGold(""); setCSweeps(""); setCDiamonds(""); setCDiscount("");
+      refreshStats();
+    } catch (error: any) {
+      flash(false, error?.message ?? "Error");
+    }
   }
 
   const inputCls = "w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white font-mono text-sm focus:border-[var(--color-magenta)]/50 outline-none";

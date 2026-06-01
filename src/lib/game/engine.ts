@@ -87,28 +87,12 @@ export function checkCardStatus(card: Card, called: Set<number>): CardStatus {
     line = linesComplete >= 1;
     twoLines = linesComplete >= 2;
   } else {
-    // Bingo 75: rows, cols, diagonals
+    // BingoBolla 75 follows the server engine: a paid line is one completed row.
     for (let r = 0; r < 5; r++) {
       let missing = 0;
       for (let c = 0; c < 5; c++) if (!marked[r][c]) missing++;
       if (missing === 0) line = true;
       if (missing < minToLine) minToLine = missing;
-    }
-    for (let c = 0; c < 5; c++) {
-      let missing = 0;
-      for (let r = 0; r < 5; r++) if (!marked[r][c]) missing++;
-      if (missing === 0) line = true;
-      if (missing < minToLine) minToLine = missing;
-    }
-    {
-      let m1 = 0, m2 = 0;
-      for (let i = 0; i < 5; i++) {
-        if (!marked[i][i]) m1++;
-        if (!marked[i][4 - i]) m2++;
-      }
-      if (m1 === 0 || m2 === 0) line = true;
-      if (m1 < minToLine) minToLine = m1;
-      if (m2 < minToLine) minToLine = m2;
     }
     secondMinToLine = Infinity;  // 75 doesn't use two_lines
   }

@@ -1,7 +1,7 @@
 // BingoBolla — Service Worker
 // Estrategia:
 //   • Precache de shell (manifest + iconos)
-//   • Network-first para HTML  (siempre intenta red; cae a cache si falla)
+//   • Network-first para HTML sin guardarlo (evita cachear datos privados)
 //   • Stale-while-revalidate para imágenes y fuentes
 //   • Cache-first para assets versionados de Next (/_next/static/*)
 //   • Nunca cachea POST ni rutas /api/*
@@ -13,6 +13,7 @@ const RUNTIME = `bb-runtime-${VERSION}`;
 const PRECACHE_URLS = [
   "/",
   "/manifest.json",
+  "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
@@ -48,7 +49,8 @@ function isStaticAsset(url) {
   return (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
-    url.pathname === "/manifest.json"
+    url.pathname === "/manifest.json" ||
+    url.pathname === "/manifest.webmanifest"
   );
 }
 function isImageOrFont(req, url) {
@@ -58,6 +60,14 @@ function isImageOrFont(req, url) {
 }
 function isHTML(req) {
   return req.mode === "navigate" || req.destination === "document";
+}
+function canCacheResponse(res) {
+  return res && (res.ok || res.type === "opaque");
+}
+function cacheRuntime(req, res) {
+  if (!canCacheResponse(res)) return;
+  const copy = res.clone();
+  caches.open(RUNTIME).then((c) => c.put(req, copy)).catch(() => {});
 }
 
 self.addEventListener("fetch", (event) => {
@@ -76,8 +86,7 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(req).then((res) => {
-            const copy = res.clone();
-            caches.open(RUNTIME).then((c) => c.put(req, copy)).catch(() => {});
+            cacheRuntime(req, res);
             return res;
           })
       )
@@ -91,8 +100,7 @@ self.addEventListener("fetch", (event) => {
       caches.match(req).then((cached) => {
         const fetchPromise = fetch(req)
           .then((res) => {
-            const copy = res.clone();
-            caches.open(RUNTIME).then((c) => c.put(req, copy)).catch(() => {});
+            cacheRuntime(req, res);
             return res;
           })
           .catch(() => cached);
@@ -102,16 +110,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first para navegación HTML (siempre fresca, fallback a cache offline)
+  // Network-first para navegación HTML. No se cachea aquí porque muchas rutas
+  // de Next/Supabase contienen estado de usuario, wallet o KYC.
   if (isHTML(req)) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(RUNTIME).then((c) => c.put(req, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => caches.match(req).then((c) => c || caches.match("/")))
+      fetch(req).catch(() => caches.match("/"))
     );
     return;
   }

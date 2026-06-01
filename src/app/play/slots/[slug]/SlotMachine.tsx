@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Machine = {
   id: string;
@@ -36,8 +34,6 @@ export default function SlotMachine({
   initialProfile: any;
   recentSpins: Spin[];
 }) {
-  const router = useRouter();
-  const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
   const [bet, setBet] = useState<number>(machine.min_bet_gold);
   const [currency, setCurrency] = useState<"gold" | "sweeps" | "diamonds">("gold");
@@ -78,12 +74,20 @@ export default function SlotMachine({
     }, 80);
 
     try {
-      const { data, error } = await supabase.rpc("play_slot", {
-        p_machine_id: machine.id,
-        p_bet: bet,
-        p_currency: currency,
+      const response = await fetch("/api/slots/spin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          engine: "legacy",
+          machine_id: machine.id,
+          bet,
+          currency,
+        }),
       });
-      if (error) throw error;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error ?? "spin_failed");
+      const data = payload?.data;
+      if (data?.error) throw new Error(data.error);
 
       // Stop reels one by one
       const result = (data as any).symbols as string[];

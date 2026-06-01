@@ -40,10 +40,21 @@ export default async function LobbyPage() {
     id: room.id,
     name: room.name,
     variant: room.variant,
-    ticket_gold: room.ticket_gold,
-    ticket_sweeps: room.ticket_sweeps,
+    current_game_id: room.current_game_id ?? null,
+    ticket_gold: Number(room.ticket_gold ?? 0),
+    ticket_sweeps: Number(room.ticket_sweeps ?? 0),
+    max_cards_per_player: Number(room.max_cards_per_player ?? 0),
     players_in_play: room.players_in_play ?? null,
     effective_pot_sweeps: room.effective_pot_sweeps ?? null,
+    effective_pot_gold: room.effective_pot_gold ?? null,
+    game_status: room.game_status ?? null,
+    current_game_starts_at: room.current_game_starts_at ?? null,
+    cards_in_play: room.cards_in_play ?? null,
+    rtp: room.rtp ?? null,
+    rollover_gold: room.rollover_gold ?? null,
+    rollover_sweeps: room.rollover_sweeps ?? null,
+    jackpot_max_balls: room.jackpot_max_balls ?? null,
+    schedule_interval_seconds: room.schedule_interval_seconds ?? null,
   }));
 
   const { data: stats } = await supabase

@@ -15,6 +15,7 @@ interface BeforeInstallPromptEvent extends Event {
 const PROMPT_DISMISSED_KEY = "bb_pwa_prompt_dismissed_at";
 // Reaparecer el prompt cada 14 días si el usuario lo cerró.
 const PROMPT_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+const PROMPT_DELAY_MS = 9000;
 
 export default function PWARegister() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -23,7 +24,25 @@ export default function PWARegister() {
   // 1) Registrar service worker
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker.getRegistrations?.()
+        .then((registrations) => registrations.forEach((registration) => registration.unregister()))
+        .catch(() => {});
+      return;
+    }
+
+    const register = () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    };
+
+    if (document.readyState === "complete") {
+      register();
+      return;
+    }
+
+    window.addEventListener("load", register, { once: true });
+    return () => window.removeEventListener("load", register);
   }, []);
 
   // 2) Desbloquear AudioContext SOLO tras gesto del usuario
@@ -47,25 +66,34 @@ export default function PWARegister() {
 
   // 3) Capturar evento de instalación PWA
   useEffect(() => {
+    let promptTimer: number | null = null;
+
+    const revealPrompt = () => {
+      if (promptTimer) window.clearTimeout(promptTimer);
+      promptTimer = window.setTimeout(() => setShowPrompt(true), PROMPT_DELAY_MS);
+    };
+
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setInstallEvent(e as BeforeInstallPromptEvent);
       try {
         const dismissedAt = Number(localStorage.getItem(PROMPT_DISMISSED_KEY) ?? 0);
         if (Date.now() - dismissedAt > PROMPT_COOLDOWN_MS) {
-          setShowPrompt(true);
+          revealPrompt();
         }
       } catch {
-        setShowPrompt(true);
+        revealPrompt();
       }
     };
     const onInstalled = () => {
+      if (promptTimer) window.clearTimeout(promptTimer);
       setShowPrompt(false);
       setInstallEvent(null);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
+      if (promptTimer) window.clearTimeout(promptTimer);
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
@@ -91,22 +119,24 @@ export default function PWARegister() {
       data-testid="pwa-install-banner"
       style={{
         position: "fixed",
-        left: 16,
+        left: "auto",
         right: 16,
-        bottom: 16,
+        top: 88,
+        bottom: "auto",
         zIndex: 9999,
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "14px 16px",
-        borderRadius: 18,
+        width: "calc(100% - 32px)",
+        maxWidth: 380,
+        margin: 0,
+        padding: "12px 12px",
+        borderRadius: 8,
         border: "1px solid rgba(255,77,255,.5)",
         background: "linear-gradient(135deg,rgba(46,12,96,.96),rgba(22,7,55,.96))",
-        boxShadow: "0 12px 32px rgba(0,0,0,.55), 0 0 22px rgba(255,77,255,.25)",
+        boxShadow: "0 8px 16px rgba(0,0,0,.45)",
         color: "#fff",
         fontFamily: "'Hanken Grotesk',system-ui,sans-serif",
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: 10,
       }}
     >
       <div style={{ flex: 1, lineHeight: 1.3 }}>
@@ -124,7 +154,7 @@ export default function PWARegister() {
           background: "transparent",
           border: "1px solid rgba(255,255,255,.25)",
           color: "#fff",
-          borderRadius: 10,
+          borderRadius: 8,
           padding: "7px 10px",
           fontWeight: 700,
           fontSize: 12,
@@ -141,7 +171,7 @@ export default function PWARegister() {
           background: "linear-gradient(180deg,#b535ff,#7215d6)",
           border: "1px solid rgba(255,255,255,.35)",
           color: "#fff",
-          borderRadius: 12,
+          borderRadius: 8,
           padding: "10px 16px",
           fontWeight: 900,
           fontSize: 14,

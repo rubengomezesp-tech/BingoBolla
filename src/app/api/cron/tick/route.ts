@@ -15,22 +15,39 @@ const GHOST_TIMEOUT_MS = 5 * 60_000;
 const personasCache: any[] = [];
 const lastMcAt = new Map<string, number>();
 
-function hashSync(input: string): string {
-  let h = 5381;
-  for (let i = 0; i < input.length; i++) h = ((h << 5) + h) ^ input.charCodeAt(i);
-  return ("0000000000000000" + (h >>> 0).toString(16)).slice(-16);
+function authorizeCron(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    return NextResponse.json({ ok: false, error: "cron_secret_not_configured" }, { status: 500 });
+  }
+
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  return null;
+}
+
+async function createSeedHash(roomId: string) {
+  const material = `${roomId}:${Date.now()}:${crypto.randomUUID()}`;
+  const bytes = new TextEncoder().encode(material);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function GET(request: Request) {
-  // Auth: Vercel cron sends Authorization header with CRON_SECRET
-  const authHeader = request.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const authError = authorizeCron(request);
+  if (authError) return authError;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ ok: false, error: "server_not_configured" }, { status: 500 });
   }
 
   const sb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    supabaseUrl,
+    serviceRoleKey,
     { auth: { persistSession: false } }
   );
 
@@ -122,7 +139,7 @@ export async function GET(request: Request) {
           room_id: room.id,
           status: "waiting",
           starts_at: new Date(Math.max(Date.now() + 60_000, nextStart)).toISOString(),
-          seed_hash: hashSync(`${room.id}-${Date.now()}-${Math.random()}`),
+          seed_hash: await createSeedHash(room.id),
         })
         .select()
         .single();

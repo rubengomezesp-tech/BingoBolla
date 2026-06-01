@@ -14,7 +14,7 @@ type XpData = {
 export default function XpBar({
   onToast,
 }: {
-  onToast?: (emoji: string, msg: string, detail: string) => void;
+  onToast?: (label: string, msg: string, detail: string) => void;
 }) {
   const supabase = createClient();
   const [data, setData] = useState<XpData | null>(null);
@@ -44,10 +44,10 @@ export default function XpBar({
         const { data: daily } = await supabase.rpc("claim_daily_xp");
         const d = daily?.[0];
         if (!cancelled && d?.claimed) {
-          onToast?.("🎁", "+15 EXP", "¡Por entrar hoy!");
+          onToast?.("Diario", "+15 EXP", "Por entrar hoy");
           if (d.leveled_up) {
             setTimeout(
-              () => onToast?.("⭐", `¡Nivel ${d.new_level}!`, "Subiste de nivel"),
+              () => onToast?.("Nivel", `Nivel ${d.new_level}`, "Subiste de nivel"),
               2400
             );
           }
@@ -92,7 +92,7 @@ export default function XpBar({
         <div className="xpbar-track">
           <div
             className="xpbar-fill"
-            style={{ width: `${animPct}%` }}
+            style={{ transform: `scaleX(${animPct / 100})` }}
           />
         </div>
       </div>
@@ -102,27 +102,27 @@ export default function XpBar({
 
 const XP_CSS = `
 .xpbar-wrap{display:flex;align-items:center;gap:10px;flex:1;min-width:160px;
-  max-width:340px;}
-.xpbar-badge{position:relative;width:44px;height:44px;border-radius:13px;
+  max-width:520px;}
+.xpbar-badge{position:relative;width:44px;height:44px;border-radius:8px;
   flex-shrink:0;display:flex;flex-direction:column;align-items:center;
   justify-content:center;
-  background:radial-gradient(circle at 35% 30%,#ffd98a,#e0901a 70%,#a06010);
-  box-shadow:0 0 16px rgba(255,180,40,.5),inset 0 2px 4px rgba(255,255,255,.4);
-  color:#3a1a00;}
+  background:linear-gradient(180deg,#fff07f,#ffd93d 55%,#c77700);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55);
+  color:#251400;}
 .xpbar-lvNum{font-weight:800;font-size:18px;line-height:.9;}
 .xpbar-lvLbl{font-size:7px;font-weight:800;letter-spacing:.1em;opacity:.75;}
 .xpbar-body{flex:1;min-width:0;}
 .xpbar-top{display:flex;justify-content:space-between;align-items:baseline;
   margin-bottom:5px;gap:8px;}
 .xpbar-title{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;}
-.xpbar-nums{font-size:10px;color:#c7a8e8;font-weight:600;white-space:nowrap;}
-.xpbar-track{height:12px;border-radius:7px;background:rgba(0,0,0,.35);
-  overflow:hidden;border:1px solid rgba(170,120,255,.25);}
-.xpbar-fill{height:100%;border-radius:7px;
-  background:linear-gradient(90deg,#9a4ad0,#ff4d9a 55%,#ffd23d);
-  box-shadow:0 0 12px rgba(255,120,200,.6);
-  transition:width 1.1s cubic-bezier(.25,1,.35,1);
-  min-width:6px;}
+.xpbar-nums{font-size:10px;color:#c9c4d4;font-weight:700;white-space:nowrap;}
+.xpbar-track{height:12px;border-radius:999px;background:rgba(255,255,255,.08);
+  overflow:hidden;border:1px solid rgba(255,255,255,.12);}
+.xpbar-fill{width:100%;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#00e5ff,#ff3d7f 58%,#ffd93d);
+  box-shadow:0 0 10px rgba(255,217,61,.32);
+  transform-origin:left center;
+  transition:transform .7s cubic-bezier(.16,1,.3,1);}
 @media(max-width:520px){
   .xpbar-wrap{max-width:none;width:100%;order:5;margin-top:8px;}
 }

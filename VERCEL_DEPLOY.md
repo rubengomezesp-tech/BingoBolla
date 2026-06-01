@@ -11,17 +11,46 @@ Tienes dominio comprado en Vercel y el repo en GitHub. Pasos exactos.
 
 ## 2. Environment Variables
 
-En la pantalla de import, scrollea a "Environment Variables" y añade:
+### Donde ponerlas
+
+- **Local Mac**: `/Users/rubenymarina/Documents/BingoBolla/.env.local`
+- **Vercel**: Project -> **Settings -> Environment Variables**. Marca `Production`, `Preview` y `Development` salvo que quieras valores distintos por entorno.
+- **Railway**: Project -> **Variables**. Usa los mismos nombres que en Vercel.
+- **Supabase**: no pongas estas envs en Supabase salvo que despliegues Edge Functions. Para esta app viven en Next.js/Vercel/Railway/local.
+
+En local, el formato es:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://atfsgvetqxjmmsokswja.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+CRON_SECRET=...
+PERSONA_WEBHOOK_SECRET=...
+STRIPE_SECRET_KEY=...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+WORLD_GAME_RUNS_REQUIRED=false
+```
+
+En producción cambia `NEXT_PUBLIC_SITE_URL` y `NEXT_PUBLIC_APP_URL` a `https://bingobolla.com`.
+
+### De donde salen
 
 | Name | Value | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://atfsgvetqxjmmsokswja.supabase.co` | público |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (tu anon key) | público, OK exponer |
-| `SUPABASE_SERVICE_ROLE_KEY` | (tu NUEVA service_role) | **secret** — solo en Vercel, nunca en git |
-| `NEXT_PUBLIC_SITE_URL` | `https://bingobolla.com` | |
-| `STRIPE_SECRET_KEY` | `sk_test_...` (cuando lo tengas) | |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` | |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase -> Project Settings -> API -> Project URL | Publica, OK en browser |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase -> Project Settings -> API -> anon/public key | Publica, OK en browser |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase -> Project Settings -> API -> service_role key | **Secreta**. Nunca `NEXT_PUBLIC_`, nunca Git |
+| `NEXT_PUBLIC_SITE_URL` | URL canonica del entorno | Local: `http://localhost:3000`; Prod: `https://bingobolla.com` |
+| `NEXT_PUBLIC_APP_URL` | Igual que `NEXT_PUBLIC_SITE_URL` | Fallback para redirects |
+| `CRON_SECRET` | Generalo tu: `openssl rand -base64 32` | Lo usan `/api/cron/tick` y `/api/game/tick` con `Authorization: Bearer ...` |
+| `PERSONA_WEBHOOK_SECRET` | Persona Dashboard -> Webhooks -> endpoint `/api/kyc/webhook` -> Signing secret | Si Persona aun no esta conectado, dejalo sin configurar hasta crear el webhook |
+| `STRIPE_SECRET_KEY` | Stripe Dashboard -> Developers -> API keys -> Secret key | `sk_test_...` o `sk_live_...` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe Dashboard -> Developers -> API keys -> Publishable key | `pk_test_...` o `pk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard -> Developers -> Webhooks -> endpoint `/api/stripe/webhook` -> Signing secret | `whsec_...` |
+| `WORLD_GAME_RUNS_REQUIRED` | Valor manual | Local: `false`; Produccion: `true` cuando el flujo mundo este listo |
 
 Click **Deploy**. Tarda ~2 min.
 

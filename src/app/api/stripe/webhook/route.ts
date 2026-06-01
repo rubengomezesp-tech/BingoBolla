@@ -24,9 +24,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ error: "server_not_configured" }, { status: 500 });
+  }
+
   const sb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    supabaseUrl,
+    serviceRoleKey,
     { auth: { persistSession: false } }
   );
 
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("credit_purchase failed:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "credit_purchase_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, result: data });
