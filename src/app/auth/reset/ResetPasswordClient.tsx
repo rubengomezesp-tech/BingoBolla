@@ -8,7 +8,6 @@ import { AuroraBackground, FloatingBubbles } from "@/components/FloatingBubbles"
 
 export default function ResetPasswordClient() {
   const router = useRouter();
-  const supabase = createClient();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +16,7 @@ export default function ResetPasswordClient() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    const supabase = createClient();
     // Listen for PASSWORD_RECOVERY event from URL hash params
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" && session) {
@@ -61,6 +61,7 @@ export default function ResetPasswordClient() {
     }
 
     setLoading(true);
+    const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
 

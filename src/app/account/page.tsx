@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import MobileTabBar from "@/components/MobileTabBar";
 import { createClient } from "@/lib/supabase/client";
 
 /* CUENTA · src/app/account/page.tsx · clon ref img6 */
@@ -7,11 +8,11 @@ const MASCOT="https://atfsgvetqxjmmsokswja.supabase.co/storage/v1/object/public/
 const fmt=(n:number)=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?n.toLocaleString():String(n);
 
 export default function Account(){
-  const sb=createClient();
   const [u,setU]=useState<any>(null);
   const [p,setP]=useState<any>(null);
 
   useEffect(()=>{(async()=>{
+    const sb=createClient();
     const safe=async(x:any)=>{try{return await Promise.resolve(x)}catch{return{data:null}}};
     const ur=await safe(sb.auth.getUser());
     const usr=ur?.data?.user; setU(usr);
@@ -30,10 +31,6 @@ export default function Account(){
     {i:"🅱️",t:"BINGOS",v:p?.bingos??0,c:"#FF4D9A"},
     {i:"🔥",t:"MEJOR RACHA",v:p?.best_streak??0,c:"#FF6B2B"},
   ];
-  const NAV=[{i:"🏠",t:"INICIO",h:"/"},{i:"🌐",t:"MUNDOS",h:"/mundos"},
-    {i:"🎫",t:"EVENTOS",h:"/eventos",b:3},{i:"🏆",t:"RANKING",h:"/ranking"},
-    {i:"🎁",t:"COFRES",h:"/cofres",b:2}];
-
   return(
     <div className="bb">
       <div className="bg" aria-hidden><i className="g1"/><i className="g2"/></div>
@@ -87,25 +84,19 @@ export default function Account(){
           <div className="sct"><b>Auto-exclusión</b><span>Tómate un descanso</span></div>
           <span className="arr">→</span>
         </a>
-        <button className="logout" onClick={async()=>{await sb.auth.signOut();window.location.href="/login"}}>
+        <button className="logout" onClick={async()=>{await createClient().auth.signOut();window.location.href="/login"}}>
           Cerrar sesión
         </button>
       </main>
 
-      <nav className="bnav">
-        {NAV.map(n=>(
-          <a key={n.t} href={n.h} className="bn">
-            <span className="bn-i">{n.i}{n.b&&<i>{n.b}</i>}</span>
-            <span className="bn-t">{n.t}</span>
-          </a>))}
-      </nav>
+      <MobileTabBar />
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600&display=swap');
         .bb{--bg:#0A0414;--gold:#FFB323;--gold2:#FFD55E;--vio:#7B2FF7;--vio2:#A45BFF;
           --pink:#FF4D9A;--cyan:#3DE8FF;--live:#FF3B5C;--mut:rgba(255,255,255,.5);
-          position:relative;min-height:100vh;background:var(--bg);color:#fff;
-          font-family:'Hanken Grotesk',sans-serif;padding-bottom:90px;overflow-x:hidden}
+          position:relative;min-height:100dvh;background:var(--bg);color:#fff;
+          font-family:'Hanken Grotesk',sans-serif;padding-bottom:calc(112px + env(safe-area-inset-bottom,0px));overflow-x:hidden}
         .bb *{box-sizing:border-box;margin:0;padding:0}.bb a{color:inherit;text-decoration:none}
         .bg{position:fixed;inset:0;z-index:0;
           background:radial-gradient(120% 60% at 50% 0%,#2e0f52,#170830 45%,var(--bg) 80%)}
@@ -127,9 +118,9 @@ export default function Account(){
         .ava{border-radius:50%;display:grid;place-items:center;font-family:'Fredoka';
           font-weight:700;background:linear-gradient(135deg,#ff9a6b,var(--pink))}
         .ava.sm{width:34px;height:34px;font-size:15px}
-        .wrap{position:relative;z-index:5;max-width:560px;margin:0 auto;padding:18px}
-        .title{font-family:'Fredoka';font-weight:700;font-size:30px;margin-bottom:16px}
-        .profile{position:relative;padding:22px;border-radius:22px;margin-bottom:24px;
+        .wrap{position:relative;z-index:5;max-width:560px;margin:0 auto;padding:18px clamp(14px,4vw,20px) calc(28px + env(safe-area-inset-bottom,0px))}
+        .title{font-family:'Fredoka';font-weight:700;font-size:clamp(28px,8vw,34px);margin-bottom:16px}
+        .profile{position:relative;padding:clamp(18px,5vw,24px);border-radius:22px;margin-bottom:24px;
           background:linear-gradient(180deg,rgba(60,28,100,.4),rgba(30,14,52,.5));
           border:1px solid rgba(167,91,255,.3);overflow:hidden}
         .masc{position:absolute;top:6px;right:-6px;width:130px;height:130px;
@@ -140,18 +131,19 @@ export default function Account(){
         .cam{position:absolute;bottom:-2px;right:-2px;width:26px;height:26px;
           border-radius:50%;border:none;background:var(--vio);font-size:12px;cursor:pointer}
         .pmeta{margin-top:14px}
-        .pname{font-family:'Fredoka';font-weight:700;font-size:26px}
-        .pmail{font-size:14px;color:var(--mut);margin:2px 0 12px}
-        .pbadges{display:flex;gap:8px}
+        .pname{font-family:'Fredoka';font-weight:700;font-size:clamp(22px,6.8vw,28px);overflow-wrap:anywhere;max-width:min(100%,340px)}
+        .pmail{font-size:14px;color:var(--mut);margin:2px 0 12px;overflow-wrap:anywhere;max-width:min(100%,340px)}
+        .pbadges{display:flex;gap:8px;flex-wrap:wrap}
         .vf{font-size:11px;font-weight:700;color:#3ddc78;padding:5px 11px;border-radius:9px;
           background:rgba(61,220,120,.12);border:1px solid rgba(61,220,120,.4)}
         .loc{font-size:11px;font-weight:600;color:var(--mut);padding:5px 11px;
           border-radius:9px;background:rgba(255,255,255,.06);
           border:1px solid rgba(255,255,255,.1)}
-        .bal{display:flex;gap:40px;margin-top:18px;padding-top:18px;
+        .bal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(14px,6vw,40px);margin-top:18px;padding-top:18px;
           border-top:1px solid rgba(255,255,255,.1)}
+        .bal>div{min-width:0}
         .bal small{font-size:11px;color:var(--mut);letter-spacing:1px}
-        .bv{font-family:'Fredoka';font-weight:700;font-size:24px;margin-top:4px}
+        .bv{font-family:'Fredoka';font-weight:700;font-size:clamp(20px,6vw,24px);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .bv.gold{color:#fff}.bv.sw{color:var(--cyan)}
         .sh{font-family:'Fredoka';font-weight:600;font-size:14px;letter-spacing:1px;
           color:var(--mut);margin:24px 0 14px}
@@ -177,17 +169,15 @@ export default function Account(){
         .logout{width:100%;margin-top:20px;padding:14px;border-radius:14px;
           background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);
           color:#ff9eb0;font-family:'Fredoka';font-weight:600;font-size:15px;cursor:pointer}
-        .bnav{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;
-          justify-content:space-around;padding:10px 8px env(safe-area-inset-bottom,10px);
-          background:rgba(10,4,20,.97);backdrop-filter:blur(12px);
-          border-top:1px solid rgba(255,255,255,.1)}
-        .bn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px}
-        .bn-i{position:relative;font-size:19px}
-        .bn-i i{position:absolute;top:-6px;right:-9px;width:15px;height:15px;border-radius:50%;
-          background:var(--live);font-size:9px;font-weight:700;display:grid;
-          place-items:center;font-style:normal}
-        .bn-t{font-family:'Fredoka';font-size:10px;font-weight:600;color:var(--mut)}
-        @media(max-width:480px){.stats{grid-template-columns:1fr}.masc{opacity:.5}}
+        @media(max-width:480px){
+          .stats{grid-template-columns:1fr}
+          .masc{width:96px;height:96px;right:2px;opacity:.5}
+          .ava.big{width:78px;height:78px}
+          .profile{overflow:hidden}
+        }
+        @media(max-width:360px){
+          .bal{grid-template-columns:1fr}
+        }
       `}</style>
     </div>
   );

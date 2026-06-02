@@ -1,50 +1,61 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { UUID_RE, apiError, readJsonRecord, requireAuthenticatedUser, requireServiceClient } from "@/lib/server/api";
 
 export const dynamic = "force-dynamic";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function authorizeCron(request: Request) {
+function isAuthorizedCron(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return NextResponse.json({ ok: false, error: "cron_secret_not_configured" }, { status: 500 });
-  }
-
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-
-  return null;
+  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
 }
 
 export async function POST(request: Request) {
   try {
-    const authError = authorizeCron(request);
-    if (authError) return authError;
+    const body = await readJsonRecord(request);
+    if (!body) return apiError("invalid_json", 400);
 
-    const body: unknown = await request.json().catch(() => null);
-    const gameId = body && typeof body === "object" && "game_id" in body ? String((body as any).game_id) : "";
+    const gameId = String(body.game_id ?? "");
     if (!UUID_RE.test(gameId)) {
       return NextResponse.json({ ok: false, error: "invalid_game_id" }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceRoleKey) {
-      return NextResponse.json({ ok: false, error: "server_not_configured" }, { status: 500 });
+    const service = requireServiceClient();
+    if ("error" in service) return service.error;
+
+    const sb = service.supabase;
+
+    const cronAuthorized = isAuthorizedCron(request);
+    if (!cronAuthorized) {
+      const auth = await requireAuthenticatedUser();
+      if ("error" in auth) return auth.error;
+
+      const { count, error: cardError } = await sb
+        .from("cards")
+        .select("id", { count: "exact", head: true })
+        .eq("game_id", gameId)
+        .eq("player_id", auth.user.id);
+
+      if (cardError) return apiError("tick_access_failed", 500);
+      if ((count ?? 0) < 1) return apiError("not_in_game", 403);
     }
 
-    const sb = createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      { auth: { persistSession: false } }
-    );
+    const { data: game, error: gameError } = await sb
+      .from("games")
+      .select("id, status")
+      .eq("id", gameId)
+      .maybeSingle();
 
-    const { data, error } = await sb.rpc("tick_game", { p_game_id: gameId });
+    if (gameError) {
+      return NextResponse.json({ ok: false, error: "game_lookup_failed" }, { status: 500 });
+    }
+    if (!game) {
+      return NextResponse.json({ ok: false, error: "game_not_found" }, { status: 404 });
+    }
+
+    const rpc = game.status === "waiting" ? "tick_waiting_game" : "tick_game";
+    const { data, error } = await sb.rpc(rpc, { p_game_id: gameId });
 
     if (error) {
-      console.warn("tick_game RPC error:", error.message);
+      console.warn(`${rpc} RPC error:`, error.message);
       return NextResponse.json({ ok: false, error: "tick_failed" }, { status: 500 });
     }
 

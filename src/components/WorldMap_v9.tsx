@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+  Bell,
+  ChevronRight,
   Check,
+  Clock,
   Coins,
   Crown,
   Gem,
   Gift,
   LockKeyhole,
-  Menu,
   Plus,
   RotateCw,
   Save,
@@ -18,6 +20,7 @@ import {
   Ticket,
   UserPlus,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 import GameOverlay, { GameType } from "@/components/GameOverlay";
@@ -33,6 +36,38 @@ type ProfileData = { gold_coins: number; sweeps_coins: number; diamonds?: number
 type JackpotRoom = { jackpot_gold?: number; jackpot_sweeps?: number; };
 type WorldAssetRow = { asset_key: string; url: string };
 type WorldAssetMap = Record<string, string>;
+type WorldNoticeTone = "mission" | "ready" | "cooldown" | "vip" | "bonus";
+type WorldNoticeIconKey = "star" | "gift" | "rotate" | "crown" | "user-plus" | "zap";
+type WorldNoticeActionPayload =
+  | { type: "play_node"; nodeId: string }
+  | { type: "route"; href: string };
+type WorldNoticePayload = {
+  id: string;
+  action: WorldNoticeActionPayload;
+  assetKey?: string;
+  badge: string;
+  cta: string;
+  detail: string;
+  icon: WorldNoticeIconKey;
+  label: string;
+  timer: string;
+  title: string;
+  tone: WorldNoticeTone;
+};
+type WorldNotice = {
+  id: string;
+  key?: string;
+  Icon: LucideIcon;
+  label: string;
+  timer: string;
+  badge: string;
+  bonus?: boolean;
+  tone: "mission" | "ready" | "cooldown" | "vip" | "bonus";
+  title: string;
+  detail: string;
+  cta: string;
+  action: () => void;
+};
 
 const fmt = (n: number) => n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
 const BOSS = new Set([5,10,15,20]);
@@ -54,6 +89,14 @@ const GAME_CHAPTERS: Array<{ game: GameType; label: string; short: string; asset
   { game: "ballmatch", label: "Ball Match", short: "BM", assetKey: "game-ballmatch" },
   { game: "neural_cascade", label: "Neural Cascade", short: "NC", assetKey: "game-neural-cascade" },
 ];
+const NOTICE_ICON_MAP: Record<WorldNoticeIconKey, LucideIcon> = {
+  crown: Crown,
+  gift: Gift,
+  rotate: RotateCw,
+  star: Star,
+  "user-plus": UserPlus,
+  zap: Zap,
+};
 const REWARD_SPARKS = [
   { x: "-78px", y: "-34px", delay: "0ms" },
   { x: "74px", y: "-42px", delay: "45ms" },
@@ -111,6 +154,56 @@ function normalizeXp(raw: unknown): XPData | null {
   };
 }
 
+function normalizeNoticePayload(raw: unknown): WorldNoticePayload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const notice = raw as Record<string, unknown>;
+  const action = normalizeNoticeAction(notice.action);
+  const icon = typeof notice.icon === "string" && notice.icon in NOTICE_ICON_MAP ? notice.icon as WorldNoticeIconKey : "gift";
+  const tone = normalizeNoticeTone(notice.tone);
+  if (
+    !action ||
+    typeof notice.id !== "string" ||
+    typeof notice.label !== "string" ||
+    typeof notice.title !== "string" ||
+    typeof notice.detail !== "string" ||
+    typeof notice.cta !== "string" ||
+    typeof notice.timer !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    id: notice.id,
+    action,
+    assetKey: typeof notice.assetKey === "string" ? notice.assetKey : undefined,
+    badge: typeof notice.badge === "string" ? notice.badge : "",
+    cta: notice.cta,
+    detail: notice.detail,
+    icon,
+    label: notice.label,
+    timer: notice.timer,
+    title: notice.title,
+    tone,
+  };
+}
+
+function normalizeNoticeAction(raw: unknown): WorldNoticeActionPayload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const action = raw as Record<string, unknown>;
+  if (action.type === "play_node" && typeof action.nodeId === "string") {
+    return { type: "play_node", nodeId: action.nodeId };
+  }
+  if (action.type === "route" && typeof action.href === "string") {
+    return { type: "route", href: action.href };
+  }
+  return null;
+}
+
+function normalizeNoticeTone(raw: unknown): WorldNoticeTone {
+  if (raw === "mission" || raw === "ready" || raw === "cooldown" || raw === "vip" || raw === "bonus") return raw;
+  return "cooldown";
+}
+
 function gameForLevel(level: number) {
   const chapter = Math.floor((Math.max(1, level) - 1) / 5) % GAME_CHAPTERS.length;
   return GAME_CHAPTERS[chapter];
@@ -147,6 +240,9 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const [editMode, setEditMode] = useState(false);
   const [dragId, setDragId]   = useState<string|null>(null);
   const [dirty, setDirty]     = useState(false);
+  const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
+  const [noticeTrayOpen, setNoticeTrayOpen] = useState(false);
+  const [serverNotices, setServerNotices] = useState<WorldNoticePayload[] | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const imgWrapRef = useRef<HTMLDivElement>(null);
   const rewardToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -165,6 +261,16 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
       jackpots?: JackpotRoom[];
       is_admin?: boolean;
     };
+  }, []);
+
+  const loadWorldNotifications = useCallback(async () => {
+    const response = await fetch(`/api/world/notifications?worldId=${encodeURIComponent(WORLD_ID)}`, {
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || !Array.isArray(payload.data)) return null;
+    const rows = payload.data as unknown[];
+    return rows.map(normalizeNoticePayload).filter((notice): notice is WorldNoticePayload => Boolean(notice));
   }, []);
 
   useEffect(() => {
@@ -188,6 +294,21 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
     }
     load();
   }, [loadWorldState]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      const notices = await loadWorldNotifications();
+      if (mounted && notices) setServerNotices(notices);
+    }
+
+    load();
+    const interval = window.setInterval(load, 45_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [loadWorldNotifications]);
 
   const openGame = useCallback((n: WNode) => {
     if (editMode) return; // en modo editor no se abren juegos
@@ -217,9 +338,11 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           if (total > 0) setJackpotGold(total);
         }
       }
+      const notices = await loadWorldNotifications();
+      if (notices) setServerNotices(notices);
     }
     setGame(null);
-  }, [loadWorldState]);
+  }, [loadWorldNotifications, loadWorldState]);
 
   useEffect(() => {
     return () => {
@@ -313,14 +436,6 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const lockImg = assetUrl("node-locked");
   const mapImg = assetUrl("bg-miami-map") || MAP_IMG;
 
-  const RAIL: Array<{ key: string; Icon: LucideIcon; lbl: string; timer: string; badge: string; bonus: boolean; action: () => void }> = [
-    { key:"icon-regalo-diario", Icon: Gift, lbl:"Regalo diario",  timer:"23h 48m",  badge:"3", bonus:false, action:()=>router.push("/regalo") },
-    { key:"icon-gira-gana", Icon: RotateCw, lbl:"Gira y gana",  timer:"23h 48m",   badge:"",  bonus:false, action:()=>router.push("/ruleta") },
-    { key:"icon-cofre-vip", Icon: Crown, lbl:"Cofre VIP",     timer:"8h 12m",   badge:"",  bonus:false, action:()=>router.push("/vip") },
-    { key:"icon-invitar", Icon: UserPlus, lbl:"Invitar amigos", timer:"+100 diamantes", badge:"5", bonus:true,
-      action:()=>router.push("/invitar")
-    },
-  ];
   const sortedNodes = nodes.slice().sort((a, b) => a.node_index - b.node_index);
   const totalNodes = sortedNodes.length || 20;
   const worldNodes = sortedNodes.map((node) => {
@@ -344,6 +459,111 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const tickets = 12;
   const diamonds = prof?.diamonds ?? Math.floor(Number(prof?.sweeps_coins ?? 0));
   const activeGame = activeNode ? gameForNode(activeNode) : GAME_CHAPTERS[0];
+  const serverWorldNotices = serverNotices?.map((notice): WorldNotice => {
+    const action = notice.action;
+    return {
+      id: notice.id,
+      key: notice.assetKey,
+      Icon: NOTICE_ICON_MAP[notice.icon] ?? Gift,
+      label: notice.label,
+      timer: notice.timer,
+      badge: notice.badge,
+      bonus: notice.tone === "bonus",
+      tone: notice.tone,
+      title: notice.title,
+      detail: notice.detail,
+      cta: notice.cta,
+      action: () => {
+        if (action.type === "play_node") {
+          const targetNode = worldNodes.find((node) => node.node_id === action.nodeId) ?? activeNode;
+          if (targetNode) openGame(targetNode);
+          return;
+        }
+        router.push(action.href);
+      },
+    };
+  });
+  const fallbackMissionNotice: WorldNotice | null = activeNode
+    ? {
+        id: "mission",
+        Icon: Star,
+        label: "Nodo listo",
+        timer: `Nivel ${activeNode.node_index}`,
+        badge: "1",
+        tone: "mission",
+        title: `${activeGame.label} está listo`,
+        detail: `Completa el nodo ${activeNode.node_index} para sumar hasta ${activeNode.max_stars} estrellas, ${fmt(activeNode.reward_xp)} XP y ${fmt(activeNode.reward_gold)} Gold.`,
+        cta: "Jugar nodo",
+        action: () => openGame(activeNode),
+      }
+    : null;
+  const fallbackRailNotices: WorldNotice[] = [
+    {
+      id: "daily",
+      key: "icon-regalo-diario",
+      Icon: Gift,
+      label: "Regalo diario",
+      timer: "Ver estado",
+      badge: "",
+      tone: "cooldown",
+      title: "Regalo diario",
+      detail: "Sincroniza premios diarios, energía y monedas antes de entrar al siguiente nodo.",
+      cta: "Ver regalo",
+      action: () => router.push("/regalo"),
+    },
+    {
+      id: "spin",
+      key: "icon-gira-gana",
+      Icon: RotateCw,
+      label: "Gira y gana",
+      timer: "Ver estado",
+      badge: "",
+      tone: "cooldown",
+      title: "Ruleta diaria",
+      detail: "Entra para sincronizar tu tirada gratuita y premios activos.",
+      cta: "Ver ruleta",
+      action: () => router.push("/ruleta"),
+    },
+    {
+      id: "vip",
+      key: "icon-cofre-vip",
+      Icon: Crown,
+      label: "Cofre VIP",
+      timer: "VIP",
+      badge: "",
+      tone: "vip",
+      title: "Cofre VIP",
+      detail: "Revisa cofres premium, jackpot y recompensas agrupadas.",
+      cta: "Ver cofre",
+      action: () => router.push("/vip"),
+    },
+    {
+      id: "invite",
+      key: "icon-invitar",
+      Icon: UserPlus,
+      label: "Invitar amigos",
+      timer: "+100 diamantes",
+      badge: "",
+      bonus: true,
+      tone: "bonus",
+      title: "Bonus por comunidad",
+      detail: "Invita jugadores activos y gana diamantes para acelerar el progreso de Miami.",
+      cta: "Invitar ahora",
+      action: () => router.push("/invitar"),
+    },
+  ];
+  const fallbackWorldNotices = fallbackMissionNotice ? [fallbackMissionNotice, ...fallbackRailNotices] : fallbackRailNotices;
+  const worldNotices = serverWorldNotices?.length ? serverWorldNotices : fallbackWorldNotices;
+  const railNotices = worldNotices.filter((notice) => notice.id !== "mission").slice(0, 4);
+  const activeNotice = activeNoticeId ? worldNotices.find((notice) => notice.id === activeNoticeId) ?? null : null;
+  const noticeCount = Math.min(
+    9,
+    worldNotices.reduce((sum, notice) => {
+      const badgeCount = Number.parseInt(notice.badge, 10);
+      if (Number.isFinite(badgeCount)) return sum + Math.max(0, badgeCount);
+      return sum + (notice.badge ? 1 : 0);
+    }, 0)
+  );
 
   return (
     <>
@@ -386,9 +606,17 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           </button>
         </div>
 
-        <button className="wm-menuPro" onClick={() => router.push("/account")} aria-label="Menu">
-          <Menu size={28} strokeWidth={2.8} aria-hidden="true" />
-          <b>1</b>
+        <button
+          className="wm-menuPro"
+          onClick={() => {
+            setNoticeTrayOpen((open) => !open);
+            setActiveNoticeId(null);
+          }}
+          aria-label="Abrir notificaciones del mundo"
+          aria-expanded={noticeTrayOpen}
+        >
+          <Bell size={24} strokeWidth={2.7} aria-hidden="true" />
+          {noticeCount > 0 && <b>{noticeCount}</b>}
         </button>
       </div>
 
@@ -401,6 +629,49 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           <span>Nivel {currentLevel}</span>
         </div>
       </div>
+
+      <AnimatePresence>
+        {noticeTrayOpen && (
+          <motion.section
+            className="wm-noticeTray"
+            aria-label="Notificaciones de Miami Nights"
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.98 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <header className="wm-noticeTrayHead">
+              <span><Bell size={15} strokeWidth={2.6} aria-hidden="true" /> Avisos del mundo</span>
+              <button type="button" onClick={() => setNoticeTrayOpen(false)} aria-label="Cerrar notificaciones">
+                <X size={15} strokeWidth={2.8} aria-hidden="true" />
+              </button>
+            </header>
+            <div className="wm-noticeList">
+              {worldNotices.map((notice) => (
+                <button
+                  key={notice.id}
+                  type="button"
+                  className={`wm-noticeRow tone-${notice.tone}`}
+                  onClick={() => {
+                    setNoticeTrayOpen(false);
+                    setActiveNoticeId(notice.id);
+                  }}
+                >
+                  <span className="wm-noticeIcon"><notice.Icon size={17} strokeWidth={2.7} aria-hidden="true" /></span>
+                  <span className="wm-noticeText">
+                    <b>{notice.title}</b>
+                    <small>{notice.detail}</small>
+                  </span>
+                  <span className="wm-noticeMeta">
+                    <Clock size={12} strokeWidth={2.6} aria-hidden="true" />
+                    {notice.timer}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {rewardToast && (
@@ -502,28 +773,70 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
 
       {/* Rail lateral izquierdo */}
       <div className="wm-sideRail">
-        {RAIL.map(({ key, Icon, lbl, timer, badge, bonus, action }) => {
-          const iconUrl = assetUrl(key);
+        {railNotices.map((notice) => {
+          const iconUrl = notice.key ? assetUrl(notice.key) : "";
+          const Icon = notice.Icon;
           return (
             <button
-              key={key}
+              key={notice.id}
               type="button"
-              onClick={action}
-              className="wm-sideRailBtn"
-              aria-label={`${lbl}. ${timer}`}
+              onClick={() => {
+                setNoticeTrayOpen(false);
+                setActiveNoticeId((current) => (current === notice.id ? null : notice.id));
+              }}
+              className={`wm-sideRailBtn tone-${notice.tone}`}
+              aria-label={`${notice.label}. ${notice.title}. ${notice.timer}`}
+              aria-pressed={activeNoticeId === notice.id}
             >
               <div className="wm-sideRailIcon">
                 {iconUrl ? <img src={iconUrl} alt="" /> : <Icon size={31} strokeWidth={2.5} aria-hidden="true" />}
               </div>
-              {badge && (
-                <div className="wm-sideBadge">{badge}</div>
+              {notice.badge && (
+                <div className="wm-sideBadge">{notice.badge}</div>
               )}
-              <div className="wm-sideLabel">{lbl}</div>
-              <div className={`wm-sideTimer${bonus ? " bonus" : ""}`}>{timer}</div>
+              <div className="wm-sideLabel">{notice.label}</div>
+              <div className={`wm-sideTimer${notice.bonus ? " bonus" : ""}`}>{notice.timer}</div>
             </button>
           );
         })}
       </div>
+
+      <AnimatePresence>
+        {activeNotice && (
+          <motion.section
+            key={activeNotice.id}
+            className={`wm-noticePeek tone-${activeNotice.tone}`}
+            role="status"
+            aria-live="polite"
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -10, scale: 0.98 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -8, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <div className="wm-noticePeekIcon">
+              <activeNotice.Icon size={19} strokeWidth={2.7} aria-hidden="true" />
+            </div>
+            <div className="wm-noticePeekCopy">
+              <span>{activeNotice.timer}</span>
+              <strong>{activeNotice.title}</strong>
+              <p>{activeNotice.detail}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNoticeId(null);
+                  activeNotice.action();
+                }}
+              >
+                {activeNotice.cta}
+                <ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" />
+              </button>
+            </div>
+            <button className="wm-noticePeekClose" type="button" onClick={() => setActiveNoticeId(null)} aria-label="Cerrar aviso">
+              <X size={14} strokeWidth={2.8} aria-hidden="true" />
+            </button>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       {/* Mapa scrollable */}
       <div ref={mapRef} style={{
@@ -748,7 +1061,7 @@ const WORLD_UI_CSS = `
   background:linear-gradient(180deg,#ffe98f,#f5a61f);color:#2b1300;font-size:12px;font-weight:900;
   border:2px solid #fff;box-shadow:0 0 12px rgba(255,209,80,.8);
 }
-.wm-resourceRail{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;overflow-x:auto;scrollbar-width:none;}
+.wm-resourceRail{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain;}
 .wm-resourceRail::-webkit-scrollbar{display:none;}
 .wm-resource{
   min-width:102px;height:42px;border:1px solid rgba(174,128,255,.46);border-radius:22px;padding:4px 6px;
@@ -756,11 +1069,11 @@ const WORLD_UI_CSS = `
   background:linear-gradient(180deg,rgba(28,16,66,.92),rgba(12,6,34,.96));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 4px 12px rgba(0,0,0,.36);
   color:#fff;cursor:pointer;font:inherit;
-  transition:transform .18s ease,background .18s ease,border-color .18s ease;
+  transition:transform .18s ease,background .18s ease,border-color .18s ease;scroll-snap-align:start;
 }
 .wm-resource:hover{transform:translateY(-1px);border-color:rgba(255,217,61,.7);}
 .wm-resource:active{transform:translateY(0);}
-.wm-resource:focus-visible,.wm-avatarPro:focus-visible,.wm-menuPro:focus-visible,.wm-adminBtn:focus-visible,.wm-sideRailBtn:focus-visible,.wm-playCta:focus-visible,.wm-mascotMarker:focus-visible,.wm-nodeMarker:focus-visible{
+.wm-resource:focus-visible,.wm-avatarPro:focus-visible,.wm-menuPro:focus-visible,.wm-adminBtn:focus-visible,.wm-sideRailBtn:focus-visible,.wm-playCta:focus-visible,.wm-mascotMarker:focus-visible,.wm-nodeMarker:focus-visible,.wm-noticeTray button:focus-visible,.wm-noticePeek button:focus-visible{
   outline:3px solid rgba(0,229,255,.9);outline-offset:3px;
 }
 .wm-resource.energy{min-width:112px;}
@@ -773,7 +1086,7 @@ const WORLD_UI_CSS = `
 .wm-resIcon.ticket{background:radial-gradient(circle at 35% 25%,#ffb7d8,#ea4389 65%,#8d1f5c);}
 .wm-resIcon.gem{background:radial-gradient(circle at 35% 25%,#c8f4ff,#38b8f4 68%,#145d9e);}
 .wm-resIcon svg{display:block;}
-.wm-resValue{font-size:16px;font-weight:900;white-space:nowrap;text-shadow:0 2px 5px rgba(0,0,0,.55);}
+.wm-resValue{min-width:0;font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 5px rgba(0,0,0,.55);}
 .wm-resSub{font-size:10px;font-weight:800;color:#ff9de7;margin-top:-3px;grid-column:2;line-height:1;}
 .wm-plus{
   width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -792,6 +1105,61 @@ const WORLD_UI_CSS = `
   position:absolute;right:-2px;top:-4px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   background:#ff4d58;color:#fff;font-size:10px;border:1.5px solid #fff;
 }
+.wm-noticeTray{
+  position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 74px);z-index:84;
+  width:min(360px,calc(100vw - 20px));max-height:min(520px,calc(100dvh - 96px));
+  overflow:hidden;border-radius:16px;background:linear-gradient(180deg,rgba(18,9,42,.96),rgba(6,3,20,.98));
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 44px rgba(0,0,0,.58),0 0 24px rgba(255,77,154,.16);
+  color:#fff;backdrop-filter:blur(16px);
+}
+.wm-noticeTrayHead{
+  height:44px;padding:0 10px 0 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border-bottom:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);
+}
+.wm-noticeTrayHead span{display:inline-flex;align-items:center;gap:7px;color:#dffbff;font-size:12px;font-weight:950;}
+.wm-noticeTrayHead button,.wm-noticePeekClose{
+  width:30px;height:30px;border:0;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.08);
+  color:#fff;cursor:pointer;font:inherit;
+}
+.wm-noticeList{display:grid;gap:7px;padding:9px;max-height:calc(min(520px,100dvh - 96px) - 44px);overflow:auto;scrollbar-width:none;}
+.wm-noticeList::-webkit-scrollbar{display:none;}
+.wm-noticeRow{
+  width:100%;min-height:64px;border:1px solid rgba(255,255,255,.09);border-radius:13px;padding:8px;
+  display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:9px;text-align:left;
+  background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.035));color:#fff;font:inherit;cursor:pointer;
+}
+.wm-noticeRow:hover{border-color:rgba(0,229,255,.32);background:rgba(255,255,255,.08);}
+.wm-noticeIcon,.wm-noticePeekIcon{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--notice-bg,rgba(255,255,255,.08));
+  color:var(--notice-ink,#fff);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+}
+.wm-noticeText{min-width:0;display:grid;gap:2px;}
+.wm-noticeText b{font-size:13px;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wm-noticeText small{color:rgba(238,232,255,.68);font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.wm-noticeMeta{
+  min-height:25px;border-radius:999px;padding:0 8px;display:inline-flex;align-items:center;gap:4px;
+  background:rgba(0,0,0,.28);color:#ffe8a3;font-size:10px;font-weight:900;white-space:nowrap;
+}
+.wm-noticePeek{
+  position:fixed;left:104px;top:calc(env(safe-area-inset-top,0px) + 170px);z-index:59;
+  width:318px;padding:11px;border-radius:15px;display:grid;grid-template-columns:42px minmax(0,1fr) 30px;gap:10px;
+  background:linear-gradient(180deg,rgba(16,8,38,.95),rgba(6,3,20,.98));border:1px solid rgba(255,255,255,.14);
+  color:#fff;box-shadow:0 16px 38px rgba(0,0,0,.56),0 0 22px var(--notice-glow,rgba(0,229,255,.15));
+  backdrop-filter:blur(14px);
+}
+.wm-noticePeekCopy{min-width:0;display:grid;gap:4px;}
+.wm-noticePeekCopy span{color:#ffe8a3;font-size:10px;font-weight:950;}
+.wm-noticePeekCopy strong{font-size:15px;line-height:1.05;}
+.wm-noticePeekCopy p{margin:0;color:rgba(238,232,255,.72);font-size:12px;line-height:1.28;}
+.wm-noticePeekCopy button{
+  width:max-content;min-height:30px;margin-top:3px;border:0;border-radius:10px;padding:0 10px;
+  display:inline-flex;align-items:center;gap:5px;background:#fff;color:#13091f;font:inherit;font-size:12px;font-weight:1000;cursor:pointer;
+}
+.tone-mission{--notice-bg:rgba(255,217,61,.16);--notice-ink:#ffe985;--notice-glow:rgba(255,217,61,.24);}
+.tone-ready{--notice-bg:rgba(61,220,120,.15);--notice-ink:#86ffb0;--notice-glow:rgba(61,220,120,.22);}
+.tone-cooldown{--notice-bg:rgba(0,229,255,.14);--notice-ink:#9af7ff;--notice-glow:rgba(0,229,255,.2);}
+.tone-vip{--notice-bg:rgba(255,185,55,.16);--notice-ink:#ffd777;--notice-glow:rgba(255,185,55,.22);}
+.tone-bonus{--notice-bg:rgba(255,77,154,.16);--notice-ink:#ff9ecb;--notice-glow:rgba(255,77,154,.24);}
 .wm-adminTools{
   position:fixed;top:calc(env(safe-area-inset-top,0px) + 58px);right:14px;z-index:60;
   display:flex;align-items:center;gap:6px;
@@ -920,6 +1288,7 @@ const WORLD_UI_CSS = `
   color:#fff6c8;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
 }
 .wm-sideRailBtn:hover .wm-sideRailIcon{transform:translateY(-2px);border-color:rgba(0,229,255,.78);box-shadow:0 0 18px rgba(0,229,255,.35),inset 0 1px 0 rgba(255,255,255,.18);}
+.wm-sideRailBtn[aria-pressed="true"] .wm-sideRailIcon{border-color:var(--notice-ink,#fff);box-shadow:0 0 18px var(--notice-glow,rgba(0,229,255,.3)),inset 0 1px 0 rgba(255,255,255,.2);}
 .wm-sideRailBtn:active .wm-sideRailIcon{transform:translateY(0);}
 .wm-sideRailIcon img{width:124%;height:124%;object-fit:contain;}
 .wm-sideBadge{
@@ -1033,7 +1402,7 @@ const WORLD_UI_CSS = `
   .wm-topHud{grid-template-columns:58px minmax(0,1fr) 48px;padding-left:10px;padding-right:10px;gap:7px;}
   .wm-avatarPro{width:52px;height:52px;}
   .wm-menuPro{width:47px;height:47px;}
-  .wm-resourceRail{justify-content:flex-start;}
+  .wm-resourceRail{justify-content:flex-start;mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);}
   .wm-resource{min-width:84px;height:39px;grid-template-columns:28px minmax(24px,1fr) 20px;gap:4px;}
   .wm-resource.energy{min-width:92px;}
   .wm-resIcon{width:28px;height:28px;font-size:16px;}
@@ -1061,25 +1430,65 @@ const WORLD_UI_CSS = `
   .wm-playCta b{width:36px;height:36px;box-shadow:inset 0 0 0 11px #fff,0 0 13px rgba(0,0,0,.45);}
 }
 @media(max-width:560px){
+  .wm-topHud{grid-template-columns:54px minmax(0,1fr) 50px;padding-left:8px;padding-right:8px;gap:6px;}
+  .wm-avatarPro{width:50px;height:50px;}
+  .wm-menuPro{width:46px;height:46px;}
+  .wm-resourceRail{gap:6px;padding:0 2px;mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 14px),transparent 100%);}
+  .wm-resource{min-width:78px;max-width:88px;height:38px;border-radius:20px;padding:4px;grid-template-columns:26px minmax(0,1fr) 19px;gap:4px;}
+  .wm-resource.energy{min-width:84px;max-width:90px;}
+  .wm-resIcon{width:26px;height:26px;font-size:15px;}
+  .wm-resValue{font-size:12px;max-width:38px;}
+  .wm-plus{width:20px;height:20px;}
   .wm-dailyStreak{display:none;}
-  .wm-titleCard{top:calc(env(safe-area-inset-top,0px) + 76px);}
-  .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 146px);gap:5px;font-size:12px;}
+  .wm-titleCard{top:calc(env(safe-area-inset-top,0px) + 62px);}
+  .wm-worldKicker{display:none;}
+  .wm-neonTitle{min-width:190px;font-size:18px;padding:7px 12px 6px;border-radius:12px;}
+  .wm-completed{font-size:10px;padding:4px 10px;margin-top:4px;}
+  .wm-noticeTray{left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 74px);width:auto;max-height:min(420px,calc(100dvh - 92px));border-radius:14px;}
+  .wm-noticeList{max-height:calc(min(420px,100dvh - 92px) - 44px);}
+  .wm-noticeRow{min-height:58px;grid-template-columns:34px minmax(0,1fr);position:relative;padding-right:74px;}
+  .wm-noticeIcon{width:34px;height:34px;border-radius:11px;}
+  .wm-noticeText b{font-size:12px;}
+  .wm-noticeText small{font-size:10px;-webkit-line-clamp:2;}
+  .wm-noticeMeta{position:absolute;right:7px;top:7px;min-height:22px;padding:0 7px;font-size:9px;}
+  .wm-noticePeek{left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 181px);width:auto;grid-template-columns:38px minmax(0,1fr) 30px;padding:9px;border-radius:14px;}
+  .wm-noticePeekIcon{width:38px;height:38px;border-radius:12px;}
+  .wm-noticePeekCopy strong{font-size:14px;}
+  .wm-noticePeekCopy p{font-size:11px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .wm-noticePeekCopy button{min-height:28px;font-size:11px;}
+  .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 126px);gap:5px;font-size:12px;}
   .wm-rewardToast span{padding:0 7px;}
-  .wm-missionCard{left:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);width:calc(100vw - 84px);max-width:292px;}
-  .wm-sideRail{left:auto;right:8px;top:calc(env(safe-area-inset-top,0px) + 156px);gap:9px;}
-  .wm-sideRailBtn{width:52px;}
+  .wm-missionCard{left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);width:auto;max-width:none;padding:10px;border-radius:14px;}
+  .wm-missionCard:before{border-radius:13px;}
+  .wm-missionTop{margin-bottom:5px;}
+  .wm-missionCard strong{font-size:16px;}
+  .wm-missionRewards{display:flex;overflow-x:auto;gap:6px;margin:8px 0 7px;scrollbar-width:none;}
+  .wm-missionRewards::-webkit-scrollbar{display:none;}
+  .wm-missionRewards span{flex:0 0 auto;min-height:27px;font-size:10px;padding:0 7px;}
+  .wm-missionTrack{height:6px;}
+  .wm-missionCard small{margin-top:5px;font-size:10px;}
+  .wm-sideRail{left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 124px);flex-direction:row;justify-content:flex-start;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 2px 3px;mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);}
+  .wm-sideRail::-webkit-scrollbar{display:none;}
+  .wm-sideRailBtn{flex:0 0 52px;width:52px;}
   .wm-sideRailIcon{width:48px;height:48px;border-radius:14px;}
   .wm-sideRailIcon svg{width:24px;height:24px;}
   .wm-sideLabel,.wm-sideTimer{display:none;}
   .wm-sideBadge{top:-6px;right:-3px;min-width:21px;height:21px;font-size:11px;}
-  .wm-playCta{min-width:218px;}
+  .wm-playCta{height:56px;min-width:210px;border-radius:20px;border-width:2px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:0 22px;}
+  .wm-playCta span{font-size:24px;}
+  .wm-playCta em{font-size:10px;}
+  .wm-playCta b{width:34px;height:34px;box-shadow:inset 0 0 0 10px #fff,0 0 13px rgba(0,0,0,.45);}
 }
 @media(max-width:430px){
-  .wm-resource{min-width:76px;grid-template-columns:26px minmax(20px,1fr) 18px;}
-  .wm-resource.energy{min-width:84px;}
-  .wm-resValue{font-size:12px;}
-  .wm-plus{width:20px;height:20px;}
-  .wm-neonTitle{min-width:226px;font-size:23px;}
+  .wm-topHud{grid-template-columns:50px minmax(0,1fr) 46px;padding-left:6px;padding-right:6px;gap:5px;}
+  .wm-avatarPro{width:48px;height:48px;}
+  .wm-menuPro{width:44px;height:44px;}
+  .wm-resource{min-width:68px;max-width:76px;height:36px;grid-template-columns:24px minmax(0,1fr);gap:3px;}
+  .wm-resource.energy{min-width:74px;max-width:80px;}
+  .wm-resIcon{width:24px;height:24px;font-size:14px;}
+  .wm-resValue{font-size:11px;max-width:36px;}
+  .wm-resSub,.wm-plus{display:none;}
+  .wm-neonTitle{min-width:178px;font-size:17px;}
   .wm-completed{font-size:11px;}
 }
 @media(prefers-reduced-motion:reduce){

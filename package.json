@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "check:world-notifications": "node scripts/check-world-notifications.mjs",
     "start": "next start",
     "caller": "node --env-file=.env.local scripts/caller.mjs",
     "cap:add:ios": "cap add ios",

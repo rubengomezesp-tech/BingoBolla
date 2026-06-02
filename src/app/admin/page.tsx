@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/server/supabase-admin";
 import { isAdminEmail } from "@/lib/server/admin";
+import { loadGameplayOps } from "@/lib/server/gameplay-ops";
 import { loadWorldOps } from "@/lib/server/world-ops";
 import { redirect } from "next/navigation";
 import AdminClient from "./AdminClient";
@@ -24,13 +25,27 @@ export default async function AdminPage() {
     : [{ data: null }, { data: [] }];
 
   let worldOps = null;
+  let gameplayOps = null;
   if (service) {
     try {
       worldOps = await loadWorldOps(service, { window: "24h" });
     } catch (error) {
       console.error("[admin.page.world-ops]", error);
     }
+
+    try {
+      gameplayOps = await loadGameplayOps(service, { window: "24h" });
+    } catch (error) {
+      console.error("[admin.page.gameplay-ops]", error);
+    }
   }
 
-  return <AdminClient initialStats={stats} initialCodes={codes ?? []} initialWorldOps={worldOps} />;
+  return (
+    <AdminClient
+      initialCodes={codes ?? []}
+      initialGameplayOps={gameplayOps}
+      initialStats={stats}
+      initialWorldOps={worldOps}
+    />
+  );
 }

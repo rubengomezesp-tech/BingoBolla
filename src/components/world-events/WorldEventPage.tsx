@@ -21,6 +21,7 @@ type WorldEventPageProps = {
   accent?: string;
   backHref?: string;
   backLabel?: string;
+  heroDensity?: "default" | "compact";
   heroArt?: ReactNode;
   children: ReactNode;
 };
@@ -40,10 +41,12 @@ export default function WorldEventPage({
   accent = "#ff3d7f",
   backHref = "/mundomiami",
   backLabel = "Mundo",
+  heroDensity = "default",
   heroArt,
   children,
 }: WorldEventPageProps) {
   const userInitial = (profile?.display_name || profile?.username || "B").slice(0, 1).toUpperCase();
+  const isCompactHero = heroDensity === "compact";
 
   return (
     <div
@@ -60,21 +63,21 @@ export default function WorldEventPage({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <Link
             href={backHref}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white/80 transition hover:border-white/25 hover:text-white"
+            className="inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white/80 transition hover:border-white/25 hover:text-white"
           >
             <ChevronLeft size={18} />
             <span className="hidden sm:inline">{backLabel}</span>
           </Link>
 
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 overflow-x-auto px-1 md:justify-end">
+          <div className="flex min-w-0 flex-1 items-center justify-start gap-2 overflow-x-auto px-1 md:justify-end">
             <ResourcePill href="/store" icon={<Coins size={17} />} value={formatCompact(profile?.gold_coins)} />
             <ResourcePill href="/store" icon={<Gem size={17} />} value={formatCompact(profile?.diamonds)} />
-            <ResourcePill href="/store" icon={<span className="text-sm">SC</span>} value={Number(profile?.sweeps_coins ?? 0).toFixed(2)} />
+            <ResourcePill href="/store" icon={<span className="text-sm">SC</span>} value={formatCompact(profile?.sweeps_coins)} />
           </div>
 
           <Link
             href="/account"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/20 bg-[linear-gradient(135deg,#ff3d7f,#ffd93d)] text-sm font-black text-[#140517] shadow-[0_0_18px_rgba(255,61,127,.45)]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-[linear-gradient(135deg,#ff3d7f,#ffd93d)] text-sm font-black text-[#140517] shadow-[0_0_18px_rgba(255,61,127,.45)]"
             aria-label="Mi cuenta"
           >
             {userInitial}
@@ -83,24 +86,30 @@ export default function WorldEventPage({
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-7 md:px-6 md:py-10">
-        <section className="grid min-h-[280px] items-end gap-7 pb-8 pt-8 md:min-h-[360px] md:grid-cols-[minmax(0,1fr)_360px] md:pt-12">
+        <section
+          className={
+            isCompactHero
+              ? "grid min-h-[112px] grid-cols-[minmax(0,1fr)_84px] items-center gap-2 pb-2 pt-2 sm:min-h-[190px] sm:grid-cols-[minmax(0,1fr)_180px] sm:gap-4 sm:pb-4 sm:pt-4 md:min-h-[320px] md:grid-cols-[minmax(0,1fr)_320px] md:pb-7 md:pt-9"
+              : "grid min-h-[280px] items-end gap-7 pb-8 pt-8 md:min-h-[360px] md:grid-cols-[minmax(0,1fr)_360px] md:pt-12"
+          }
+        >
           <div>
             <div className="mb-3 inline-flex rounded-full border border-white/15 bg-black/30 px-3 py-1 text-[10px] font-black uppercase tracking-[0.26em] text-white/65">
               {eyebrow}
             </div>
             <h1
-              className="max-w-3xl text-5xl font-black leading-[0.92] md:text-7xl"
+              className={isCompactHero ? "max-w-3xl text-3xl font-black leading-[0.95] sm:text-5xl md:text-7xl" : "max-w-3xl text-5xl font-black leading-[0.92] md:text-7xl"}
               style={{
                 textShadow: `0 0 18px ${accent}88, 0 7px 24px rgba(0,0,0,.75)`,
               }}
             >
               {title}
             </h1>
-            <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/76 md:text-lg">
+            <p className={isCompactHero ? "mt-3 hidden max-w-2xl text-sm font-semibold leading-6 text-white/76 sm:block md:text-base md:leading-7" : "mt-4 max-w-2xl text-base font-semibold leading-7 text-white/76 md:text-lg"}>
               {subtitle}
             </p>
           </div>
-          {heroArt && <div className="justify-self-center md:justify-self-end">{heroArt}</div>}
+          {heroArt && <div className={isCompactHero ? "justify-self-end" : "justify-self-center md:justify-self-end"}>{heroArt}</div>}
         </section>
 
         {children}
@@ -113,10 +122,10 @@ function ResourcePill({ href, icon, value }: { href: string; icon: ReactNode; va
   return (
     <Link
       href={href}
-      className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2.5 pr-1.5 text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,.12)]"
+      className="inline-flex h-11 shrink-0 touch-manipulation items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2.5 pr-1.5 text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,.12)]"
     >
       <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10 text-[var(--event-accent)]">{icon}</span>
-      <span className="min-w-10 text-right tabular-nums">{value}</span>
+      <span className="min-w-10 max-w-[82px] truncate text-right tabular-nums">{value}</span>
       <span className="grid h-7 w-7 place-items-center rounded-full bg-[#2fca45] text-white shadow-[0_0_12px_rgba(47,202,69,.52)]">
         <Plus size={18} strokeWidth={3.2} />
       </span>

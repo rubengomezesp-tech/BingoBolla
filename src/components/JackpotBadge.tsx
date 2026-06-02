@@ -14,10 +14,10 @@ type Pot = {
 
 // Muestra el bote en vivo de una sala (o todas). Se actualiza via realtime.
 export default function JackpotBadge({ roomId, compact = false }: { roomId?: string; compact?: boolean }) {
-  const supabase = createClient();
   const [pots, setPots] = useState<Pot[]>([]);
 
   useEffect(() => {
+    const supabase = createClient();
     let alive = true;
     async function load() {
       const response = await fetch("/api/jackpots", { cache: "no-store" });

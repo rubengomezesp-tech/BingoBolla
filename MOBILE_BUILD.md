@@ -227,5 +227,8 @@ Cualquier paso falla → guarda el log completo y vuelve a esta sesión con el e
 **Status actual:**
 - ✅ `capacitor.config.ts` listo apuntando a `https://www.bingobolla.com`
 - ✅ Dependencias Capacitor 8 instaladas
-- ⏳ Plataformas `/ios` y `/android` → generar en tu Mac (`npm run cap:add:ios` / `cap:add:android`)
+- ✅ Plataformas `/ios` y `/android` generadas
+- ✅ `npm run cap:sync` ejecutado correctamente
+- ✅ `public/index.html` añadido como fallback requerido por Capacitor/Android
+- ✅ `npx cap doctor` pasa en iOS y Android
 - ⏳ Firma + iconos + subida a tiendas

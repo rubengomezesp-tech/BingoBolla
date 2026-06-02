@@ -43,6 +43,7 @@ type Ball = { ball_number: number; sequence: number };
 type MyCard = { id: string; game_id: string; card_data: CardType; currency: "gold" | "sweeps" };
 type ChatMsg = { id: string; player_id: string | null; is_mc: boolean; message: string; created_at: string; username?: string };
 type PrizeTone = "idle" | "near" | "ready" | "won" | "closed";
+type RoomDockView = "game" | "cards" | "buy" | "chat";
 type CardPrizeState = {
   pattern: Pattern | null;
   label: string;
@@ -104,6 +105,7 @@ export default function RoomClient({
   const [winFlash, setWinFlash] = useState<{ pattern: string; amount: number } | null>(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [muted, setMutedState] = useState(false);
+  const [activeView, setActiveView] = useState<RoomDockView>("game");
   const [countdownPlay, setCountdownPlay] = useState<number | null>(null);
   const [countdownClose, setCountdownClose] = useState<number | null>(null);
   const [justMarked, setJustMarked] = useState<Set<string>>(new Set());
@@ -117,6 +119,8 @@ export default function RoomClient({
   const playingGameId = state.playing_game?.id ?? null;
   const waitingGameId = state.waiting_game?.id ?? null;
   const balls = state.playing_game?.balls ?? [];
+  const roomBallIntervalMs = Math.max(800, Number(state.room?.ball_interval_ms ?? room?.ball_interval_ms ?? 1800));
+  const clientTickMs = playingGameId ? Math.min(roomBallIntervalMs, 1800) : 1000;
 
   const calledSet = useMemo(() => new Set(balls.map((b) => b.ball_number)), [balls]);
   const lastBall = balls.length ? balls[balls.length - 1] : null;
@@ -138,6 +142,11 @@ export default function RoomClient({
     });
     const data = await response.json().catch(() => null);
     if (response.ok && data) setState(data as RoomState);
+  }
+
+  function scheduleRefetch(delay: number) {
+    if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+    refetchTimerRef.current = setTimeout(refetch, delay);
   }
 
   // Realtime
@@ -175,11 +184,6 @@ export default function RoomClient({
       )
       .subscribe();
 
-    function scheduleRefetch(delay: number) {
-      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
-      refetchTimerRef.current = setTimeout(refetch, delay);
-    }
-
     return () => { supabase.removeChannel(channel); };
   }, [room?.id, playingGameId, userId]);
 
@@ -190,26 +194,30 @@ export default function RoomClient({
     return () => clearInterval(id);
   }, [room?.id]);
 
-  const tickGameId = playingGameId ?? waitingGameId;
+  const hasCardsForTick =
+    (state.my_cards_playing?.length ?? 0) > 0 ||
+    (state.my_cards_waiting?.length ?? 0) > 0;
+  const tickGameId = hasCardsForTick ? (playingGameId ?? waitingGameId) : null;
 
-  // TICK cada 3 segundos (envía el game activo)
+  // Tick rápido de respaldo: el servidor rate-limita según ball_interval_ms.
   useEffect(() => {
     if (!tickGameId) return;
     const tick = async () => {
       try {
-        await fetch("/api/game/tick", {
+        const response = await fetch("/api/game/tick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ game_id: tickGameId }),
         });
+        if (response.ok) scheduleRefetch(80);
       } catch (err) {
         console.error("Tick error:", err);
       }
     };
-    tickIntervalRef.current = setInterval(tick, 3000);
+    tickIntervalRef.current = setInterval(tick, clientTickMs);
     tick();
     return () => { if (tickIntervalRef.current) clearInterval(tickIntervalRef.current); };
-  }, [tickGameId]);
+  }, [tickGameId, clientTickMs]);
 
   // Sonidos y marcado visual
   useEffect(() => {
@@ -491,6 +499,45 @@ export default function RoomClient({
     return Array.from(seen.entries()).map(([name, msg]) => ({ name, msg }));
   })();
   const onlineCount = Math.max(chatPlayers.length, (state.chat?.length ?? 0) > 0 ? 12 : 1);
+  const totalCardsInRoom = (state.my_cards_playing?.length ?? 0) + waitingCardsCount;
+  const lastChatCount = state.chat?.length ?? 0;
+  const potSweeps = Number(state.playing_game?.pot_sweeps ?? state.waiting_game?.pot_sweeps ?? 0);
+  const roomViews: Array<{
+    id: RoomDockView;
+    label: string;
+    meta: string;
+    value: string;
+    Icon: LucideIcon;
+  }> = [
+    {
+      id: "game",
+      label: "Juego",
+      meta: playing ? "en vivo" : "siguiente",
+      value: playing ? `${balls.length}/${totalBalls}` : formatCountdown(countdownPlay),
+      Icon: Target,
+    },
+    {
+      id: "cards",
+      label: "Cartones",
+      meta: hasPlayingCards ? "en juego" : hasWaitingCards ? "en cola" : "vacío",
+      value: `${totalCardsInRoom}`,
+      Icon: Ticket,
+    },
+    {
+      id: "buy",
+      label: "Comprar",
+      meta: purchaseOpen ? "abierta" : "cerrada",
+      value: purchaseOpen ? `${cardsRemaining}` : formatCountdown(countdownPlay),
+      Icon: ShoppingCart,
+    },
+    {
+      id: "chat",
+      label: "Chat",
+      meta: `${onlineCount} online`,
+      value: `${lastChatCount}`,
+      Icon: MessageCircle,
+    },
+  ];
 
   return (
     <div className="rm-root">
@@ -508,14 +555,14 @@ export default function RoomClient({
           <div className="rm-n">{room.name}</div>
           <div className="rm-s">{isB90 ? "Bingo 90" : "Bingo 75"}</div>
         </div>
-        <Link href="/store" className="rm-cur">
+        <Link href="/store" className="rm-cur" aria-label={`Comprar Gold. Saldo ${formatGold(profile.gold_coins)}`}>
           <Coins size={16} aria-hidden="true" />
           <span className="rm-a">{formatGold(profile.gold_coins)}</span>
           <span className="rm-p">+</span>
         </Link>
-        <Link href="/store" className="rm-cur rm-mag">
+        <Link href="/store" className="rm-cur rm-mag" aria-label={`Comprar Sweeps. Saldo ${profile.sweeps_coins.toFixed(2)}`}>
           <Gem size={16} aria-hidden="true" />
-          <span className="rm-a">{profile.sweeps_coins.toFixed(2)}</span>
+          <span className="rm-a">{formatSweepsCompact(profile.sweeps_coins)}</span>
           <span className="rm-p">+</span>
         </Link>
         <button onClick={toggleMute} className="rm-iconbtn rm-set" aria-label={muted ? "Activar sonido" : "Silenciar sonido"}>
@@ -523,260 +570,339 @@ export default function RoomClient({
         </button>
       </div>
 
-      {/* ===== Status pills ===== */}
-      <div className="rm-status">
-        <div className="rm-pill">
-          {playing ? (
-            <><span className="rm-dot" />EN&nbsp;JUEGO <b>{balls.length}/{totalBalls}</b></>
-          ) : (
-            <><Clock3 size={15} aria-hidden="true" />EMPIEZA <b>{formatCountdown(countdownPlay)}</b></>
-          )}
-        </div>
-        <div className="rm-pill rm-bote">
-          <Trophy size={15} aria-hidden="true" /> BOTE <span className="rm-v">${Number(state.playing_game?.pot_sweeps ?? state.waiting_game?.pot_sweeps ?? 0).toFixed(2)}</span>
-        </div>
-        {room && (
-          <div className="rm-pill rm-jp">
-            <div className="rm-jl"><Crown size={13} aria-hidden="true" /> JACKPOT</div>
-            <div className="rm-jv"><JackpotBadge roomId={room.id} compact /></div>
-          </div>
-        )}
+      <div className="rm-dock" role="tablist" aria-label="Vistas de la sala">
+        {roomViews.map(({ id, label, meta, value, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={activeView === id}
+            className={`rm-dockBtn ${activeView === id ? "rm-dockActive" : ""}`}
+            onClick={() => setActiveView(id)}
+          >
+            <span className="rm-dockIcon"><Icon size={16} aria-hidden="true" /></span>
+            <span className="rm-dockCopy">
+              <span className="rm-dockLabel">{label}</span>
+              <span className="rm-dockMeta">{meta}</span>
+            </span>
+            <span className="rm-dockValue">{value}</span>
+          </button>
+        ))}
       </div>
 
-      {/* ===== Balls strip ===== */}
-      {playing && (
-        <div className="rm-ballstrip">
-          <div className="rm-bsLbl">
-            <div className="rm-bsT">BOLAS<br />LLAMADAS</div>
-            <div className="rm-bsC">{balls.length}</div>
-          </div>
-          <div className="rm-bsBalls">
-            {balls.slice(-14).reverse().map((b) => (
-              <div
-                key={b.sequence}
-                className={`rm-mini ${b.sequence === lastBall?.sequence ? "rm-hot" : ""}`}
-                style={{ "--bc": getBallColor(b.ball_number, isB90) } as any}
-              >
-                {b.ball_number}
-              </div>
-            ))}
-            {balls.length === 0 && <div className="rm-bsEmpty">Esperando primera bola…</div>}
-          </div>
-        </div>
-      )}
-
-      {/* ===== Next/last ball big ===== */}
-      {playing && lastBall && (
-        <div className="rm-nextball" key={lastBall.sequence}>
-          <div className="rm-nbL">ÚLTIMA BOLA</div>
-          <div className="rm-nbBall" style={{ "--bc": getBallColor(lastBall.ball_number, isB90) } as any}>
-            {!isB90 && <span className="rm-nbLetter">{ballLetter(lastBall.ball_number)}</span>}
-            {lastBall.ball_number}
-          </div>
-        </div>
-      )}
-
-      {/* ===== Stage ===== */}
-      <div className="rm-stage">
-        <div className="rm-stageGlow" />
-        <div className="rm-arch" />
-        <div className="rm-stageLogo">
-          <div className="rm-cr"><Crown size={26} aria-hidden="true" /></div>
-          <div className="rm-l1">BINGO</div>
-          <div className="rm-l2">BOLLA</div>
-        </div>
-        <div className="rm-stageFloor" />
-        <div className="rm-booth" />
-
-        {/* Players (from chat activity) */}
-        <div className="rm-players">
-          <div className="rm-pHd">
-            <div className="rm-pT">JUGADORES</div>
-            <div className="rm-pC">{onlineCount}</div>
-            <div className="rm-pS">en sala</div>
-          </div>
-          {chatPlayers.length === 0 && (
-            <div className="rm-pEmpty">Sé el primero en entrar</div>
-          )}
-          {chatPlayers.slice(0, 5).map((p, i) => (
-            <div className="rm-pl" key={i}>
-              <div className="rm-plAv">{p.name?.[0]?.toUpperCase() ?? "?"}</div>
-              <div className="rm-plInfo">
-                <div className="rm-plNm">{p.name}</div>
-                <div className="rm-plSt">jugando</div>
-              </div>
+      {activeView === "game" && (
+        <div className="rm-view rm-viewGame">
+          <div className="rm-status">
+            <div className="rm-pill">
+              {playing ? (
+                <><span className="rm-dot" />EN&nbsp;JUEGO <b>{balls.length}/{totalBalls}</b></>
+              ) : (
+                <><Clock3 size={15} aria-hidden="true" />EMPIEZA <b>{formatCountdown(countdownPlay)}</b></>
+              )}
             </div>
-          ))}
-        </div>
-
-        {/* Chat (real state.chat) */}
-        <div className="rm-chat">
-          <div className="rm-chatHd">
-            <span className="rm-chatDot" /><MessageCircle size={14} aria-hidden="true" />CHAT EN VIVO
-          </div>
-          <div className="rm-chatBody" ref={chatRef}>
-            {(!state.chat || state.chat.length === 0) ? (
-              <div className="rm-chatEmpty">Sé el primero en saludar</div>
-            ) : (
-              state.chat.map((m) => (
-                <div className="rm-msg" key={m.id}>
-                  <div className="rm-msgAv">{m.username?.[0]?.toUpperCase() ?? "?"}</div>
-                  <div className="rm-msgBd">
-                    <div className="rm-msgNm">{m.username ?? "?"}</div>
-                    <div className="rm-msgTx">{m.message}</div>
-                  </div>
-                </div>
-              ))
+            <div className="rm-pill rm-bote">
+              <Trophy size={15} aria-hidden="true" /> BOTE <span className="rm-v">${potSweeps.toFixed(2)}</span>
+            </div>
+            {room && (
+              <div className="rm-pill rm-jp">
+                <div className="rm-jl"><Crown size={13} aria-hidden="true" /> JACKPOT</div>
+                <div className="rm-jv"><JackpotBadge roomId={room.id} compact /></div>
+              </div>
             )}
           </div>
-          <div className="rm-chatShort">
-            {CHAT_SHORTCUTS.map((s) => (
-              <button key={s} onClick={() => sendChat(s)} className="rm-sc">{s}</button>
-            ))}
-          </div>
-          <form
-            onSubmit={(e) => { e.preventDefault(); sendChat(); }}
-            className="rm-chatin"
-          >
-            <input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Escribe aquí..."
-              maxLength={200}
-              className="rm-chatInput"
-            />
-            <button type="submit" className="rm-chatSend" aria-label="Enviar mensaje">
-              <Send size={14} aria-hidden="true" />
-            </button>
-          </form>
-        </div>
-      </div>
 
-      {/* ===== Win status + extras ===== */}
-      {playing && state.playing_game && (
-        <div className="rm-winrow">
-          <PrizeIndicator label="LÍNEA" won={!!state.playing_game.line_won_by} active={!state.playing_game.line_won_by} />
-          {isB90 ? (
-            <PrizeIndicator label="DOBLE" won={!!state.playing_game.two_lines_won_by} active={!!state.playing_game.line_won_by && !state.playing_game.two_lines_won_by} />
-          ) : (
-            <PrizeIndicator label="—" won={false} active={false} />
+          {playing && (
+            <div className="rm-ballstrip">
+              <div className="rm-bsLbl">
+                <div className="rm-bsT">BOLAS<br />LLAMADAS</div>
+                <div className="rm-bsC">{balls.length}</div>
+              </div>
+              <div className="rm-bsBalls">
+                {balls.slice(-14).reverse().map((b) => (
+                  <div
+                    key={b.sequence}
+                    className={`rm-mini ${b.sequence === lastBall?.sequence ? "rm-hot" : ""}`}
+                    style={{ "--bc": getBallColor(b.ball_number, isB90) } as any}
+                  >
+                    {b.ball_number}
+                  </div>
+                ))}
+                {balls.length === 0 && <div className="rm-bsEmpty">Esperando primera bola...</div>}
+              </div>
+            </div>
           )}
-          <PrizeIndicator label="BINGO" won={!!state.playing_game.full_house_won_by} active={(isB90 ? !!state.playing_game.two_lines_won_by : !!state.playing_game.line_won_by) && !state.playing_game.full_house_won_by} />
+
+          {playing && lastBall && (
+            <div className="rm-nextball" key={lastBall.sequence}>
+              <div className="rm-nbL">ÚLTIMA BOLA</div>
+              <div className="rm-nbBall" style={{ "--bc": getBallColor(lastBall.ball_number, isB90) } as any}>
+                {!isB90 && <span className="rm-nbLetter">{ballLetter(lastBall.ball_number)}</span>}
+                {lastBall.ball_number}
+              </div>
+            </div>
+          )}
+
+          <div className="rm-stage">
+            <div className="rm-stageGlow" />
+            <div className="rm-arch" />
+            <div className="rm-stageLogo">
+              <div className="rm-cr"><Crown size={26} aria-hidden="true" /></div>
+              <div className="rm-l1">BINGO</div>
+              <div className="rm-l2">BOLLA</div>
+            </div>
+            <div className="rm-stageFloor" />
+            <div className="rm-booth" />
+
+            <div className="rm-players">
+              <div className="rm-pHd">
+                <div className="rm-pT">JUGADORES</div>
+                <div className="rm-pC">{onlineCount}</div>
+                <div className="rm-pS">en sala</div>
+              </div>
+              {chatPlayers.length === 0 && (
+                <div className="rm-pEmpty">Sé el primero en entrar</div>
+              )}
+              {chatPlayers.slice(0, 5).map((p, i) => (
+                <div className="rm-pl" key={i}>
+                  <div className="rm-plAv">{p.name?.[0]?.toUpperCase() ?? "?"}</div>
+                  <div className="rm-plInfo">
+                    <div className="rm-plNm">{p.name}</div>
+                    <div className="rm-plSt">jugando</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {playing && state.playing_game && (
+            <div className="rm-winrow">
+              <PrizeIndicator label="LÍNEA" won={!!state.playing_game.line_won_by} active={!state.playing_game.line_won_by} />
+              {isB90 ? (
+                <PrizeIndicator label="DOBLE" won={!!state.playing_game.two_lines_won_by} active={!!state.playing_game.line_won_by && !state.playing_game.two_lines_won_by} />
+              ) : (
+                <PrizeIndicator label="-" won={false} active={false} />
+              )}
+              <PrizeIndicator label="BINGO" won={!!state.playing_game.full_house_won_by} active={(isB90 ? !!state.playing_game.two_lines_won_by : !!state.playing_game.line_won_by) && !state.playing_game.full_house_won_by} />
+            </div>
+          )}
+
+          <ModeBanner
+            mode={mode}
+            countdownPlay={countdownPlay}
+            countdownClose={countdownClose}
+            myCardsWaiting={state.my_cards_waiting?.length ?? 0}
+          />
         </div>
       )}
 
-      {/* ===== Mode banner ===== */}
-      <ModeBanner
-        mode={mode}
-        countdownPlay={countdownPlay}
-        countdownClose={countdownClose}
-        myCardsWaiting={state.my_cards_waiting?.length ?? 0}
-      />
+      {activeView === "cards" && (
+        <div className="rm-view rm-viewCards">
+          <div className="rm-cardOpsRail" aria-label="Resumen de cartones">
+            <div className="rm-cardOpsItem">
+              <Ticket size={16} aria-hidden="true" />
+              <b>{totalCardsInRoom}</b>
+              <span>Total</span>
+            </div>
+            <div className="rm-cardOpsItem">
+              <Target size={16} aria-hidden="true" />
+              <b>{state.my_cards_playing?.length ?? 0}</b>
+              <span>En juego</span>
+            </div>
+            <div className="rm-cardOpsItem">
+              <Timer size={16} aria-hidden="true" />
+              <b>{waitingCardsCount}</b>
+              <span>En cola</span>
+            </div>
+            <button type="button" className="rm-cardOpsItem rm-cardOpsBuy" onClick={() => setActiveView("buy")}>
+              <ShoppingCart size={16} aria-hidden="true" />
+              <b>{purchaseOpen ? cardsRemaining : formatCountdown(countdownPlay)}</b>
+              <span>{purchaseOpen ? "Libres" : "Próxima"}</span>
+            </button>
+          </div>
 
-      {/* ===== Buy panel ===== */}
-      {(mode === "buy" || mode === "spectator-queue" || mode === "wait-with-cards") && state.waiting_game && (
-        <div className={`rm-buypanel ${purchaseOpen ? "rm-buyOpen" : "rm-buyClosed"}`}>
-          <div className="rm-buyHd">
-            <div>
-              <div className="rm-buyTtl">{hasWaitingCards ? "Comprar más cartones" : "Comprar cartón"}</div>
-              <div className="rm-buySub">
-                {waitingCardsCount}/{maxCards} en cola · {cardsRemaining} libres
-              </div>
-            </div>
-            <div className={`rm-buyState rm-buyState-${purchaseStatus.tone}`}>
-              <PurchaseStatusIcon size={18} aria-hidden="true" className={purchaseStatus.loading ? "rm-spin" : undefined} />
+          {(state.my_cards_waiting?.length ?? 0) === 0 && (state.my_cards_playing?.length ?? 0) === 0 && (
+            <div className="rm-emptyPanel">
+              <div className="rm-emptyIcon"><Ticket size={24} aria-hidden="true" /></div>
               <div>
-                <b>{purchaseStatus.title}</b>
-                <span>{purchaseStatus.text}</span>
+                <div className="rm-emptyTitle">Sin cartones activos</div>
+                <div className="rm-emptyText">Compra para la siguiente ronda y vuelve aquí para validar premios.</div>
               </div>
+              <button type="button" className="rm-inlinePrimary" onClick={() => setActiveView("buy")}>
+                Comprar cartón
+              </button>
             </div>
-          </div>
-          <div className="rm-capTrack" aria-hidden="true">
-            <span style={{ transform: `scaleX(${maxCards > 0 ? Math.min(1, waitingCardsCount / maxCards) : 0})` }} />
-          </div>
-          <div className="rm-buyBtns">
-            <button onClick={() => buyTicket("gold")} disabled={buyingAny || !canBuyGoldTicket} className="rm-bg" aria-busy={buying}>
-              {buying ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Coins size={16} aria-hidden="true" />} {goldTicket}
-            </button>
-            <button onClick={() => buyTicket("sweeps")} disabled={buyingAny || !canBuySweepsTicket} className="rm-bs" aria-busy={buying}>
-              {buying ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Gem size={16} aria-hidden="true" />} ${sweepsTicket}
-            </button>
-          </div>
-          {isB90 && canBuyStrip && (
-            <div className="rm-strip">
-              <div className="rm-stripL">
-                <Ticket size={16} aria-hidden="true" /> Tira de 6 <span className="rm-stripBadge">-15%</span>
-                <div className="rm-stripSub">Cobertura de los 90 números</div>
+          )}
+
+          {(state.my_cards_waiting?.length ?? 0) > 0 && (
+            <div className="rm-section rm-waiting">
+              <div className="rm-secHd">
+                <div>
+                  <div className="rm-secKick"><Timer size={13} aria-hidden="true" /> En cola</div>
+                  <div className="rm-secTtl">{state.my_cards_waiting.length} cartones listos</div>
+                </div>
+                <div className="rm-secRight">
+                  <div className="rm-secK">Empieza en</div>
+                  <div className="rm-secCd">{formatCountdown(countdownPlay)}</div>
+                </div>
+              </div>
+              <div className="rm-cards">
+                {state.my_cards_waiting.slice(0, 4).map((card, idx) => (
+                  isB90 ? (
+                    <Card90 key={card.id} card={card} status={undefined} calledSet={new Set()} index={idx} justMarked={new Set()} />
+                  ) : (
+                    <Card75 key={card.id} card={card} status={undefined} calledSet={new Set()} index={idx} justMarked={new Set()} />
+                  )
+                ))}
+              </div>
+              {state.my_cards_waiting.length > 4 && <div className="rm-more">+{state.my_cards_waiting.length - 4} más</div>}
+            </div>
+          )}
+
+          {(state.my_cards_playing?.length ?? 0) > 0 && (
+            <div className="rm-cards rm-cardsMain">
+              {state.my_cards_playing.map((card, idx) => {
+                const prizeState = getCardPrizeState(cardStatuses[card.id], isB90, state.playing_game, userId);
+                const commonProps = {
+                  card,
+                  status: cardStatuses[card.id],
+                  calledSet,
+                  index: idx,
+                  justMarked,
+                  prizeState,
+                  claiming: claimingCardId === card.id,
+                  onClaim: () => handlePrizeClaim(card, prizeState),
+                };
+                return isB90 ? (
+                  <Card90 key={card.id} {...commonProps} />
+                ) : (
+                  <Card75 key={card.id} {...commonProps} />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeView === "buy" && (
+        <div className="rm-view rm-viewBuy">
+          <ModeBanner
+            mode={mode}
+            countdownPlay={countdownPlay}
+            countdownClose={countdownClose}
+            myCardsWaiting={state.my_cards_waiting?.length ?? 0}
+          />
+
+          {(mode === "buy" || mode === "spectator-queue" || mode === "wait-with-cards") && state.waiting_game ? (
+            <div className={`rm-buypanel ${purchaseOpen ? "rm-buyOpen" : "rm-buyClosed"}`}>
+              <div className="rm-buyHd">
+                <div>
+                  <div className="rm-buyTtl">{hasWaitingCards ? "Comprar más cartones" : "Comprar cartón"}</div>
+                  <div className="rm-buySub">
+                    {waitingCardsCount}/{maxCards} en cola · {cardsRemaining} libres
+                  </div>
+                </div>
+                <div className={`rm-buyState rm-buyState-${purchaseStatus.tone}`}>
+                  <PurchaseStatusIcon size={18} aria-hidden="true" className={purchaseStatus.loading ? "rm-spin" : undefined} />
+                  <div>
+                    <b>{purchaseStatus.title}</b>
+                    <span>{purchaseStatus.text}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="rm-capTrack" aria-hidden="true">
+                <span style={{ transform: `scaleX(${maxCards > 0 ? Math.min(1, waitingCardsCount / maxCards) : 0})` }} />
               </div>
               <div className="rm-buyBtns">
-                <button onClick={() => buyStrip("gold")} disabled={buyingAny || !canBuyGoldStrip} className="rm-bg" aria-busy={buyingStrip}>
-                  {buyingStrip ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Coins size={16} aria-hidden="true" />} {goldStripPrice}
+                <button onClick={() => buyTicket("gold")} disabled={buyingAny || !canBuyGoldTicket} className="rm-bg" aria-busy={buying}>
+                  {buying ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Coins size={16} aria-hidden="true" />} {goldTicket}
                 </button>
-                <button onClick={() => buyStrip("sweeps")} disabled={buyingAny || !canBuySweepsStrip} className="rm-bs" aria-busy={buyingStrip}>
-                  {buyingStrip ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Gem size={16} aria-hidden="true" />} ${sweepsStripPrice.toFixed(2)}
+                <button onClick={() => buyTicket("sweeps")} disabled={buyingAny || !canBuySweepsTicket} className="rm-bs" aria-busy={buying}>
+                  {buying ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Gem size={16} aria-hidden="true" />} ${sweepsTicket}
                 </button>
               </div>
+              {isB90 && canBuyStrip && (
+                <div className="rm-strip">
+                  <div className="rm-stripL">
+                    <Ticket size={16} aria-hidden="true" /> Tira de 6 <span className="rm-stripBadge">-15%</span>
+                    <div className="rm-stripSub">Cobertura de los 90 números</div>
+                  </div>
+                  <div className="rm-buyBtns">
+                    <button onClick={() => buyStrip("gold")} disabled={buyingAny || !canBuyGoldStrip} className="rm-bg" aria-busy={buyingStrip}>
+                      {buyingStrip ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Coins size={16} aria-hidden="true" />} {goldStripPrice}
+                    </button>
+                    <button onClick={() => buyStrip("sweeps")} disabled={buyingAny || !canBuySweepsStrip} className="rm-bs" aria-busy={buyingStrip}>
+                      {buyingStrip ? <Loader2 size={16} aria-hidden="true" className="rm-spin" /> : <Gem size={16} aria-hidden="true" />} ${sweepsStripPrice.toFixed(2)}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {cardsRemaining <= 0 && (
+                <div className="rm-buyFoot">Ya tienes el máximo permitido para esta ronda.</div>
+              )}
+              {isB90 && purchaseOpen && cardsRemaining > 0 && cardsRemaining < 6 && (
+                <div className="rm-buyFoot">Quedan {cardsRemaining} espacios, por eso la tira completa está bloqueada.</div>
+              )}
+              {(profile.gold_coins < goldTicket && profile.sweeps_coins < sweepsTicket) && (
+                <Link href="/store" className="rm-needcoins">Te faltan coins · Visita la tienda →</Link>
+              )}
             </div>
-          )}
-          {cardsRemaining <= 0 && (
-            <div className="rm-buyFoot">Ya tienes el máximo permitido para esta ronda.</div>
-          )}
-          {isB90 && purchaseOpen && cardsRemaining > 0 && cardsRemaining < 6 && (
-            <div className="rm-buyFoot">Quedan {cardsRemaining} espacios, por eso la tira completa está bloqueada.</div>
-          )}
-          {(profile.gold_coins < goldTicket && profile.sweeps_coins < sweepsTicket) && (
-            <Link href="/store" className="rm-needcoins">Te faltan coins · Visita la tienda →</Link>
+          ) : (
+            <div className="rm-emptyPanel">
+              <div className="rm-emptyIcon"><LockKeyhole size={24} aria-hidden="true" /></div>
+              <div>
+                <div className="rm-emptyTitle">Compra no disponible</div>
+                <div className="rm-emptyText">La siguiente ventana abrirá cuando el servidor cree la próxima ronda.</div>
+              </div>
+              <button type="button" className="rm-inlinePrimary" onClick={() => setActiveView("game")}>
+                Ver sala
+              </button>
+            </div>
           )}
         </div>
       )}
 
-      {/* ===== Waiting cards ===== */}
-      {state.my_cards_waiting?.length > 0 && (
-        <div className="rm-section rm-waiting">
-          <div className="rm-secHd">
-            <div>
-              <div className="rm-secKick"><Timer size={13} aria-hidden="true" /> En cola</div>
-              <div className="rm-secTtl">{state.my_cards_waiting.length} cartones listos</div>
+      {activeView === "chat" && (
+        <div className="rm-view rm-viewChat">
+          <div className="rm-chatDock">
+            <div className="rm-chatHd">
+              <span className="rm-chatDot" /><MessageCircle size={14} aria-hidden="true" />CHAT EN VIVO
             </div>
-            <div className="rm-secRight">
-              <div className="rm-secK">Empieza en</div>
-              <div className="rm-secCd">{formatCountdown(countdownPlay)}</div>
-            </div>
-          </div>
-          <div className="rm-cards">
-            {state.my_cards_waiting.slice(0, 4).map((card, idx) => (
-              isB90 ? (
-                <Card90 key={card.id} card={card} status={undefined} calledSet={new Set()} index={idx} justMarked={new Set()} />
+            <div className="rm-chatBody" ref={chatRef}>
+              {(!state.chat || state.chat.length === 0) ? (
+                <div className="rm-chatEmpty">Sé el primero en saludar</div>
               ) : (
-                <Card75 key={card.id} card={card} status={undefined} calledSet={new Set()} index={idx} justMarked={new Set()} />
-              )
-            ))}
+                state.chat.map((m) => (
+                  <div className="rm-msg" key={m.id}>
+                    <div className="rm-msgAv">{m.username?.[0]?.toUpperCase() ?? "?"}</div>
+                    <div className="rm-msgBd">
+                      <div className="rm-msgNm">{m.username ?? "?"}</div>
+                      <div className="rm-msgTx">{m.message}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="rm-chatShort">
+              {CHAT_SHORTCUTS.map((s) => (
+                <button key={s} type="button" onClick={() => sendChat(s)} className="rm-sc">{s}</button>
+              ))}
+            </div>
+            <form
+              onSubmit={(e) => { e.preventDefault(); sendChat(); }}
+              className="rm-chatin"
+            >
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Escribe aquí..."
+                maxLength={200}
+                className="rm-chatInput"
+              />
+              <button type="submit" className="rm-chatSend" aria-label="Enviar mensaje">
+                <Send size={14} aria-hidden="true" />
+              </button>
+            </form>
           </div>
-          {state.my_cards_waiting.length > 4 && <div className="rm-more">+{state.my_cards_waiting.length - 4} más</div>}
-        </div>
-      )}
-
-      {/* ===== Playing cards ===== */}
-      {state.my_cards_playing?.length > 0 && (
-        <div className="rm-cards rm-cardsMain">
-          {state.my_cards_playing.map((card, idx) => {
-            const prizeState = getCardPrizeState(cardStatuses[card.id], isB90, state.playing_game, userId);
-            const commonProps = {
-              card,
-              status: cardStatuses[card.id],
-              calledSet,
-              index: idx,
-              justMarked,
-              prizeState,
-              claiming: claimingCardId === card.id,
-              onClaim: () => handlePrizeClaim(card, prizeState),
-            };
-            return isB90 ? (
-              <Card90 key={card.id} {...commonProps} />
-            ) : (
-              <Card75 key={card.id} {...commonProps} />
-            );
-          })}
         </div>
       )}
 
@@ -801,6 +927,10 @@ export default function RoomClient({
         <button
           className="rm-buybig"
           onClick={() => {
+            if (activeView !== "buy") {
+              setActiveView("buy");
+              return;
+            }
             if (!purchaseOpen) showToast(false, purchaseStatus.title);
             else if (cardsRemaining <= 0) showToast(false, "Máximo de cartones alcanzado");
             else if (!canBuySweepsTicket) showToast(false, "No tienes Sweeps suficiente");
@@ -810,9 +940,11 @@ export default function RoomClient({
         >
           <span className="rm-bbSh" />
           {buying ? <Loader2 size={20} aria-hidden="true" className="rm-spin" /> : <ShoppingCart size={20} aria-hidden="true" />}
-          <div>{buying ? "COMPRANDO" : purchaseOpen ? "COMPRAR" : "CERRADO"}<div className="rm-bbSub">MÁS CARTONES</div></div>
+          <div>{buying ? "COMPRANDO" : activeView !== "buy" ? "COMPRA" : purchaseOpen ? "COMPRAR" : "CERRADO"}<div className="rm-bbSub">MÁS CARTONES</div></div>
         </button>
-        <Link href="/lobby" className="rm-abtn"><BarChart3 size={18} aria-hidden="true" />{isB90 ? "B90" : "B75"}</Link>
+        <button type="button" onClick={() => setActiveView("cards")} className="rm-abtn">
+          <BarChart3 size={18} aria-hidden="true" />CARTONES
+        </button>
       </div>
     </div>
   );
@@ -1074,18 +1206,26 @@ function formatGold(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
+function formatSweepsCompact(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: value >= 100000 ? 1 : 2,
+    minimumFractionDigits: value >= 100000 ? 0 : 2,
+    notation: value >= 100000 ? "compact" : "standard",
+  }).format(value);
+}
+
 function formatCountdown(s: number | null) { if (s == null) return "—"; const m = Math.floor(s / 60); const sec = s % 60; return `${m}:${sec.toString().padStart(2, "0")}`; }
 function getBallColor(n: number, is90: boolean): string { if (is90) { if (n <= 9) return "#FF3D7F"; if (n <= 19) return "#FFD93D"; if (n <= 29) return "#00E5FF"; if (n <= 39) return "#B388FF"; if (n <= 49) return "#00E676"; if (n <= 59) return "#FF3D7F"; if (n <= 69) return "#FFD93D"; if (n <= 79) return "#00E5FF"; return "#B388FF"; } return n <= 15 ? "#FF3D7F" : n <= 30 ? "#FFD93D" : n <= 45 ? "#00E5FF" : n <= 60 ? "#B388FF" : "#00E676"; }
 function errorLabel(msg: string): string { const map: any = { purchase_window_closed: "Ventana cerrada", insufficient_funds: "Te faltan monedas", kyc_required: "Verificación pendiente", state_excluded: "Estado no permitido", max_cards_reached: "Máximo cartones", game_not_active: "Partida no activa", account_banned: "Cuenta suspendida", self_excluded: "Autoexcluido", strips_only_for_bingo90: "Solo Bingo 90" }; for (const k of Object.keys(map)) if (msg.includes(k)) return map[k]; return msg; }
 
 const RM_CSS = `
-.rm-root{position:relative;min-height:100vh;padding-bottom:100px;overflow-x:hidden;
+.rm-root{position:relative;min-height:100dvh;padding-bottom:calc(150px + env(safe-area-inset-bottom,0px));overflow-x:hidden;
   background:
     radial-gradient(circle at 12% 0%,rgba(255,61,127,.20),transparent 30%),
     radial-gradient(circle at 88% 14%,rgba(0,229,255,.13),transparent 28%),
     linear-gradient(180deg,#08080c 0%,#11111a 54%,#08080c 100%);
   font-family:var(--font-sans,Geist,system-ui,sans-serif);color:#fff;
-  max-width:560px;margin:0 auto;letter-spacing:0;}
+  width:100%;max-width:560px;margin:0 auto;letter-spacing:0;}
 .rm-top{display:flex;align-items:center;gap:8px;padding:14px 12px 8px;
   position:sticky;top:0;z-index:30;backdrop-filter:blur(14px);
   background:linear-gradient(180deg,rgba(8,8,12,.95),rgba(8,8,12,.72));}
@@ -1103,25 +1243,48 @@ const RM_CSS = `
 .rm-cur{display:flex;align-items:center;gap:5px;text-decoration:none;color:#fff;
   background:#151520;
   border:1px solid rgba(255,255,255,.12);border-radius:999px;
-  padding:5px 5px 5px 10px;}
+  padding:5px 5px 5px 10px;min-width:0;max-width:132px;}
 .rm-cur svg{color:#ffd93d}.rm-cur.rm-mag svg{color:#ff3d7f}
-.rm-cur.rm-mag{border-color:rgba(255,61,127,.32);}
-.rm-a{font-weight:800;font-size:12px;}
+.rm-cur.rm-mag{border-color:rgba(255,61,127,.32);max-width:136px;}
+.rm-a{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;font-size:12px;}
 .rm-p{width:20px;height:20px;border-radius:50%;
   background:linear-gradient(180deg,#3ddc6a,#1fa84a);display:flex;
   align-items:center;justify-content:center;font-weight:800;font-size:14px;}
-.rm-status{display:flex;gap:8px;padding:8px 12px 10px;}
+.rm-dock{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
+  padding:6px 12px 10px;position:relative;z-index:18;
+  background:linear-gradient(180deg,rgba(8,8,12,.86),rgba(8,8,12,.38));}
+.rm-dockBtn{min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:13px;
+  padding:8px 7px;display:grid;grid-template-columns:22px minmax(0,1fr);gap:3px 6px;
+  align-items:center;text-align:left;color:#cfc6e2;background:#151520;cursor:pointer;
+  font-family:inherit;transition:transform .18s ease,filter .18s ease,border-color .18s ease,background .18s ease;}
+.rm-dockBtn:hover{filter:brightness(1.06);transform:translateY(-1px);}
+.rm-dockBtn:focus-visible,.rm-abtn:focus-visible,.rm-buybig:focus-visible,.rm-iconbtn:focus-visible,.rm-cur:focus-visible,
+.rm-bg:focus-visible,.rm-bs:focus-visible,.rm-cardBingo:focus-visible,.rm-inlinePrimary:focus-visible,.rm-sc:focus-visible,.rm-chatSend:focus-visible{
+  outline:2px solid #00e5ff;outline-offset:2px;}
+.rm-dockActive{border-color:rgba(255,80,160,.58);
+  background:linear-gradient(180deg,rgba(48,24,82,.95),rgba(22,12,46,.96));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}
+.rm-dockIcon{width:22px;height:22px;border-radius:8px;display:grid;place-items:center;
+  background:rgba(255,255,255,.06);color:#ffd23d;grid-row:span 2;}
+.rm-dockActive .rm-dockIcon{background:rgba(255,80,160,.16);color:#ff8fbd;}
+.rm-dockCopy{min-width:0;display:flex;flex-direction:column;line-height:1.05;}
+.rm-dockLabel{font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rm-dockMeta{font-size:9px;color:#a995c7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.rm-dockValue{grid-column:2;font-size:13px;font-weight:800;color:#5ee9ff;line-height:1;}
+.rm-view{animation:rmView .18s cubic-bezier(.16,1,.3,1);}
+@keyframes rmView{from{opacity:.55;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.rm-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px 12px 10px;}
 .rm-pill{border-radius:12px;padding:9px 13px;display:flex;align-items:center;
   gap:7px;font-size:12px;font-weight:600;
   background:#151520;
-  border:1px solid rgba(255,255,255,.12);}
+  border:1px solid rgba(255,255,255,.12);min-width:0;}
 .rm-dot{width:8px;height:8px;border-radius:50%;background:#3ddc6a;
   box-shadow:0 0 8px #3ddc6a;animation:rmTw 1.5s infinite;}
 @keyframes rmTw{0%,100%{opacity:.3}50%{opacity:1}}
 .rm-pill b{color:#3ddc6a;font-weight:800;}
-.rm-bote{flex:1;justify-content:center;border-color:rgba(255,200,80,.3);}
+.rm-bote{justify-content:center;border-color:rgba(255,200,80,.3);}
 .rm-bote .rm-v{color:#ffd23d;font-weight:800;}
-.rm-jp{flex:1.2;flex-direction:column;align-items:flex-start;gap:2px;
+.rm-jp{flex-direction:column;align-items:flex-start;gap:2px;
   background:linear-gradient(135deg,#251900,#171722);
   border-color:rgba(255,200,80,.35);}
 .rm-jl{font-size:9px;color:#ffd8a0;display:flex;align-items:center;gap:4px;}
@@ -1158,7 +1321,7 @@ const RM_CSS = `
   animation:rmPulse 2s ease-in-out infinite;}
 .rm-nbLetter{font-size:13px;opacity:.7;margin-bottom:-4px;}
 @keyframes rmPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-.rm-stage{margin:0 12px 10px;border-radius:14px;height:280px;position:relative;
+.rm-stage{margin:0 12px 10px;border-radius:14px;height:300px;position:relative;
   overflow:hidden;
   background:
   radial-gradient(60% 50% at 50% 35%,rgba(255,217,61,.16),transparent),
@@ -1187,10 +1350,10 @@ const RM_CSS = `
   width:110px;height:42px;border-radius:10px;
   background:linear-gradient(180deg,#3a1a6e,#1a0a36);
   border:1px solid rgba(170,120,255,.3);}
-.rm-players{position:absolute;left:18px;top:90px;width:140px;z-index:4;
+.rm-players{position:absolute;left:18px;top:98px;width:min(42vw,150px);z-index:4;
   border-radius:14px;padding:11px;
   background:rgba(12,12,18,.9);
-  border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);}
+  border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);max-height:174px;overflow:hidden;}
 .rm-pHd{text-align:center;margin-bottom:9px;}
 .rm-pT{font-size:9px;letter-spacing:.1em;color:#b9a0e0;}
 .rm-pC{font-weight:800;font-size:24px;line-height:1;}
@@ -1204,11 +1367,11 @@ const RM_CSS = `
 .rm-plNm{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;}
 .rm-plSt{font-size:8px;color:#9a7ac8;}
-.rm-chat{position:absolute;right:18px;top:90px;width:160px;z-index:4;
-  height:200px;border-radius:14px;padding:11px;display:flex;flex-direction:column;
+.rm-chat{position:absolute;right:18px;top:98px;width:min(44vw,176px);z-index:4;
+  height:188px;border-radius:14px;padding:11px;display:flex;flex-direction:column;
   background:rgba(12,12,18,.9);
   border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);}
-.rm-chatHd{font-weight:800;font-size:12px;margin-bottom:8px;display:flex;
+.rm-chatHd{font-weight:800;font-size:12px;margin-bottom:7px;display:flex;
   align-items:center;gap:5px;}
 .rm-chatDot{width:6px;height:6px;border-radius:50%;background:#3ddc6a;
   animation:rmTw 1.5s infinite;}
@@ -1222,16 +1385,30 @@ const RM_CSS = `
 .rm-msgBd{flex:1;min-width:0;}
 .rm-msgNm{font-size:9px;font-weight:700;color:#c9b8e8;}
 .rm-msgTx{font-size:10px;color:#e8d8f0;line-height:1.2;word-break:break-word;}
-.rm-chatShort{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0;}
+.rm-chatShort{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0;}
 .rm-sc{font-size:8px;padding:3px 5px;border-radius:6px;border:none;
   background:rgba(255,255,255,.06);color:#c9b8e8;cursor:pointer;}
 .rm-chatin{display:flex;gap:5px;}
 .rm-chatInput{flex:1;min-width:0;background:rgba(0,0,0,.3);
-  border:1px solid rgba(170,120,255,.2);border-radius:9px;padding:6px 8px;
-  color:#fff;font-size:10px;font-family:inherit;}
+  border:1px solid rgba(170,120,255,.2);border-radius:9px;padding:7px 8px;
+  color:#fff;font-size:11px;font-family:inherit;min-height:34px;}
 .rm-chatInput::placeholder{color:#7a6ba8;}
-.rm-chatSend{width:28px;border:none;border-radius:9px;cursor:pointer;
+.rm-chatSend{width:34px;min-width:34px;min-height:34px;border:none;border-radius:9px;cursor:pointer;
   background:#ff3d7f;color:#fff;font-weight:800;display:grid;place-items:center;}
+.rm-chatDock{margin:0 12px 10px;border-radius:14px;padding:14px;min-height:min(520px,calc(100dvh - 250px));
+  display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(18,18,28,.96),rgba(12,10,20,.98));
+  border:1px solid rgba(170,120,255,.26);}
+.rm-chatDock .rm-chatHd{font-size:13px;margin-bottom:12px;}
+.rm-chatDock .rm-chatBody{min-height:260px;max-height:440px;}
+.rm-chatDock .rm-chatEmpty{font-size:13px;padding:92px 0;color:#b9a0e0;}
+.rm-chatDock .rm-msg{margin-bottom:12px;}
+.rm-chatDock .rm-msgAv{width:28px;height:28px;font-size:12px;}
+.rm-chatDock .rm-msgNm{font-size:11px;}
+.rm-chatDock .rm-msgTx{font-size:13px;line-height:1.35;}
+.rm-chatDock .rm-chatShort{gap:6px;margin:12px 0;}
+.rm-chatDock .rm-sc{font-size:11px;padding:7px 9px;border-radius:9px;}
+.rm-chatDock .rm-chatInput{font-size:14px;min-height:42px;border-radius:11px;}
+.rm-chatDock .rm-chatSend{width:42px;min-width:42px;min-height:42px;border-radius:11px;}
 .rm-winrow{display:flex;gap:8px;padding:0 12px 10px;}
 .rm-prize{flex:1;text-align:center;padding:9px;border-radius:12px;
   border:1px solid rgba(120,90,160,.3);
@@ -1293,6 +1470,30 @@ const RM_CSS = `
   border-radius:10px;padding:8px 10px;}
 .rm-needcoins{display:block;text-align:center;margin-top:10px;font-size:11px;
   color:#5ad0ff;text-decoration:none;}
+.rm-cardOpsRail{margin:0 12px 10px;display:flex;gap:8px;overflow-x:auto;
+  scroll-snap-type:x proximity;scrollbar-width:none;padding-bottom:2px;}
+.rm-cardOpsRail::-webkit-scrollbar{display:none;}
+.rm-cardOpsItem{flex:0 0 104px;scroll-snap-align:start;border-radius:13px;padding:10px 11px;
+  min-height:66px;display:grid;grid-template-columns:20px minmax(0,1fr);gap:2px 7px;
+  align-items:center;background:linear-gradient(180deg,rgba(25,21,36,.92),rgba(14,12,22,.96));
+  border:1px solid rgba(170,120,255,.18);color:#fff;text-align:left;font-family:inherit;}
+.rm-cardOpsItem svg{color:#ffd23d;}
+.rm-cardOpsItem b{font-size:18px;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rm-cardOpsItem span{grid-column:1 / -1;font-size:10px;color:#b9a0e0;}
+.rm-cardOpsBuy{cursor:pointer;background:linear-gradient(180deg,rgba(255,77,154,.2),rgba(40,20,60,.96));
+  border-color:rgba(255,77,154,.35);}
+.rm-cardOpsBuy svg{color:#ff8fbd;}
+.rm-emptyPanel{margin:0 12px 10px;border-radius:14px;padding:16px;
+  display:grid;grid-template-columns:46px minmax(0,1fr);gap:12px;align-items:center;
+  background:linear-gradient(180deg,rgba(25,21,36,.92),rgba(14,12,22,.96));
+  border:1px solid rgba(170,120,255,.22);}
+.rm-emptyIcon{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+  background:rgba(255,255,255,.07);color:#ffd23d;}
+.rm-emptyTitle{font-size:15px;font-weight:800;}
+.rm-emptyText{font-size:12px;line-height:1.35;color:#b9a0e0;margin-top:3px;}
+.rm-inlinePrimary{grid-column:1 / -1;border:none;border-radius:12px;min-height:42px;
+  background:linear-gradient(180deg,#ff4d9a,#c8264f);color:#fff;font-weight:800;
+  cursor:pointer;font-family:inherit;}
 .rm-section{margin:0 12px 10px;border-radius:14px;padding:13px;
   background:linear-gradient(180deg,rgba(36,20,68,.7),rgba(20,10,40,.8));
   border:1px solid rgba(170,120,255,.22);}
@@ -1304,10 +1505,17 @@ const RM_CSS = `
 .rm-secRight{text-align:right;}
 .rm-secK{font-size:9px;letter-spacing:.08em;color:#9a7ac8;}
 .rm-secCd{font-weight:800;font-size:20px;}
-.rm-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 12px;}
-.rm-cardsMain{margin-bottom:10px;}
+.rm-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px;padding:0;}
+.rm-cardsMain{margin:0 12px 10px;}
+.rm-viewCards .rm-section{padding:11px 0 13px;overflow:hidden;}
+.rm-viewCards .rm-secHd{padding:0 13px;margin-bottom:9px;}
+.rm-viewCards .rm-cards{display:flex;gap:10px;overflow-x:auto;padding:0 13px 2px;
+  scroll-snap-type:x mandatory;scrollbar-width:none;}
+.rm-viewCards .rm-cards::-webkit-scrollbar{display:none;}
+.rm-viewCards .rm-cardsMain{margin:0 0 10px;}
+.rm-viewCards .rm-card{flex:0 0 min(82vw,330px);scroll-snap-align:center;}
 .rm-more{text-align:center;font-size:12px;color:#9a7ac8;margin-top:8px;}
-.rm-card{border-radius:16px;padding:12px;
+.rm-card{min-width:0;width:100%;border-radius:16px;padding:12px;
   background:linear-gradient(180deg,rgba(36,20,68,.85),rgba(20,10,40,.9));
   border:1px solid rgba(170,120,255,.22);}
 .rm-cardHd{display:flex;align-items:center;justify-content:space-between;
@@ -1320,7 +1528,7 @@ const RM_CSS = `
 .rm-cardTag-line{background:#00e676;}
 .rm-cardTag-hot{background:#ff3d7f;color:#fff;animation:rmTagPulse 1.15s ease-in-out infinite;}
 .rm-cardTag-near{background:#00e5ff;}
-.rm-cardGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;}
+.rm-cardGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;min-width:0;}
 .rm-cardNums{margin-top:3px;}
 .rm-gh{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:13px;border-radius:5px;color:#fff;}
@@ -1329,7 +1537,7 @@ const RM_CSS = `
 .rm-gh.bb-ball--n{background:linear-gradient(180deg,#3ddc6a,#1fa84a);}
 .rm-gh.bb-ball--g{background:linear-gradient(180deg,#ffb02e,#e0801a);}
 .rm-gh.bb-ball--o{background:linear-gradient(180deg,#ff4d7f,#c8264f);}
-.rm-gn{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+.rm-gn{min-width:0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
   font-weight:700;font-size:14px;border-radius:6px;position:relative;
   background:rgba(255,255,255,.04);color:#e8d8f0;
   border:1px solid rgba(255,255,255,.05);}
@@ -1342,7 +1550,7 @@ const RM_CSS = `
 @keyframes rmTagPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
 .rm-gnTxt{position:relative;z-index:10;color:#fff;font-weight:800;}
 .rm-gnEmpty{background:transparent;border-color:transparent;}
-.rm-card90Grid{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;}
+.rm-card90Grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:2px;min-width:0;}
 .rm-card90 .rm-gn{font-size:11px;border-radius:4px;}
 .rm-cardClaim{margin-top:10px;}
 .rm-cardClaimMeta{display:flex;align-items:center;justify-content:space-between;
@@ -1392,18 +1600,18 @@ const RM_CSS = `
 .rm-spin{animation:rmSpin .8s linear infinite;}
 @keyframes rmSpin{to{transform:rotate(360deg)}}
 .rm-actionbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:560px;z-index:20;padding:12px;display:flex;
+  width:100%;max-width:560px;z-index:20;padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));display:flex;
   align-items:center;gap:10px;
   background:linear-gradient(180deg,transparent,rgba(10,4,24,.96) 30%);}
 .rm-abtn{border-radius:14px;padding:11px 14px;display:flex;flex-direction:column;
   align-items:center;gap:3px;font-size:10px;font-weight:700;text-decoration:none;
   background:linear-gradient(180deg,rgba(40,22,75,.9),rgba(22,12,46,.95));
   border:1px solid rgba(170,120,255,.25);color:#c9b8e8;cursor:pointer;
-  flex-shrink:0;}
+  min-width:64px;min-height:64px;flex-shrink:0;font-family:inherit;appearance:none;}
 .rm-buybig{flex:1;border-radius:16px;padding:15px;border:none;cursor:pointer;
   font-weight:800;font-size:15px;color:#fff;display:flex;align-items:center;
   justify-content:center;gap:8px;font-family:inherit;position:relative;
-  overflow:hidden;
+  overflow:hidden;min-height:64px;
   background:linear-gradient(135deg,#ff4d9a,#c8264f);
   box-shadow:0 0 26px rgba(255,80,160,.6),0 6px 16px rgba(0,0,0,.5);}
 .rm-buybig:disabled{opacity:.6;}
@@ -1414,10 +1622,15 @@ const RM_CSS = `
 @keyframes rmSh{to{transform:translateX(100%)}}
 @media(min-width:900px){
   .rm-root{max-width:1100px;padding-bottom:40px;}
+  .rm-dock{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .rm-dockBtn{grid-template-columns:28px minmax(0,1fr) auto;padding:10px 12px;}
+  .rm-dockIcon{grid-row:auto;width:28px;height:28px;}
+  .rm-dockValue{grid-column:auto;font-size:15px;}
   .rm-stage{height:360px;}
   .rm-players,.rm-chat{width:200px;}
   .rm-chat{height:280px;}
-  .rm-cards{grid-template-columns:repeat(4,1fr);}
+  .rm-chatDock{min-height:520px;}
+  .rm-cards{grid-template-columns:repeat(4,minmax(0,1fr));}
   .rm-actionbar{position:sticky;left:auto;bottom:12px;transform:none;
     width:calc(100% - 24px);max-width:1076px;margin:12px auto 0;
     border-radius:18px;background:rgba(10,4,24,.92);
@@ -1426,19 +1639,62 @@ const RM_CSS = `
   .rm-n{font-size:24px;}
 }
 @media(max-width:620px){
-  .rm-top{gap:6px;padding:10px 10px 8px;flex-wrap:wrap;}
-  .rm-iconbtn{width:42px;height:42px;}
-  .rm-rname{order:8;flex:0 0 100%;padding-left:54px;margin-top:-6px;}
-  .rm-n{font-size:17px;}
-  .rm-s{font-size:11px;}
-  .rm-cur{padding:5px 5px 5px 8px;}
-  .rm-a{font-size:12px;}
+  .rm-top{gap:5px;padding:8px 8px 6px;flex-wrap:nowrap;}
+  .rm-top a[aria-label="Volver al lobby"],.rm-set{width:38px;height:38px;border-radius:11px;}
+  .rm-top [aria-label="BingoBolla"]{width:38px;height:38px;}
+  .rm-rname{order:0;flex:1 1 58px;min-width:46px;padding-left:0;margin-top:0;}
+  .rm-n{font-size:13px;}
+  .rm-s{font-size:10px;margin-top:1px;}
+  .rm-cur{padding:5px 4px 5px 7px;max-width:72px;gap:4px;}
+  .rm-cur.rm-mag{max-width:78px;}
+  .rm-cur svg{width:14px;height:14px;}
+  .rm-p{width:18px;height:18px;font-size:12px;}
+  .rm-a{font-size:11px;}
+  .rm-dock{padding:4px 10px 8px;gap:6px;}
+  .rm-dockBtn{border-radius:11px;padding:7px 6px;grid-template-columns:20px minmax(0,1fr);}
+  .rm-dockIcon{width:20px;height:20px;border-radius:7px;}
+  .rm-dockLabel{font-size:10px;}
+  .rm-dockMeta{font-size:8px;}
+  .rm-dockValue{font-size:12px;}
+  .rm-cardOpsItem{flex-basis:86px;padding:9px 8px;gap:2px 5px;}
+  .rm-cardOpsItem b{font-size:16px;}
+  .rm-cardOpsItem span{font-size:9px;}
+  .rm-status{gap:7px;padding:8px 10px 10px;}
+  .rm-pill{padding:9px 8px;font-size:11px;justify-content:center;text-align:center;}
+  .rm-jp{align-items:center;}
   .rm-stageLogo{display:none;}
   .rm-buyHd{flex-direction:column;}
   .rm-buyState{width:100%;}
-  .rm-players{left:20px;top:92px;width:138px;}
-  .rm-chat{right:20px;top:92px;width:160px;}
-  .rm-stage{height:280px;}
+  .rm-players{left:14px;top:74px;width:min(42vw,148px);}
+  .rm-chat{right:14px;top:102px;width:min(45vw,174px);height:184px;}
+  .rm-chatDock{margin-left:10px;margin-right:10px;min-height:calc(100dvh - 250px);}
+  .rm-chatDock .rm-chatBody{min-height:220px;}
+  .rm-stage{height:248px;}
+  .rm-toast{top:auto;bottom:calc(98px + env(safe-area-inset-bottom,0px));}
+}
+@media(max-width:520px){
+  .rm-root{padding-bottom:calc(164px + env(safe-area-inset-bottom,0px));}
+  .rm-cards{grid-template-columns:1fr;gap:12px;}
+  .rm-card{padding:14px;border-radius:16px;}
+  .rm-cardN{font-size:17px;}
+  .rm-cardRf{font-size:12px;}
+  .rm-cardGrid{gap:6px;}
+  .rm-gh{font-size:18px;border-radius:10px;}
+  .rm-gn{font-size:20px;border-radius:10px;}
+  .rm-card90Grid{gap:3px;}
+  .rm-card90 .rm-gn{font-size:11px;border-radius:6px;}
+  .rm-viewCards .rm-card{flex-basis:min(84vw,330px);}
+}
+@media(max-width:390px){
+  .rm-status{grid-template-columns:1fr;gap:6px;}
+  .rm-pill{justify-content:center;}
+  .rm-dock{gap:5px;}
+  .rm-dockBtn{padding:7px 5px;}
+  .rm-dockMeta{display:none;}
+  .rm-players{width:132px;}
+  .rm-chat{width:158px;}
+  .rm-gn{font-size:18px;}
+  .rm-buybig{font-size:14px;}
 }
 @media(prefers-reduced-motion:reduce){
   .rm-root *, .rm-root *:before, .rm-root *:after{

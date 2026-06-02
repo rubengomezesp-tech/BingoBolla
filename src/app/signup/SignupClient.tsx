@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function SignupClient() {
   const router = useRouter();
-  const supabase = createClient();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +39,7 @@ export default function SignupClient() {
     }
 
     setLoading(true);
+    const supabase = createClient();
     const referralCode =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("ref")?.slice(0, 80)

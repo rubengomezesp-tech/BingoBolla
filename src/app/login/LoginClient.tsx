@@ -10,7 +10,6 @@ type Mode = "password" | "magic";
 export default function LoginClient() {
   const router = useRouter();
   const params = useSearchParams();
-  const supabase = createClient();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +23,7 @@ export default function LoginClient() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
@@ -38,6 +38,7 @@ export default function LoginClient() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

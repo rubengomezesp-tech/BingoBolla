@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
    Email + contraseña con Supabase auth */
 
 export default function Login() {
-  const sb = createClient();
   const [mode, setMode] = useState<"in"|"up">("in");
   const [email, setEmail] = useState("");
   const [pass, setPass]   = useState("");
@@ -17,6 +16,7 @@ export default function Login() {
   const submit = async () => {
     setErr(""); setBusy(true);
     try {
+      const sb = createClient();
       if (mode === "in") {
         const { error } = await sb.auth.signInWithPassword({ email, password: pass });
         if (error) throw error;
@@ -47,34 +47,36 @@ export default function Login() {
         <a href="/" className="logo"><b>BINGO</b><em>BOLLA</em></a>
         <p className="tag">PLAY · WIN · BELONG</p>
 
-        <div className="tabs">
-          <button className={mode==="in"?"on":""}  onClick={()=>{setMode("in");setErr("")}}>Entrar</button>
-          <button className={mode==="up"?"on":""}  onClick={()=>{setMode("up");setErr("")}}>Crear cuenta</button>
-        </div>
+        <form onSubmit={(event)=>{event.preventDefault();void submit();}}>
+          <div className="tabs">
+            <button type="button" className={mode==="in"?"on":""}  onClick={()=>{setMode("in");setErr("")}}>Entrar</button>
+            <button type="button" className={mode==="up"?"on":""}  onClick={()=>{setMode("up");setErr("")}}>Crear cuenta</button>
+          </div>
 
-        {mode==="up" && (
+          {mode==="up" && (
+            <label className="fld">
+              <span>Nombre de jugador</span>
+              <input value={name} onChange={e=>setName(e.target.value)}
+                placeholder="BingoStar" autoComplete="nickname"/>
+            </label>
+          )}
           <label className="fld">
-            <span>Nombre de jugador</span>
-            <input value={name} onChange={e=>setName(e.target.value)}
-              placeholder="BingoStar" autoComplete="nickname"/>
+            <span>Email</span>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+              placeholder="tu@email.com" autoComplete="email"/>
           </label>
-        )}
-        <label className="fld">
-          <span>Email</span>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
-            placeholder="tu@email.com" autoComplete="email"/>
-        </label>
-        <label className="fld">
-          <span>Contraseña</span>
-          <input type="password" value={pass} onChange={e=>setPass(e.target.value)}
-            placeholder="••••••••" autoComplete={mode==="in"?"current-password":"new-password"}/>
-        </label>
+          <label className="fld">
+            <span>Contraseña</span>
+            <input type="password" value={pass} onChange={e=>setPass(e.target.value)}
+              placeholder="••••••••" autoComplete={mode==="in"?"current-password":"new-password"}/>
+          </label>
 
-        {err && <div className="err">{err}</div>}
+          {err && <div className="err">{err}</div>}
 
-        <button className="btn gold" disabled={busy} onClick={submit}>
-          {busy ? "Un momento…" : mode==="in" ? "ENTRAR A JUGAR →" : "CREAR CUENTA →"}
-        </button>
+          <button className="btn gold" type="submit" disabled={busy}>
+            {busy ? "Un momento…" : mode==="in" ? "ENTRAR A JUGAR →" : "CREAR CUENTA →"}
+          </button>
+        </form>
 
         {mode==="in" && <a href="/reset" className="forgot">¿Olvidaste tu contraseña?</a>}
 

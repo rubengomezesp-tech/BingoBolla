@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { UUID_RE, apiError, readJsonRecord } from "@/lib/server/api";
 import { stripeAdapter } from "@/lib/payments/stripe";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,28 +15,18 @@ function getCanonicalOrigin() {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { package_id } = await req.json();
-    if (!package_id) {
-      return NextResponse.json({ error: "package_id required" }, { status: 400 });
+    const body = await readJsonRecord(req);
+    const packageId = String(body?.package_id ?? "");
+    if (!UUID_RE.test(packageId)) {
+      return apiError("invalid_package_id", 400);
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return cookieStore.get(name)?.value; },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
     }
 
@@ -44,12 +34,17 @@ export async function POST(req: NextRequest) {
     const { data: pkg, error: pkgError } = await supabase
       .from("coin_packages")
       .select("*")
-      .eq("id", package_id)
+      .eq("id", packageId)
       .eq("active", true)
       .single();
 
     if (pkgError || !pkg) {
       return NextResponse.json({ error: "package_not_found" }, { status: 404 });
+    }
+
+    const priceCents = Math.round(Number(pkg.price_usd) * 100);
+    if (!Number.isFinite(priceCents) || priceCents <= 0) {
+      return apiError("invalid_package_price", 400);
     }
 
     const origin = getCanonicalOrigin();
@@ -60,17 +55,14 @@ export async function POST(req: NextRequest) {
       packageId: pkg.id,
       packageSku: pkg.sku,
       packageName: pkg.name,
-      priceCents: Math.round(Number(pkg.price_usd) * 100),
+      priceCents,
       successUrl: `${origin}/store/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${origin}/store`,
     });
 
     return NextResponse.json({ url: session.url, id: session.id });
-  } catch (err: any) {
-    console.error("Checkout error:", err);
-    return NextResponse.json(
-      { error: err.message ?? "checkout_error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("[checkout]", err);
+    return apiError("checkout_error", 500);
   }
 }
