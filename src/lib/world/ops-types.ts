@@ -120,3 +120,64 @@ export type WorldOpsPayload = {
     xp_awarded: number;
   }>;
 };
+
+export type WorldTuningScalarSet = {
+  gold_per_star: number;
+  max_stars: number;
+  reward_gold: number;
+  reward_pressure: number;
+  reward_xp: number;
+  xp_per_star: number;
+};
+
+export type WorldTuningImpact = {
+  after: WorldTuningScalarSet;
+  before: WorldTuningScalarSet;
+  changed_fields: Array<"reward_xp" | "reward_gold" | "max_stars">;
+  delta: {
+    gold_per_star: number;
+    max_stars: number;
+    reward_gold: number;
+    reward_pressure: number;
+    reward_pressure_pct: number;
+    reward_xp: number;
+    xp_per_star: number;
+  };
+  game: string;
+  guardrails: Array<{
+    detail: string;
+    label: string;
+    tone: "safe" | "watch" | "danger";
+  }>;
+  node_id: string;
+  node_index: number;
+  node_type: string;
+  reason: string;
+  title: string;
+  world_id: string;
+};
+
+export type WorldTuningAuditNodeValues = {
+  active: boolean;
+  gold_per_star: number;
+  max_stars: number;
+  node_index: number;
+  node_type: string;
+  reward_gold: number;
+  reward_xp: number;
+  target_ref: string | null;
+  title: string;
+  world_id: string;
+  xp_per_star: number;
+};
+
+export type WorldTuningAuditEntry = {
+  action: "apply";
+  after: WorldTuningAuditNodeValues;
+  before: WorldTuningAuditNodeValues;
+  created_at: string;
+  id: string;
+  node_id: string;
+  reason: string;
+  world_id: string;
+};
