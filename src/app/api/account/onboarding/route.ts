@@ -11,19 +11,44 @@ export const dynamic = "force-dynamic";
 
 const STATE_RE = /^[A-Z]{2}$/;
 const COUNTRY_RE = /^[A-Z]{2}$/;
+const MINIMUM_AGE = 21;
 
 function readIsoDate(value: unknown) {
   const date = String(value ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return null;
 
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
   const parsed = new Date(`${date}T00:00:00.000Z`);
   if (!Number.isFinite(parsed.getTime())) return null;
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
 
-  const year = parsed.getUTCFullYear();
-  const nowYear = new Date().getUTCFullYear();
-  if (year < 1900 || year > nowYear) return null;
+  const now = new Date();
+  if (year < 1900 || parsed.getTime() > now.getTime()) return null;
 
   return date;
+}
+
+function calculateAge(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const now = new Date();
+  let age = now.getUTCFullYear() - year;
+  const currentMonth = now.getUTCMonth() + 1;
+  const currentDay = now.getUTCDate();
+
+  if (currentMonth < month || (currentMonth === month && currentDay < day)) {
+    age -= 1;
+  }
+
+  return age;
 }
 
 export async function POST(request: Request) {
@@ -42,6 +67,10 @@ export async function POST(request: Request) {
 
   if (!dateOfBirth || !STATE_RE.test(state) || !COUNTRY_RE.test(country)) {
     return apiError("invalid_onboarding", 400);
+  }
+
+  if (calculateAge(dateOfBirth) < MINIMUM_AGE) {
+    return apiError("underage", 400);
   }
 
   const { data, error } = await service.supabase.rpc("service_submit_onboarding", {

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const protectedRoutes = ["/lobby", "/mundos", "/account", "/invitar"] as const;
+const protectedRoutes = ["/lobby", "/mundos", "/account", "/invitar", "/onboarding"] as const;
 const e2eEmail = process.env.E2E_USER_EMAIL;
 const e2ePassword = process.env.E2E_USER_PASSWORD;
 
@@ -11,6 +11,7 @@ test.describe("BingoBolla smoke", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await expect(page).toHaveTitle(/BingoBolla/);
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Bingo social/);
+    await expect(page.getByText("21+").first()).toBeVisible();
   });
 
   test("login renders the current email/password auth form", async ({ page }) => {
@@ -32,6 +33,9 @@ test.describe("BingoBolla smoke", () => {
     await expect(page.getByRole("heading", { name: /crea tu cuenta/i })).toBeVisible();
     await expect(page.getByText(/invitacion activa/i)).toBeVisible();
     await expect(page.getByText("miami_crew")).toBeVisible();
+    await expect(page.getByText(/21 años o más/i)).toBeVisible();
+    await expect(page.getByText(/acepto los/i)).toBeVisible();
+    await expect(page.getByRole("checkbox")).toHaveCount(2);
   });
 
   for (const route of protectedRoutes) {

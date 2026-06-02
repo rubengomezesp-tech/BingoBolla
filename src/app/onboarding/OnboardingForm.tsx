@@ -11,14 +11,21 @@ const US_STATES = [
   "VA","WA","WV","WI","WY","DC",
 ];
 const EXCLUDED = ["WA", "ID", "NV", "MI"];
+const MINIMUM_AGE = 21;
 
 const ERROR_LABELS: Record<string, string> = {
-  not_authenticated: "Session expired. Sign in again.",
-  unsupported_country: "US only for now.",
-  invalid_state: "Invalid state.",
-  underage: "You must be 18 or older.",
-  state_blocked: "Your state isn't supported (WA, ID, NV, MI).",
+  not_authenticated: "Sesión expirada. Inicia sesión otra vez.",
+  unsupported_country: "Por ahora solo está disponible en USA.",
+  invalid_state: "Estado inválido.",
+  underage: "Debes tener 21 años o más.",
+  state_blocked: "Tu estado todavía no está disponible (WA, ID, NV, MI).",
 };
+
+function maxBirthDateForMinimumAge() {
+  const today = new Date();
+  const cutoff = new Date(Date.UTC(today.getUTCFullYear() - MINIMUM_AGE, today.getUTCMonth(), today.getUTCDate()));
+  return cutoff.toISOString().split("T")[0];
+}
 
 export default function OnboardingForm({
   suggestedState,
@@ -78,34 +85,34 @@ export default function OnboardingForm({
 
         <div className="card glass p-8">
           <div className="font-mono text-xs uppercase tracking-[0.2em] text-[var(--color-magenta)] mb-2">
-            Step 1 of 1
+            Paso 1 de 1
           </div>
           <h1 className="font-display text-4xl mb-2">
-            Almost there, <span className="italic-serif">{username}</span>
+            Ya casi, <span className="italic-serif">{username}</span>
           </h1>
           <p className="text-[var(--color-fg-dim)] mb-8">
-            Quick legal verification (30 seconds). Required by US sweepstakes law.
+            Verificación legal rápida. Necesaria para activar tu cuenta sweepstakes en USA.
           </p>
 
           <form onSubmit={submit} className="space-y-5">
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">
-                Date of birth
+                Fecha de nacimiento
               </label>
               <input
                 type="date"
                 required
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
-                max={new Date(Date.now() - 18 * 365.25 * 24 * 3600 * 1000).toISOString().split("T")[0]}
+                max={maxBirthDateForMinimumAge()}
                 className="input"
               />
-              <div className="text-xs text-[var(--color-fg-muted)] mt-1.5">18+ only</div>
+              <div className="text-xs text-[var(--color-fg-muted)] mt-1.5">Solo 21+</div>
             </div>
 
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">
-                State of residence
+                Estado de residencia
               </label>
               <select
                 required
@@ -115,20 +122,20 @@ export default function OnboardingForm({
               >
                 {US_STATES.map((s) => (
                   <option key={s} value={s} disabled={EXCLUDED.includes(s)} className="bg-[var(--color-surface)]">
-                    {s} {EXCLUDED.includes(s) ? "(not available)" : ""}
+                    {s} {EXCLUDED.includes(s) ? "(no disponible)" : ""}
                   </option>
                 ))}
               </select>
               {suggestedState && (
                 <div className="text-xs text-[var(--color-fg-muted)] mt-1.5">
-                  Detected {suggestedState} from your IP — change if not correct.
+                  Detectamos {suggestedState} por tu IP. Cambialo si no es correcto.
                 </div>
               )}
             </div>
 
             {isBlocked && (
               <div className="text-sm text-[var(--color-magenta)] bg-[var(--color-magenta)]/10 border border-[var(--color-magenta)]/30 rounded-xl px-4 py-3">
-                ⚠️ Sorry — BingoBolla isn't available in {state} yet. Excluded: WA, ID, NV, MI.
+                BingoBolla todavía no está disponible en {state}. Estados excluidos: WA, ID, NV, MI.
               </div>
             )}
 
@@ -143,15 +150,15 @@ export default function OnboardingForm({
               disabled={loading || isBlocked || !dob}
               className="btn btn-primary w-full text-base py-4 disabled:opacity-40"
             >
-              {loading ? "Verifying..." : "Continue →"}
+              {loading ? "Verificando..." : "Continuar"}
             </button>
           </form>
 
           <details className="mt-6 pt-6 border-t border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">
-            <summary className="cursor-pointer hover:text-white">Why do you need this?</summary>
+            <summary className="cursor-pointer hover:text-white">¿Por qué pedimos esto?</summary>
             <p className="mt-2 leading-relaxed">
-              US sweepstakes law requires age (18+) and state verification. We don't sell your data.
-              For prizes over $500 we'll later ask for photo ID via Persona (industry standard).
+              El modelo sweepstakes requiere verificar edad 21+ y estado de residencia. No vendemos tus datos.
+              Para premios grandes podremos pedir verificación adicional mediante un proveedor KYC.
             </p>
           </details>
         </div>

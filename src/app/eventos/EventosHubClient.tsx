@@ -297,7 +297,7 @@ export default function EventosHubClient({ daily }: { daily: EventosDailyStatus 
                 <div className="eh-panelGrid">
                   <PanelLink href="/account/limits" icon={ShieldCheck} title="Limites" text="Configura presupuesto y ritmo." value="Seguro" />
                   <PanelLink href="/account" icon={CheckCircle2} title="Cuenta" text="KYC, saldo y estado de jugador." value="Perfil" />
-                  <PanelLink href="/auto-exclusion" icon={Clock3} title="Pausa" text="Herramienta responsable de autoexclusión." value="18+" />
+                  <PanelLink href="/auto-exclusion" icon={Clock3} title="Pausa" text="Herramienta responsable de autoexclusión." value="21+" />
                 </div>
               </>
             )}

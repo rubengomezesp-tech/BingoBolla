@@ -186,7 +186,7 @@ export default function Home() {
             </Link>
           </div>
           <div className="hero-trust" aria-label="Condiciones principales">
-            <span>18+</span>
+            <span>21+</span>
             <span>No purchase necessary</span>
             <span>Gold Coins sin valor monetario</span>
           </div>
@@ -297,7 +297,7 @@ export default function Home() {
         <Image src="/icons/logo-header.png" alt="" width={54} height={45} />
         <p>
           BingoBolla opera bajo un modelo de sweepstakes. No es necesario comprar para jugar ni ganar.
-          Solo mayores de 18 años. Juega de forma responsable.
+          Solo mayores de 21 años. Juega de forma responsable.
         </p>
       </footer>
     </main>

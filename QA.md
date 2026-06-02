@@ -75,3 +75,23 @@ P6 deploy producción `dpl_EyMCuB6NqCQkpDd8oWj9qNbZhgwv` quedó `Ready` y aliasa
 `https://www.bingobolla.com`. Smoke contra producción:
 `E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke` terminó con 10 tests OK y
 1 omitido por falta de credenciales E2E.
+
+## P7 signup/onboarding
+
+P7 alinea el alta completa a 21+ en UI, API y migración SQL. `/signup` envía el callback de email a
+`/auth/callback?next=/onboarding`, conserva referral y persiste evidencia inicial de +21/términos en
+metadata para que `handle_new_user` la copie a `profiles`.
+
+La migración `20260602220728_p7_onboarding_age_and_referral_activation.sql`:
+- añade `profiles.signup_age_gate_confirmed`, `profiles.terms_accepted_at` y `profiles.terms_version`;
+- redefine `submit_onboarding` para exigir 21+;
+- marca `community_referrals.status = 'onboarded'` y `activated_at` al completar onboarding;
+- hace backfill de referidos ya onboarded.
+
+Verificación local P7:
+- `npx tsc --noEmit`: OK.
+- `git diff --check`: OK.
+- `npm run build`: OK.
+- `npm run test:e2e:smoke`: 11 tests OK y 1 omitido por falta de credenciales E2E.
+- `supabase migration list --local` y `supabase db lint --local` no pudieron ejecutarse porque no hay
+  Postgres local en `127.0.0.1:54322`; `psql` tampoco está instalado.

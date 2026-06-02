@@ -5,7 +5,7 @@ import { AuroraBackground, FloatingBubbles } from "@/components/FloatingBubbles"
 
 export const metadata: Metadata = {
   title: "BingoBolla — Bingo social con mundos, premios y comunidad",
-  description: "Bingo social, mundos jugables, premios y juego responsable para mayores de 18 años.",
+  description: "Bingo social, mundos jugables, premios y juego responsable para mayores de 21 años.",
 };
 
 export default function RootLayout({

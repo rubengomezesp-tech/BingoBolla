@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+const TERMS_VERSION = "2026-06-02";
+
 export default function SignupClient() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -49,8 +51,15 @@ export default function SignupClient() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: referralCode ? { username, referral_code: referralCode } : { username },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        data: {
+          username,
+          ...(referralCode ? { referral_code: referralCode } : {}),
+          age_gate_confirmed: true,
+          terms_accepted: true,
+          terms_accepted_at: new Date().toISOString(),
+          terms_version: TERMS_VERSION,
+        },
       },
     });
     setLoading(false);

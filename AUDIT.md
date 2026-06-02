@@ -89,6 +89,10 @@ La capa social empieza por invitaciones medibles: `/invitar` muestra código, en
 
 Deploy producción `dpl_EyMCuB6NqCQkpDd8oWj9qNbZhgwv` quedó `Ready`; el smoke público contra `https://www.bingobolla.com` pasó con 10 tests OK y 1 omitido por falta de credenciales E2E.
 
+## Registro y onboarding P7
+
+P7 cierra la grieta entre registro y onboarding: el alta, la API BFF y la migración SQL quedan en 21+. El callback de confirmación de email apunta directo a `/onboarding`; `profiles` guarda evidencia de age gate/términos; y el ledger `community_referrals` pasa a `onboarded` cuando el referido completa onboarding. La verificación local pasó con build OK y smoke 11 OK / 1 omitido. La SQL queda pendiente de aplicar manualmente en Supabase producción antes de cerrar smoke público P7.
+
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.

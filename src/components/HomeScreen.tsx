@@ -456,7 +456,7 @@ export default function HomeScreen({
                     <span>Control</span>
                     <ShieldCheck size={19} aria-hidden="true" />
                   </div>
-                  <p>18+, no purchase necessary y límites disponibles desde tu cuenta.</p>
+                  <p>21+, no purchase necessary y límites disponibles desde tu cuenta.</p>
                   <button className="lp-secondary full" type="button" onClick={() => router.push("/account/limits")}>
                     Configurar límites
                   </button>

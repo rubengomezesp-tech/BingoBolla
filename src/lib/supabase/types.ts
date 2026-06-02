@@ -4,7 +4,12 @@ export type Profile = {
   referral_code?: string;
   display_name: string | null;
   state: string | null;
+  country?: string | null;
+  date_of_birth?: string | null;
   age_verified: boolean;
+  signup_age_gate_confirmed?: boolean;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
   gold_coins: number;
   sweeps_coins: number;
   total_won_sweeps: number;
