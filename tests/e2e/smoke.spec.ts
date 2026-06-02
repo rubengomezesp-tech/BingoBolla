@@ -23,6 +23,7 @@ test.describe("BingoBolla smoke", () => {
     await expect(page.getByLabel(/Contraseña/)).toBeVisible();
     await expect(page.getByRole("button", { name: /iniciar sesión/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /regístrate/i })).toHaveAttribute("href", "/signup");
+    await expect(page.getByRole("button", { name: /^Crear cuenta$/ })).toHaveCount(0);
   });
 
   test("signup invite links keep the referral code visible", async ({ page }) => {

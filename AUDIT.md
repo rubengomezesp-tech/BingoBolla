@@ -87,6 +87,8 @@ La capa social empieza por invitaciones medibles: `/invitar` muestra código, en
 
 `/login` reutiliza el flujo canónico de acceso con contraseña y Magic Link. El alta inline heredada se eliminó para que toda cuenta nueva pase por `/signup`, manteniendo referral, confirmación +21 y aceptación de términos en el mismo camino de producción.
 
+Deploy producción `dpl_EyMCuB6NqCQkpDd8oWj9qNbZhgwv` quedó `Ready`; el smoke público contra `https://www.bingobolla.com` pasó con 10 tests OK y 1 omitido por falta de credenciales E2E.
+
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.

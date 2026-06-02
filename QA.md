@@ -70,3 +70,8 @@ confirmación +21 y aceptación de términos.
 El smoke valida que `/login` muestra `Contraseña`, `Magic Link`, `Iniciar sesión` y que `Regístrate`
 apunta a `/signup`. También conserva la prueba de `/signup?ref=...` para confirmar que el código de
 invitación sigue visible.
+
+P6 deploy producción `dpl_EyMCuB6NqCQkpDd8oWj9qNbZhgwv` quedó `Ready` y aliasado a
+`https://www.bingobolla.com`. Smoke contra producción:
+`E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke` terminó con 10 tests OK y
+1 omitido por falta de credenciales E2E.
