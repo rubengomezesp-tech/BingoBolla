@@ -17,11 +17,12 @@ test.describe("BingoBolla smoke", () => {
     await page.goto("/login");
 
     await expect(page.getByRole("link", { name: /bingobolla/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Entrar$/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Crear cuenta$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Contraseña$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Magic Link$/ })).toBeVisible();
     await expect(page.getByLabel(/^Email$/)).toBeVisible();
-    await expect(page.getByLabel(/^Contraseña$/)).toBeVisible();
-    await expect(page.getByRole("button", { name: /entrar a jugar/i })).toBeVisible();
+    await expect(page.getByLabel(/Contraseña/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /iniciar sesión/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /regístrate/i })).toHaveAttribute("href", "/signup");
   });
 
   test("signup invite links keep the referral code visible", async ({ page }) => {
@@ -37,7 +38,7 @@ test.describe("BingoBolla smoke", () => {
       await page.goto(route);
 
       await expect(page).toHaveURL(/\/login$/);
-      await expect(page.getByRole("button", { name: /entrar a jugar/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /iniciar sesión/i })).toBeVisible();
     });
   }
 
@@ -73,19 +74,19 @@ test.describe("BingoBolla smoke", () => {
 
     await page.goto("/login");
     await page.getByLabel(/^Email$/).fill(e2eEmail ?? "");
-    await page.getByLabel(/^Contraseña$/).fill(e2ePassword ?? "");
-    await page.getByRole("button", { name: /entrar a jugar/i }).click();
+    await page.getByLabel(/Contraseña/).fill(e2ePassword ?? "");
+    await page.getByRole("button", { name: /iniciar sesión/i }).click();
 
     await page.waitForURL(/\/(lobby|onboarding)(?:$|\?)/);
     test.skip(page.url().includes("/onboarding"), "Authenticated user is valid but still needs onboarding.");
 
     await page.goto("/lobby");
     await expect(page).not.toHaveURL(/\/login$/);
-    await expect(page.locator("body")).not.toContainText(/entrar a jugar/i);
+    await expect(page.locator("body")).not.toContainText(/iniciar sesión/i);
 
     await page.goto("/mundos");
     await expect(page).not.toHaveURL(/\/login$/);
-    await expect(page.locator("body")).not.toContainText(/entrar a jugar/i);
+    await expect(page.locator("body")).not.toContainText(/iniciar sesión/i);
 
     await page.goto("/account");
     await expect(page).not.toHaveURL(/\/login$/);

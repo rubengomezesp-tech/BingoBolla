@@ -60,3 +60,13 @@ P5 aplicado manualmente en Supabase producción el 2026-06-02:
 
 En esta rama no se pudo ejecutar `supabase db lint --local` porque no hay Postgres local en
 `127.0.0.1:54322`, Docker no está disponible y el repo no está linkeado con un project ref de Supabase.
+
+## P6 auth entrypoint
+
+`/login` usa el cliente canónico de acceso con contraseña y Magic Link. La creación de cuentas ya no
+existe inline en `/login`: el enlace de registro apunta a `/signup`, donde se preservan referral,
+confirmación +21 y aceptación de términos.
+
+El smoke valida que `/login` muestra `Contraseña`, `Magic Link`, `Iniciar sesión` y que `Regístrate`
+apunta a `/signup`. También conserva la prueba de `/signup?ref=...` para confirmar que el código de
+invitación sigue visible.
