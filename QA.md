@@ -95,3 +95,12 @@ Verificación local P7:
 - `npm run test:e2e:smoke`: 11 tests OK y 1 omitido por falta de credenciales E2E.
 - `supabase migration list --local` y `supabase db lint --local` no pudieron ejecutarse porque no hay
   Postgres local en `127.0.0.1:54322`; `psql` tampoco está instalado.
+
+P7 aplicado manualmente en Supabase producción el 2026-06-02:
+- `profiles.signup_age_gate_confirmed` existe.
+- `submit_onboarding(date,text,text)` exige `v_age < 21`.
+- `handle_new_user()` persiste `terms_accepted_at`.
+- Deploy producción `dpl_8wGqTWZ2ftm6HcprCYC8XqgyooLK` quedó `Ready` y aliasado a
+  `https://www.bingobolla.com`.
+- Smoke contra producción: `E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke`
+  terminó con 11 tests OK y 1 omitido por falta de credenciales E2E.
