@@ -37,12 +37,19 @@ Al 2026-06-02, `next@latest` sigue en `postcss@8.4.31`; `next@canary` ya usa
 `postcss@8.5.10`. No se recomienda `npm audit fix --force` porque propone un cambio
 incompatible de Next. Revalidar cuando Next estable incluya `postcss@8.5.10` o superior.
 
-## P4 community referrals
+## P4/P5 community referrals
 
 La migración `20260602211419_community_referrals.sql` crea la base server-only de referidos:
 `profiles.referral_code`, `community_referrals`, trigger de signup desde `referral_code` y RPC
-`service_get_community_referral_stats`. Hasta aplicar la migración en Supabase producción, `/invitar`
-usa fallback local y muestra que las métricas están pendientes.
+`service_get_community_referral_stats`.
+
+P5 aplicado manualmente en Supabase producción el 2026-06-02:
+- `profiles.referral_code` existe.
+- `community_referrals` existe.
+- `profiles_total = 4`.
+- `profiles_without_referral_code = 0`.
+- `distinct_referral_codes = 4`.
+- `service_get_community_referral_stats(id)` devuelve `ok: true` con `referral_code`.
 
 En esta rama no se pudo ejecutar `supabase db lint --local` porque no hay Postgres local en
 `127.0.0.1:54322`, Docker no está disponible y el repo no está linkeado con un project ref de Supabase.
