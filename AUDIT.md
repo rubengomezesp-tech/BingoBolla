@@ -79,6 +79,10 @@ Esto cubre login, protección de `/lobby`, `/mundos`, `/account`, aliases de jue
 
 Los backups `.bak*`, scripts `install_*.sh` y el prototipo legacy USA Puzzle Tour se movieron a `archive/legacy-p3/`. La app activa queda en el proyecto Next.js raíz, `src/`, `public/`, `supabase/` y la configuración asociada.
 
+## Comunidad P4
+
+La capa social empieza por invitaciones medibles: `/invitar` muestra código, enlace, progreso y últimos registros; `/signup?ref=` conserva el código; la migración P4 registra referidos en Supabase con acceso server-only. Falta aplicar la migración en producción para activar métricas reales.
+
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.

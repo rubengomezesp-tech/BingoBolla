@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +16,11 @@ export default function SignupClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReferralCode(readReferralCode(new URLSearchParams(window.location.search).get("ref")));
+  }, []);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -40,10 +45,6 @@ export default function SignupClient() {
 
     setLoading(true);
     const supabase = createClient();
-    const referralCode =
-      typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search).get("ref")?.slice(0, 80)
-        : null;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -89,6 +90,11 @@ export default function SignupClient() {
             <span className="italic-serif">Crea tu cuenta</span>
           </h1>
           <p className="text-[var(--color-fg-dim)] text-sm mb-6">Empieza a jugar en segundos</p>
+          {referralCode && (
+            <div className="mb-5 rounded-2xl border border-[var(--color-violet)]/35 bg-[var(--color-violet)]/10 px-4 py-3 text-sm font-semibold text-white/76">
+              Invitacion activa <span className="font-mono text-[var(--color-violet)]">{referralCode}</span>
+            </div>
+          )}
 
           {sent ? (
             <div className="card p-5 border-[var(--color-emerald)]/40 bg-[var(--color-emerald)]/5 text-center">
@@ -212,6 +218,16 @@ export default function SignupClient() {
       </div>
     </div>
   );
+}
+
+function readReferralCode(value: string | null): string | null {
+  const code = String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48);
+
+  return /^[a-z0-9_]{3,48}$/.test(code) ? code : null;
 }
 
 function translateError(msg: string): string {

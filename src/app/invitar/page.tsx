@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 import { HeartHandshake, Share2, UsersRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import {
+  buildCommunityReferralUrl,
+  loadCommunityReferralStats,
+  normalizeCommunityReferralCode,
+} from "@/lib/server/community";
 import WorldEventPage, { type WorldEventProfile } from "@/components/world-events/WorldEventPage";
 import InviteClient from "./InviteClient";
 
@@ -19,8 +24,9 @@ export default async function InvitarPage() {
     .eq("id", user.id)
     .single<WorldEventProfile>();
 
-  const referralCode = encodeURIComponent(profile?.username || user.id);
-  const referralUrl = `https://bingobolla.com/signup?ref=${referralCode}`;
+  const fallbackReferralCode = normalizeCommunityReferralCode(profile?.username ?? null, user.id);
+  const referralStats = await loadCommunityReferralStats(user.id, fallbackReferralCode);
+  const referralUrl = buildCommunityReferralUrl(referralStats.referralCode);
 
   return (
     <WorldEventPage
@@ -31,7 +37,7 @@ export default async function InvitarPage() {
       accent="#b388ff"
       heroArt={<InviteArt />}
     >
-      <InviteClient referralUrl={referralUrl} username={profile?.username ?? "player"} />
+      <InviteClient referralUrl={referralUrl} referralStats={referralStats} username={profile?.username ?? "player"} />
     </WorldEventPage>
   );
 }

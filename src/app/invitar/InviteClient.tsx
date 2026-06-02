@@ -2,29 +2,47 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Copy, MessageCircle, Share2, Sparkles, UsersRound } from "lucide-react";
+import { Check, Copy, MessageCircle, Share2, Sparkles, Trophy, UsersRound } from "lucide-react";
+import type { CommunityReferralStats } from "@/lib/server/community";
 
-export default function InviteClient({ referralUrl, username }: { referralUrl: string; username: string }) {
+export default function InviteClient({
+  referralStats,
+  referralUrl,
+  username,
+}: {
+  referralStats: CommunityReferralStats;
+  referralUrl: string;
+  username: string;
+}) {
   const [copied, setCopied] = useState(false);
+  const progress = Math.min(100, Math.round((referralStats.totalRegistered / referralStats.nextGoal) * 100));
   const whatsappUrl = useMemo(() => {
     const text = encodeURIComponent(`Estoy jugando BingoBolla Miami Nights. Entra conmigo: ${referralUrl}`);
     return `https://wa.me/?text=${text}`;
   }, [referralUrl]);
 
   async function copyLink() {
-    await navigator.clipboard?.writeText(referralUrl);
+    try {
+      await navigator.clipboard?.writeText(referralUrl);
+    } catch {
+      // Clipboard can be blocked by browser permissions; keep the UI usable.
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
 
   async function shareLink() {
     if (navigator.share) {
-      await navigator.share({
-        title: "BingoBolla",
-        text: "Juega BingoBolla conmigo",
-        url: referralUrl,
-      });
-      return;
+      try {
+        await navigator.share({
+          title: "BingoBolla",
+          text: "Juega BingoBolla conmigo",
+          url: referralUrl,
+        });
+        return;
+      } catch {
+        return;
+      }
     }
     await copyLink();
   }
@@ -76,15 +94,41 @@ export default function InviteClient({ referralUrl, username }: { referralUrl: s
         <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-[#ff3d7f]/14 text-[#ff7ab0]">
           <Sparkles size={32} />
         </div>
-        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ff7ab0]">Siguiente capa</div>
+        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ff7ab0]">Comunidad</div>
         <div className="mt-2 text-3xl font-black">Racha social</div>
-        <p className="mt-3 text-sm font-semibold leading-6 text-white/62">
-          La pantalla queda lista para enchufar conteo de invitados, premios por amigo y chat de comunidad en la siguiente migración.
-        </p>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+          <div className="flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.14em] text-white/50">
+            <span>Meta {referralStats.nextGoal}</span>
+            <span>{referralStats.totalRegistered}/{referralStats.nextGoal}</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#ff3d7f,#ffd93d,#00e5ff)]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
         <div className="mt-6 grid grid-cols-3 gap-2">
-          <Milestone value="1" label="Amigo" />
-          <Milestone value="5" label="Racha" />
-          <Milestone value="+100" label="Objetivo" />
+          <Milestone value={String(referralStats.totalRegistered)} label="Invitados" />
+          <Milestone value={String(referralStats.onboarded)} label="Onboarding" />
+          <Milestone value={String(referralStats.pendingRewards)} label="Premios" />
+        </div>
+        <div className="mt-6 space-y-2">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/48">
+            <Trophy size={14} />
+            Ultimos registros
+          </div>
+          {referralStats.recentReferrals.length > 0 ? (
+            referralStats.recentReferrals.map((referral, index) => (
+              <ReferralRow key={`${referral.username}-${referral.joinedAt || index}`} referral={referral} />
+            ))
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-sm font-semibold text-white/54">
+              {referralStats.persisted
+                ? "Cuando alguien entre con tu enlace, aparecerá aquí."
+                : "Las métricas se activan al aplicar la migración P4 en Supabase."}
+            </div>
+          )}
         </div>
       </aside>
     </div>
@@ -96,6 +140,26 @@ function Milestone({ value, label }: { value: string; label: string }) {
     <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-center">
       <div className="text-xl font-black text-[#ffd93d]">{value}</div>
       <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/45">{label}</div>
+    </div>
+  );
+}
+
+function ReferralRow({
+  referral,
+}: {
+  referral: CommunityReferralStats["recentReferrals"][number];
+}) {
+  const statusLabel = referral.status === "onboarded" ? "Onboarding" : "Registrado";
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-2">
+      <div className="min-w-0">
+        <div className="truncate text-sm font-black text-white/84">{referral.username}</div>
+        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/38">{statusLabel}</div>
+      </div>
+      <div className="rounded-full border border-[#ffd93d]/20 bg-[#ffd93d]/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#ffe27a]">
+        {referral.rewardStatus === "pending" ? "Pend." : referral.rewardStatus}
+      </div>
     </div>
   );
 }

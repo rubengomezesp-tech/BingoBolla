@@ -14,6 +14,8 @@ El smoke valida:
 - `/login` renderiza el formulario actual de email y contraseña.
 - `/lobby`, `/mundos` y `/account` redirigen a `/login` cuando no hay sesión.
 - `/limites` y `/auto-exclusion` siguen redirigiendo a rutas canónicas.
+- `/signup?ref=...` mantiene visible el código de invitación normalizado.
+- `/amigos` redirige al flujo social canónico `/invitar`.
 - `manifest.webmanifest` y `sw.js` están disponibles.
 
 Para activar el recorrido autenticado:
@@ -34,3 +36,13 @@ E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke
 Al 2026-06-02, `next@latest` sigue en `postcss@8.4.31`; `next@canary` ya usa
 `postcss@8.5.10`. No se recomienda `npm audit fix --force` porque propone un cambio
 incompatible de Next. Revalidar cuando Next estable incluya `postcss@8.5.10` o superior.
+
+## P4 community referrals
+
+La migración `20260602211419_community_referrals.sql` crea la base server-only de referidos:
+`profiles.referral_code`, `community_referrals`, trigger de signup desde `referral_code` y RPC
+`service_get_community_referral_stats`. Hasta aplicar la migración en Supabase producción, `/invitar`
+usa fallback local y muestra que las métricas están pendientes.
+
+En esta rama no se pudo ejecutar `supabase db lint --local` porque no hay Postgres local en
+`127.0.0.1:54322`, Docker no está disponible y el repo no está linkeado con un project ref de Supabase.

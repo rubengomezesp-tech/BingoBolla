@@ -1,6 +1,7 @@
 export type Profile = {
   id: string;
   username: string;
+  referral_code?: string;
   display_name: string | null;
   state: string | null;
   age_verified: boolean;

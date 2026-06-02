@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-const protectedRoutes = ["/lobby", "/mundos", "/account"] as const;
+const protectedRoutes = ["/lobby", "/mundos", "/account", "/invitar"] as const;
 const e2eEmail = process.env.E2E_USER_EMAIL;
 const e2ePassword = process.env.E2E_USER_PASSWORD;
 
-test.describe("BingoBolla P1 smoke", () => {
+test.describe("BingoBolla smoke", () => {
   test("root document exposes Spanish metadata", async ({ page }) => {
     await page.goto("/");
 
@@ -24,6 +24,14 @@ test.describe("BingoBolla P1 smoke", () => {
     await expect(page.getByRole("button", { name: /entrar a jugar/i })).toBeVisible();
   });
 
+  test("signup invite links keep the referral code visible", async ({ page }) => {
+    await page.goto("/signup?ref=Miami Crew!");
+
+    await expect(page.getByRole("heading", { name: /crea tu cuenta/i })).toBeVisible();
+    await expect(page.getByText(/invitacion activa/i)).toBeVisible();
+    await expect(page.getByText("miami_crew")).toBeVisible();
+  });
+
   for (const route of protectedRoutes) {
     test(`${route} redirects signed-out users to login`, async ({ page }) => {
       await page.goto(route);
@@ -41,6 +49,13 @@ test.describe("BingoBolla P1 smoke", () => {
     expect(limits.headers().location).toBe("/account/limits");
     expect([307, 308]).toContain(exclusion.status());
     expect(exclusion.headers().location).toBe("/account/exclude");
+  });
+
+  test("legacy community alias redirects to invites", async ({ request }) => {
+    const friends = await request.get("/amigos", { maxRedirects: 0 });
+
+    expect([307, 308]).toContain(friends.status());
+    expect(friends.headers().location).toBe("/invitar");
   });
 
   test("public app shell assets stay available", async ({ request }) => {
