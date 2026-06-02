@@ -335,6 +335,7 @@ let nodes=[],targets=new Set(),blocked=new Set(),sourceKey="";
 let relaysLeft=0,relaysMax=0,relaysSteiner=0;
 let targetsLeft=0,targetsTotal=0,score=0;
 let bossIdx=0,puzzleIdx=0,busy=false,gameOver=false;
+let bossRunStartedAt=performance.now();
 let puzzleStars=[]; // estrellas por cada puzzle del boss level actual
 
 function currentBossLevel(){return BOSS_LEVELS[bossIdx]||20;}
@@ -606,6 +607,7 @@ async function endLevel(win){
         level: worldLevel,
         score: score,
         stars: stars,
+        duration_ms: Math.max(0, Math.round(performance.now() - bossRunStartedAt)),
         boss_level: currentBossLevel(),
         puzzle_index: puzzleIdx,
         puzzles_completed: 5,
@@ -684,6 +686,7 @@ function spawnNeuralStreaks(stars){
 function loadPuzzle(){
   const p=currentPuzzle();
   document.body.classList.remove("network-clear");
+  if(puzzleIdx===0) bossRunStartedAt=performance.now();
   relaysMax=p.relays;relaysLeft=p.relays;relaysSteiner=0;
   targetsTotal=p.tgts.length;targetsLeft=targetsTotal;
   score=0;busy=false;gameOver=false;

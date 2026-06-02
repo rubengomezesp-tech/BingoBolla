@@ -4,12 +4,14 @@ import {
   RUN_TOKEN_RE,
   UUID_RE,
   WORLD_ID,
+  buildWorldGameRunAudit,
   constantTimeEqual,
   createAdminClient,
   explicitGameForTarget,
   hashRunToken,
   isAllowedGame,
   isMissingGameRunsTableError,
+  isMissingRunAuditColumnError,
   isRecord,
   shouldRequireGameRun,
   validateWorldGameResult,
@@ -143,6 +145,7 @@ export async function POST(request: Request) {
       return jsonError(resultValidation.error, resultValidation.status);
     }
 
+    const runAudit = await buildWorldGameRunAudit({ body, game: effectiveGame });
     const incomingStars = resultValidation.stars;
     const attemptScore = resultValidation.score;
 
@@ -157,6 +160,28 @@ export async function POST(request: Request) {
     if (rewardError || !reward) {
       console.error("world node reward failed:", rewardError);
       return jsonError("progress_save_failed", 500);
+    }
+
+    if (runValidated && runAudit) {
+      const { error: auditError } = await adminDb
+        .from("world_game_runs")
+        .update({
+          attempt_hash: runAudit.attemptHash,
+          attempt_summary: runAudit.attemptSummary,
+          validation_risk: runAudit.validationRisk,
+          validation_flags: runAudit.validationFlags,
+          client_elapsed_ms: runAudit.clientElapsedMs,
+        })
+        .eq("id", runId)
+        .eq("player_id", user.id);
+
+      if (auditError) {
+        if (isMissingRunAuditColumnError(auditError)) {
+          console.warn("world_game_runs audit columns missing; run completed without audit persistence");
+        } else {
+          console.error("world_game_runs audit update failed:", auditError);
+        }
+      }
     }
 
     const [nextMapResult, xpRowsResult] = await Promise.all([
@@ -183,6 +208,13 @@ export async function POST(request: Request) {
       server_validated: true,
       run_validated: runValidated,
       run_id: runValidated ? runId : null,
+      audit: runAudit
+        ? {
+            risk: runAudit.validationRisk,
+            flags: runAudit.validationFlags,
+            attempt_hash: runAudit.attemptHash,
+          }
+        : null,
       map: nextMapResult.data,
       xp: xpRowsResult.data,
     });

@@ -670,6 +670,7 @@ let goalTotal = 20;      // objetivo total (para calcular si se cumplió)
 let combosThisLevel = 0; // combos encadenados acumulados
 let boostersUsedThisLevel = 0;
 let feverActivationsThisLevel = 0;
+let levelStartedAt = performance.now();
 let bestStars = {};      // {nivel: estrellas} progreso (memoria de sesión)
 let totalXP = 0;         // XP acumulado (local; se conectará a player_xp después)
 
@@ -1408,6 +1409,7 @@ async function endLevel(win){
       level,
       score,
       stars,
+      duration_ms: Math.max(0, Math.round(performance.now() - levelStartedAt)),
       moves_start: movesStart,
       moves_left: Math.max(0, moves),
       moves_used: Math.max(0, movesStart - moves),
@@ -1860,6 +1862,7 @@ function loadLevel(n){
   combosThisLevel = 0;
   boostersUsedThisLevel = 0;
   feverActivationsThisLevel = 0;
+  levelStartedAt = performance.now();
   levelOver = false;
   fever = 0; feverActive = false; feverMult = 1;
   clearInterval(feverTimer);

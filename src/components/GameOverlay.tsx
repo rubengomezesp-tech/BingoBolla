@@ -45,6 +45,7 @@ type SaveSummary = {
   bestScore: number;
   firstCompletion: boolean;
   runValidated: boolean;
+  auditHash: string | null;
 };
 
 type StartState = "idle" | "starting" | "ready" | "error";
@@ -242,6 +243,7 @@ export default function GameOverlay({
           setSaveState("error");
           return false;
         }
+        const audit = isRecord(payload?.audit) ? payload.audit : null;
         setSaveSummary({
           stars: Math.max(0, Math.min(3, Number(payload?.stars ?? nextResult.stars))),
           xpAwarded: Math.max(0, Number(payload?.xp_awarded ?? 0)),
@@ -250,6 +252,7 @@ export default function GameOverlay({
           bestScore: Math.max(0, Number(payload?.best_score ?? nextResult.score ?? 0)),
           firstCompletion: Boolean(payload?.completed_first_time),
           runValidated: Boolean(payload?.run_validated),
+          auditHash: typeof audit?.attempt_hash === "string" ? audit.attempt_hash : null,
         });
         setSaveState("saved");
         return true;
@@ -513,6 +516,13 @@ export default function GameOverlay({
               </div>
             )}
 
+            {result.win && isSaved && saveSummary?.runValidated && (
+              <div className="go-auditLine">
+                <ShieldCheck size={15} aria-hidden="true" />
+                {saveSummary.auditHash ? "Run auditado por el motor seguro" : "Partida validada por el motor seguro"}
+              </div>
+            )}
+
             <div className="go-actions">
               {hasSaveError ? (
                 <>
@@ -672,6 +682,10 @@ const GAME_OVERLAY_CSS = `
 .go-saveLine{
   min-height:34px;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;
   background:rgba(255,217,61,.08);border:1px solid rgba(255,217,61,.18);color:#ffe68a;font-size:13px;font-weight:850;
+}
+.go-auditLine{
+  min-height:32px;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.18);color:#9fffc8;font-size:12px;font-weight:900;
 }
 .go-actions{display:flex;gap:10px;}
 .go-primary,.go-secondary{

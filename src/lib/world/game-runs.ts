@@ -8,6 +8,12 @@ export type AllowedGame = "ballmatch" | "neural_cascade";
 export const ALLOWED_GAMES = new Set<AllowedGame>(["ballmatch", "neural_cascade"]);
 export const RUN_TOKEN_RE = /^[a-f0-9]{64}$/i;
 
+type AuditRiskSignal = {
+  flag: string;
+  weight: number;
+  active: boolean;
+};
+
 export function clampInt(value: unknown, min: number, max: number) {
   const n = Math.trunc(Number(value));
   if (!Number.isFinite(n)) return min;
@@ -22,6 +28,11 @@ function readTrustedInt(value: unknown, min: number, max: number) {
   const n = Math.trunc(Number(value));
   if (!Number.isFinite(n) || n < min || n > max) return null;
   return n;
+}
+
+function readOptionalTrustedInt(value: unknown, min: number, max: number) {
+  if (value === null || value === undefined) return null;
+  return readTrustedInt(value, min, max);
 }
 
 function readAttempt(body: Record<string, unknown>) {
@@ -77,6 +88,31 @@ function maxNeuralStars(relaysUsed: number, relaysMax: number) {
   return 1;
 }
 
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function compactFlags(signals: AuditRiskSignal[]) {
+  const flags = signals.filter((signal) => signal.active).map((signal) => signal.flag);
+  const risk = signals.reduce((sum, signal) => sum + (signal.active ? signal.weight : 0), 0);
+  return { flags, risk: Math.max(0, Math.min(100, risk)) };
+}
+
+async function hashAuditPayload(payload: Record<string, unknown>) {
+  const bytes = new TextEncoder().encode(stableStringify(payload));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function isAllowedGame(game: string): game is AllowedGame {
   return ALLOWED_GAMES.has(game as AllowedGame);
 }
@@ -97,6 +133,14 @@ export type GameResultValidation =
       error: string;
       status: number;
     };
+
+export type WorldGameRunAudit = {
+  attemptHash: string;
+  attemptSummary: Record<string, unknown>;
+  clientElapsedMs: number | null;
+  validationFlags: string[];
+  validationRisk: number;
+};
 
 export function validateWorldGameResult({
   body,
@@ -253,6 +297,113 @@ export function validateWorldGameResult({
   return { ok: true, level, score, stars };
 }
 
+export async function buildWorldGameRunAudit({
+  body,
+  game,
+}: {
+  body: Record<string, unknown>;
+  game: AllowedGame;
+}): Promise<WorldGameRunAudit | null> {
+  const attempt = readAttempt(body);
+  if (!attempt) return null;
+
+  const level = readTrustedInt(attempt.level, 1, 500);
+  const score = readTrustedInt(attempt.score, 1, scoreLimitForGame(game));
+  const stars = readTrustedInt(attempt.stars, 1, 3);
+  const durationMs = readOptionalTrustedInt(attempt.duration_ms, 0, 3_600_000);
+
+  const baseSummary: Record<string, unknown> = {
+    version: 2,
+    game,
+    level,
+    score,
+    stars,
+    duration_ms: durationMs,
+  };
+
+  if (game === "ballmatch") {
+    const movesStart = readTrustedInt(attempt.moves_start, 1, 80) ?? 0;
+    const movesLeft = readTrustedInt(attempt.moves_left, 0, 80) ?? 0;
+    const movesUsed = readTrustedInt(attempt.moves_used, 0, 80) ?? 0;
+    const goalTotal = readTrustedInt(attempt.goal_total, 1, 300) ?? 0;
+    const goalLeft = readTrustedInt(attempt.goal_left, 0, 300) ?? 0;
+    const bingoLines = readTrustedInt(attempt.bingo_lines, 0, 12) ?? 0;
+    const combos = readTrustedInt(attempt.combos, 0, 500) ?? 0;
+    const boostersUsed = readTrustedInt(attempt.boosters_used, 0, 6) ?? 0;
+    const feverActivations = readTrustedInt(attempt.fever_activations, 0, 25) ?? 0;
+    const actionCount = movesUsed + boostersUsed;
+    const scoreDensity = actionCount > 0 && score ? Math.round(score / actionCount) : 0;
+    const { flags, risk } = compactFlags([
+      { flag: "fast_clear", weight: 25, active: durationMs !== null && durationMs < 7_000 },
+      { flag: "low_action_clear", weight: 25, active: actionCount <= 1 },
+      { flag: "high_score_density", weight: 15, active: scoreDensity > 150_000 },
+      { flag: "combo_density_high", weight: 15, active: combos > movesUsed * 2 + boostersUsed * 4 },
+      { flag: "fever_combo_mismatch", weight: 20, active: feverActivations > Math.max(1, combos + 1) },
+    ]);
+    const summary = {
+      ...baseSummary,
+      moves_start: movesStart,
+      moves_left: movesLeft,
+      moves_used: movesUsed,
+      goal_total: goalTotal,
+      goal_left: goalLeft,
+      bingo_lines: bingoLines,
+      combos,
+      boosters_used: boostersUsed,
+      fever_activations: feverActivations,
+      score_density: scoreDensity,
+    };
+    return {
+      attemptHash: await hashAuditPayload(summary),
+      attemptSummary: summary,
+      clientElapsedMs: durationMs,
+      validationFlags: flags,
+      validationRisk: risk,
+    };
+  }
+
+  const bossLevel = readTrustedInt(attempt.boss_level, 1, 500) ?? 0;
+  const puzzleIndex = readTrustedInt(attempt.puzzle_index, 0, 4) ?? 0;
+  const puzzlesCompleted = readTrustedInt(attempt.puzzles_completed, 1, 5) ?? 0;
+  const relaysMax = readTrustedInt(attempt.relays_max, 1, 40) ?? 0;
+  const relaysLeft = readTrustedInt(attempt.relays_left, 0, 40) ?? 0;
+  const relaysUsed = readTrustedInt(attempt.relays_used, 0, 40) ?? 0;
+  const relaysSteiner = readTrustedInt(attempt.relays_steiner, 0, 20) ?? 0;
+  const targetsTotal = readTrustedInt(attempt.targets_total, 1, 8) ?? 0;
+  const targetsLeft = readTrustedInt(attempt.targets_left, 0, 8) ?? 0;
+  const targetsReached = readTrustedInt(attempt.targets_reached, 0, 8) ?? 0;
+  const relayEfficiency = targetsTotal > 0 ? Number((targetsReached / Math.max(relaysUsed, 1)).toFixed(2)) : 0;
+  const { flags, risk } = compactFlags([
+    { flag: "fast_boss_clear", weight: 30, active: durationMs !== null && durationMs < 15_000 },
+    { flag: "low_relay_clear", weight: 20, active: relaysUsed < Math.max(1, targetsTotal - 1) },
+    { flag: "perfect_without_steiner", weight: 10, active: targetsTotal >= 4 && relaysSteiner === 0 && relaysUsed <= Math.max(1, relaysMax - 2) },
+    { flag: "high_relay_efficiency", weight: 10, active: relayEfficiency >= 2.5 },
+  ]);
+  const summary = {
+    ...baseSummary,
+    boss_level: bossLevel,
+    puzzle_index: puzzleIndex,
+    puzzles_completed: puzzlesCompleted,
+    relays_max: relaysMax,
+    relays_left: relaysLeft,
+    relays_used: relaysUsed,
+    relays_steiner: relaysSteiner,
+    targets_total: targetsTotal,
+    targets_left: targetsLeft,
+    targets_reached: targetsReached,
+    relay_efficiency: relayEfficiency,
+    boss_complete: attempt.boss_complete === true,
+  };
+
+  return {
+    attemptHash: await hashAuditPayload(summary),
+    attemptSummary: summary,
+    clientElapsedMs: durationMs,
+    validationFlags: flags,
+    validationRisk: risk,
+  };
+}
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -307,6 +458,23 @@ export function isMissingGameRunsTableError(error: unknown) {
   const message = String(error.message ?? "").toLowerCase();
 
   return code === "42P01" || message.includes("world_game_runs");
+}
+
+export function isMissingRunAuditColumnError(error: unknown) {
+  if (!isRecord(error)) return false;
+
+  const code = String(error.code ?? "");
+  const message = String(error.message ?? "").toLowerCase();
+
+  return (
+    code === "42703" ||
+    code === "PGRST204" ||
+    message.includes("attempt_hash") ||
+    message.includes("attempt_summary") ||
+    message.includes("validation_risk") ||
+    message.includes("validation_flags") ||
+    message.includes("client_elapsed_ms")
+  );
 }
 
 export function safeHeader(value: string | null, maxLength = 240) {
