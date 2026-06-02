@@ -4,10 +4,14 @@ import {
   requireServiceClient,
 } from "@/lib/server/api";
 
-export const ADMIN_EMAIL = "rubengomezesp@gmail.com";
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+  .split(/[,\s]+/)
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 
 export function isAdminEmail(email: string | null | undefined) {
-  return String(email ?? "").trim().toLowerCase() === ADMIN_EMAIL;
+  const normalized = String(email ?? "").trim().toLowerCase();
+  return Boolean(normalized && ADMIN_EMAILS.includes(normalized));
 }
 
 export async function requireAdminContext() {

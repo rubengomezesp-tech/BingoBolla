@@ -144,7 +144,7 @@ export default function PWARegister() {
           Instala BingoBolla
         </strong>
         <span style={{ fontSize: 13, opacity: 0.92 }}>
-          Acceso directo, modo offline y notificaciones de premios.
+          Acceso directo, carga rápida de assets y avisos de premios.
         </span>
       </div>
       <button

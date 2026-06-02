@@ -4,8 +4,8 @@ import "./globals.css";
 import { AuroraBackground, FloatingBubbles } from "@/components/FloatingBubbles";
 
 export const metadata: Metadata = {
-  title: "BingoBolla — Bingo reimagined for America",
-  description: "Real bingo. Real community. Real prizes. Free to play in 45 states.",
+  title: "BingoBolla — Bingo social con mundos, premios y comunidad",
+  description: "Bingo social, mundos jugables, premios y juego responsable para mayores de 18 años.",
 };
 
 export default function RootLayout({
@@ -14,8 +14,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body><PWARegister />
+    <html lang="es">
+      <body>
+        <PWARegister />
         <AuroraBackground />
         <FloatingBubbles count={12} />
         {children}

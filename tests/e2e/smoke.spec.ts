@@ -5,6 +5,14 @@ const e2eEmail = process.env.E2E_USER_EMAIL;
 const e2ePassword = process.env.E2E_USER_PASSWORD;
 
 test.describe("BingoBolla P1 smoke", () => {
+  test("root document exposes Spanish metadata", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page).toHaveTitle(/BingoBolla/);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Bingo social/);
+  });
+
   test("login renders the current email/password auth form", async ({ page }) => {
     await page.goto("/login");
 
