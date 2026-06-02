@@ -75,6 +75,10 @@ npm run test:e2e:smoke
 
 Esto cubre login, protección de `/lobby`, `/mundos`, `/account`, aliases de juego responsable y assets PWA. Con `E2E_USER_EMAIL` y `E2E_USER_PASSWORD` también recorre sesión real.
 
+## Limpieza P3
+
+Los backups `.bak*`, scripts `install_*.sh` y el prototipo legacy USA Puzzle Tour se movieron a `archive/legacy-p3/`. La app activa queda en el proyecto Next.js raíz, `src/`, `public/`, `supabase/` y la configuración asociada.
+
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.

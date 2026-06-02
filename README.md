@@ -1,85 +1,37 @@
-# BingoBolla v19 — Slots Premium + Fix Lobby
+# BingoBolla
 
-## 1. Sobre los errores de la consola (imagen 2)
+BingoBolla is a Next.js 16 App Router project for a social bingo and worlds experience. The production app runs on Vercel with Supabase, Stripe, a Vercel cron caller, responsible-gaming account flows, world nodes, rewards, slots, and admin operations.
 
-```
-The AudioContext was not allowed to start. It must be resumed after a user gesture
-```
+## Stack
 
-**NO es un bug.** Es la política anti-autoplay de Chrome: bloquea el sonido hasta que el usuario hace clic. No rompe nada — el bingo funciona perfecto (las bolas salían en tu captura). En las slots ya lo arreglé: el audio se inicializa en el primer clic del botón GIRAR, así que no spamea consola.
+- Next.js 16.2 with Turbopack
+- React 19
+- Supabase Auth, Postgres, RLS and service-role server routes
+- Stripe checkout and webhooks
+- Playwright smoke coverage
+- Capacitor scaffolding for native sync
 
-## 2. Fix lobby duplicados
-
-`ensure_waiting_game` ahora usa `pg_advisory_xact_lock` por sala → dos requests simultáneas nunca crean 2 games. Incluido en la migración. También limpia los huérfanos actuales.
-
-## 3. SLOTS — 3 máquinas premium
-
-Diseñé 3 con identidad propia, mecánica moderna, RNG server-side:
-
-### 🎰 Neon 777 — Clásica synthwave
-- 3×3, 5 líneas, **Gold**, RTP 94%
-- Neón rosa/cyan. 7 = jackpot (×100), WILD sustituye (×150)
-- Ritmo rápido, apuesta 5–500
-
-### 🗿 Aztec Gold — Aventura
-- 5×3, 20 líneas, **Sweeps**, RTP 95%
-- Tema azteca oro/jade. Scatter (idolo): 3+ = **10 giros gratis con x2**
-- Máscara = jackpot (×300 en 5)
-
-### 💎 Diamond Royale — VIP
-- 5×3, 25 líneas, **Diamonds**, RTP 96%
-- Art-déco lujo. **Multiplicador progresivo** por racha: x1→x2→x3→x5
-- Diamante rosa = jackpot (×500), WILD (×750)
-
-### Lógica server-side (anti-trampa)
-- `spin_slot(machine, currency, bet)` → RPC atómico
-- RNG con pesos por símbolo → controla el RTP real
-- Debita apuesta → calcula líneas → acredita premio → registra spin, TODO en una transacción
-- Free spins y multiplicadores con estado server-side (`slot_sessions`)
-- El cliente NO puede manipular resultados (solo muestra lo que devuelve el server)
-
-### Animación (se siente vivo)
-- Rodillos giran con blur, **paran en cascada** izquierda→derecha (140ms offset)
-- Símbolos ganadores pulsan con glow del color del símbolo
-- Contador de ganancia sube animado (easing cúbico)
-- **BIG WIN** (≥15× apuesta): pantalla especial + 40 partículas + sonido ascendente
-- Sonido sintetizado por Web Audio (beeps de giro/parada/win), sin archivos
-- Auto-spin con parada automática si se acaba el saldo
-
-## Aplicación
+## Local Commands
 
 ```bash
-cd ~/bingobolla
-tar -xzf ~/Downloads/bingobolla-v19-slots.tar.gz
+npm install
+npm run build
+npm run test:e2e:install
+npm run test:e2e:smoke
 ```
 
-### 1. SQL
+The smoke test builds the production app and starts `next start` on port `3102` unless `E2E_BASE_URL` is set.
 
-```bash
-cat supabase/migrations/018_slots_engine.sql | pbcopy
-```
-→ Supabase SQL Editor → Run
+## Production Notes
 
-Verás las 3 máquinas creadas al final.
+- Vercel cron is registered in `vercel.json` for `/api/cron/tick`.
+- `CRON_SECRET` and `ADMIN_EMAILS` must exist in Vercel.
+- Admin access is controlled by the `ADMIN_EMAILS` environment variable.
+- Environment setup details live in `VERCEL_DEPLOY.md`.
+- QA and audit notes live in `QA.md` and `AUDIT.md`.
 
-### 2. Build + deploy
+## Repo Hygiene
 
-```bash
-npm run build && git add -A && git commit -m "feat(v19): slots premium (3 maquinas RNG server-side) + fix lobby dup" && git push origin main && vercel --prod
-```
+Legacy local installers, old backup snapshots, and the unrelated USA Puzzle Tour prototype were moved to `archive/legacy-p3/` during the P3 cleanup. They are preserved for reference, but the active app lives in the root Next.js project, `src/`, `public/`, `supabase/`, and supporting config files.
 
-## Test
-
-1. `bingobolla.com/slots` → 3 máquinas
-2. Entra **Neon 777** (Gold, la más barata para probar)
-3. Apuesta 5 → GIRAR
-4. Rodillos giran y paran en cascada
-5. Si ganas: símbolos pulsan, contador sube, sonido
-6. Prueba auto-spin
-7. Para free spins: juega **Aztec Gold** hasta que salgan 3 idolos 🪙
-
-## Pendiente futuro (no urgente)
-
-- Rotar `SUPABASE_SERVICE_ROLE_KEY` (se pegó en chat) antes de abrir a usuarios reales
-- Enlazar slots desde el menú principal / lobby
-- Jackpot progresivo compartido entre jugadores
+Future ad hoc backups such as `*.bak*`, `*.backup`, and `install_*.sh` are ignored so they do not re-enter the active source tree.
