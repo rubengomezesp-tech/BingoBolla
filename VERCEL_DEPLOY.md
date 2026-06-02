@@ -77,7 +77,25 @@ Critical para que el magic link funcione en producción:
 
 ## 5. Caller worker en producción
 
-El `caller.mjs` corre en tu Mac. Necesita correr 24/7 en algún servidor. Opciones:
+La producción usa `/api/cron/tick` como caller global. `vercel.json` registra el cron:
+
+```json
+{
+  "path": "/api/cron/tick",
+  "schedule": "* * * * *"
+}
+```
+
+Requisitos:
+- `CRON_SECRET` debe existir en Vercel. Vercel lo enviará como `Authorization: Bearer <CRON_SECRET>` al invocar el cron.
+- El proyecto debe estar en un plan Vercel con crons cada minuto (Pro/Enterprise). En Hobby, Vercel limita los crons a ejecución diaria y el deploy puede fallar si usas `* * * * *`.
+- El cron solo corre en deployments de producción.
+
+Para verificar después del deploy: Project → Settings → Cron Jobs debe listar `/api/cron/tick`, y Logs debe mostrar invocaciones con user-agent `vercel-cron/1.0`.
+
+El `caller.mjs` queda como herramienta local/backup para pruebas manuales, no como camino principal de producción.
+
+Opciones alternativas si no usas Vercel Pro:
 
 ### Opción A — Railway (recomendado, $5/mes)
 ```bash
@@ -97,13 +115,8 @@ railway up    # sube y deploya
 # node --env-file=.env scripts/caller.mjs
 ```
 
-### Opción B — Vercel Cron Jobs (más simple pero menos preciso)
-Convertir caller a endpoint y configurar cron. Hago la migración en v10 si quieres.
-
-### Opción C — Supabase pg_cron (perfecto pero requiere refactor)
+### Opción B — Supabase pg_cron (perfecto pero requiere refactor)
 Mover toda la lógica del caller a funciones SQL + pg_cron. v10 también.
-
-Para AHORA — mantén `npm run caller` corriendo en tu Mac mientras testeas en producción. No es ideal pero funciona.
 
 ## 6. Stripe webhook en producción
 

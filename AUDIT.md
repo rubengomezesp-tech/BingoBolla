@@ -66,7 +66,7 @@ Test cada link en **bingobolla.com** (sesión iniciada). Marca lo que NO funcion
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.
-**Solución**: v10 incluye `/api/cron/tick` que Vercel ejecuta cada minuto. NO es ideal (bingo lento) pero funciona sin servidor extra.
+**Solución**: v10 incluye `/api/cron/tick` y `vercel.json` registra un cron cada minuto. Requiere `CRON_SECRET` en Vercel y plan Vercel Pro/Enterprise para frecuencia de 1 minuto. NO es ideal (bingo lento) pero funciona sin servidor extra.
 
 ### 🟡 Bingo 90 (London 90) usa generador incompleto
 **Síntoma**: Cartones aparecen vacíos o con números mal distribuidos.
