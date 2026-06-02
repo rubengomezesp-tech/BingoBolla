@@ -17,8 +17,10 @@ Test cada link en **bingobolla.com** (sesión iniciada). Marca lo que NO funcion
 - [ ] Stats visibles: partidas, victorias, bingos, mejor racha
 - [ ] Tile "Límites de juego" → `/account/limits`
 - [ ] Tile "Auto-exclusión" → `/account/exclude`
-- [ ] Tile "Comprar Coins" → `/store`
 - [ ] Tile "Sesiones activas" → `/account/sessions`
+- [ ] Tile "Mis premios" → `/account/prizes`
+- [ ] Tile "Diamonds" → `/account/diamonds`
+- [ ] Tile "Tienda" → `/store`
 - [ ] Mensaje 1-800-GAMBLER visible
 
 ### ⚖️ Límites (`/account/limits`)
@@ -54,14 +56,24 @@ Test cada link en **bingobolla.com** (sesión iniciada). Marca lo que NO funcion
 
 ### 🔑 Login (`/login`)
 - [ ] Input email
-- [ ] Submit → envía magic link al email
-- [ ] Email llega con link a `https://bingobolla.com/auth/callback`
+- [ ] Input contraseña
+- [ ] Submit con credenciales válidas → `/lobby`
 
 ### 🎯 Landing (`/`)
 - [ ] Landing premium dark con CTA "Start Playing"
 - [ ] CTA lleva a `/login`
 
 ## Problemas conocidos en producción AHORA
+
+## Smoke automatizado P1
+
+Ejecuta:
+
+```bash
+npm run test:e2e:smoke
+```
+
+Esto cubre login, protección de `/lobby`, `/mundos`, `/account`, aliases de juego responsable y assets PWA. Con `E2E_USER_EMAIL` y `E2E_USER_PASSWORD` también recorre sesión real.
 
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.

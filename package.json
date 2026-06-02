@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e:smoke": "playwright test tests/e2e/smoke.spec.ts --project=chromium",
     "check:world-notifications": "node scripts/check-world-notifications.mjs",
     "start": "next start",
     "caller": "node --env-file=.env.local scripts/caller.mjs",
@@ -43,6 +46,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
