@@ -24,6 +24,59 @@ function readTrustedInt(value: unknown, min: number, max: number) {
   return n;
 }
 
+function readAttempt(body: Record<string, unknown>) {
+  return isRecord(body.attempt) ? body.attempt : null;
+}
+
+function validationError(error: string, status = 400): GameResultValidation {
+  return { ok: false, error, status };
+}
+
+function expectedBallmatchMoves(level: number) {
+  return 18 + Math.floor(level * 0.6);
+}
+
+function expectedBallmatchGoal(level: number) {
+  return 20 + Math.round(level * 3.6);
+}
+
+function maxBallmatchStars({
+  movesLeft,
+  movesStart,
+  goalLeft,
+  bingoLines,
+}: {
+  movesLeft: number;
+  movesStart: number;
+  goalLeft: number;
+  bingoLines: number;
+}) {
+  const goalDone = goalLeft <= 0;
+  const bingoDone = bingoLines >= 5;
+  if (!goalDone && !bingoDone) return 0;
+
+  const efficiencyRatio = movesStart > 0 ? movesLeft / movesStart : 0;
+  if (goalDone && (bingoLines >= 3 || efficiencyRatio >= 0.3)) return 3;
+  if (bingoDone && movesLeft > 0) return 3;
+  if (goalDone && bingoLines >= 2) return 2;
+  if (bingoDone) return 2;
+  return 1;
+}
+
+function expectedNeuralBossLevel(level: number) {
+  if (level <= 5) return 5;
+  if (level <= 10) return 10;
+  if (level <= 15) return 15;
+  return 20;
+}
+
+function maxNeuralStars(relaysUsed: number, relaysMax: number) {
+  const optimal = Math.max(1, relaysMax - 2);
+  if (relaysUsed <= optimal) return 3;
+  if (relaysUsed <= optimal + 2) return 2;
+  return 1;
+}
+
 export function isAllowedGame(game: string): game is AllowedGame {
   return ALLOWED_GAMES.has(game as AllowedGame);
 }
@@ -77,6 +130,124 @@ export function validateWorldGameResult({
 
   if (level !== nodeIndex) {
     return { ok: false, error: "level_node_mismatch", status: 409 };
+  }
+
+  const attempt = readAttempt(body);
+  if (!attempt) {
+    return validationError("invalid_attempt");
+  }
+
+  const attemptVersion = readTrustedInt(attempt.version, 2, 2);
+  if (attemptVersion !== 2) {
+    return validationError("invalid_attempt_version");
+  }
+
+  if (attempt.game !== game) {
+    return validationError("game_attempt_mismatch", 409);
+  }
+
+  const attemptLevel = readJsonInt(attempt.level);
+  if (attemptLevel === null || attemptLevel !== level) {
+    return validationError("level_attempt_mismatch", 409);
+  }
+
+  const attemptStars = readTrustedInt(attempt.stars, 1, maxStars);
+  if (attemptStars === null || attemptStars !== stars) {
+    return validationError("stars_attempt_mismatch", 409);
+  }
+
+  const attemptScore = readJsonInt(attempt.score);
+  if (attemptScore === null || attemptScore !== score) {
+    return validationError("score_attempt_mismatch", 409);
+  }
+
+  if (game === "ballmatch") {
+    const movesStart = readTrustedInt(attempt.moves_start, 1, 80);
+    const movesLeft = readTrustedInt(attempt.moves_left, 0, 80);
+    const movesUsed = readTrustedInt(attempt.moves_used, 0, 80);
+    const goalTotal = readTrustedInt(attempt.goal_total, 1, 300);
+    const goalLeft = readTrustedInt(attempt.goal_left, 0, 300);
+    const bingoLines = readTrustedInt(attempt.bingo_lines, 0, 12);
+    const combos = readTrustedInt(attempt.combos, 0, 500);
+    const boostersUsed = readTrustedInt(attempt.boosters_used, 0, 6);
+    const feverActivations = readTrustedInt(attempt.fever_activations, 0, 25);
+
+    if (
+      movesStart === null ||
+      movesLeft === null ||
+      movesUsed === null ||
+      goalTotal === null ||
+      goalLeft === null ||
+      bingoLines === null ||
+      combos === null ||
+      boostersUsed === null ||
+      feverActivations === null
+    ) {
+      return validationError("invalid_ballmatch_attempt");
+    }
+
+    if (movesStart !== expectedBallmatchMoves(level) || goalTotal !== expectedBallmatchGoal(level)) {
+      return validationError("ballmatch_level_config_mismatch", 409);
+    }
+    if (goalLeft > goalTotal || movesUsed !== movesStart - movesLeft) {
+      return validationError("ballmatch_attempt_mismatch", 409);
+    }
+    if (movesUsed + boostersUsed < 1) {
+      return validationError("ballmatch_no_action");
+    }
+
+    const maxStarsForAttempt = maxBallmatchStars({ movesLeft, movesStart, goalLeft, bingoLines });
+    if (maxStarsForAttempt < 1) {
+      return validationError("ballmatch_goal_incomplete", 409);
+    }
+    if (stars > maxStarsForAttempt) {
+      return validationError("ballmatch_stars_exceed_attempt", 409);
+    }
+  }
+
+  if (game === "neural_cascade") {
+    const bossLevel = readTrustedInt(attempt.boss_level, 1, 500);
+    const puzzleIndex = readTrustedInt(attempt.puzzle_index, 0, 4);
+    const puzzlesCompleted = readTrustedInt(attempt.puzzles_completed, 1, 5);
+    const relaysMax = readTrustedInt(attempt.relays_max, 1, 40);
+    const relaysLeft = readTrustedInt(attempt.relays_left, 0, 40);
+    const relaysUsed = readTrustedInt(attempt.relays_used, 0, 40);
+    const relaysSteiner = readTrustedInt(attempt.relays_steiner, 0, 20);
+    const targetsTotal = readTrustedInt(attempt.targets_total, 1, 8);
+    const targetsLeft = readTrustedInt(attempt.targets_left, 0, 8);
+    const targetsReached = readTrustedInt(attempt.targets_reached, 0, 8);
+    const bossComplete = attempt.boss_complete === true;
+
+    if (
+      bossLevel === null ||
+      puzzleIndex === null ||
+      puzzlesCompleted === null ||
+      relaysMax === null ||
+      relaysLeft === null ||
+      relaysUsed === null ||
+      relaysSteiner === null ||
+      targetsTotal === null ||
+      targetsLeft === null ||
+      targetsReached === null
+    ) {
+      return validationError("invalid_neural_attempt");
+    }
+
+    if (bossLevel !== expectedNeuralBossLevel(level)) {
+      return validationError("neural_boss_level_mismatch", 409);
+    }
+    if (!bossComplete || puzzleIndex !== 4 || puzzlesCompleted !== 5) {
+      return validationError("neural_boss_incomplete", 409);
+    }
+    if (relaysUsed !== relaysMax - relaysLeft || targetsLeft !== 0 || targetsReached !== targetsTotal) {
+      return validationError("neural_attempt_mismatch", 409);
+    }
+    if (relaysSteiner > relaysUsed) {
+      return validationError("neural_steiner_mismatch", 409);
+    }
+    if (stars > maxNeuralStars(relaysUsed, relaysMax)) {
+      return validationError("neural_stars_exceed_attempt", 409);
+    }
   }
 
   return { ok: true, level, score, stars };

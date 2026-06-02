@@ -30,9 +30,14 @@
   .game.match-impact{animation:gameImpact .24s ease-out;}
   @keyframes gameImpact{0%,100%{filter:brightness(1)}
     42%{filter:brightness(1.18) saturate(1.14)}}
+  .exitbtn{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:12px;z-index:200;
+    width:34px;height:34px;border-radius:50%;cursor:pointer;
+    background:rgba(0,0,0,.65);border:1.5px solid rgba(255,255,255,.25);
+    color:#fff;font-size:16px;line-height:1;box-shadow:0 8px 18px rgba(0,0,0,.35);
+    backdrop-filter:blur(8px);}
 
   /* ---------- HUD superior ---------- */
-  .top{width:100%;max-width:520px;padding:calc(env(safe-area-inset-top) + 12px) 14px 8px;
+  .top{width:100%;max-width:520px;padding:calc(env(safe-area-inset-top) + 12px) 14px 8px 58px;
     display:flex;align-items:center;gap:10px;}
   .logo{font-family:'Pacifico',cursive;font-size:22px;line-height:1;
     background:linear-gradient(180deg,#ff8fd0,var(--magenta));
@@ -113,6 +118,46 @@
     will-change:transform;}
   @keyframes billFall{0%{transform:translateY(0) rotate(0)}
     100%{transform:translateY(120vh) rotate(540deg)}}
+  .coin-pop{position:fixed;left:50%;top:50%;z-index:86;pointer-events:none;
+    width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 35% 25%,#fff5af,#ffd23d 58%,#a86508);
+    color:#4a2100;font-size:11px;font-weight:900;border:1.5px solid rgba(255,255,255,.82);
+    box-shadow:0 0 16px rgba(255,210,61,.86),0 5px 10px rgba(0,0,0,.38);
+    animation:coinFountain 1.05s cubic-bezier(.16,1,.3,1) forwards;}
+  @keyframes coinFountain{0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(0)}
+    15%{opacity:1}
+    100%{opacity:0;transform:translate(calc(-50% + var(--cx)),calc(-50% + var(--cy))) scale(1.1) rotate(var(--cr))}}
+  body.celebrating .game{animation:jackpotShake .72s ease-in-out 2;}
+  @keyframes jackpotShake{0%,100%{transform:translate3d(0,0,0)}
+    18%{transform:translate3d(-2px,1px,0) rotate(-.12deg)}
+    36%{transform:translate3d(2px,-1px,0) rotate(.12deg)}
+    54%{transform:translate3d(-1px,-2px,0) rotate(-.08deg)}
+    72%{transform:translate3d(1px,1px,0) rotate(.08deg)}}
+  .celebration-flash{position:fixed;inset:0;z-index:84;pointer-events:none;
+    background:radial-gradient(circle at 50% 45%,rgba(255,240,160,.55),rgba(255,61,127,.22) 44%,transparent 72%);
+    animation:celebrationFlash 1.05s ease-out forwards;}
+  @keyframes celebrationFlash{0%{opacity:0;transform:scale(.9)}
+    18%{opacity:1}
+    100%{opacity:0;transform:scale(1.18)}}
+  .jackpot-ribbon{position:fixed;left:50%;top:24%;z-index:87;pointer-events:none;
+    transform:translate(-50%,-50%) scale(.82);white-space:nowrap;
+    padding:9px 18px;border-radius:999px;border:2px solid rgba(255,255,255,.9);
+    color:#4a2100;font-weight:900;font-size:14px;letter-spacing:1px;
+    background:linear-gradient(180deg,#fff8c7,#ffd23d 58%,#b36d05);
+    box-shadow:0 16px 34px rgba(0,0,0,.42),0 0 36px rgba(255,210,61,.75);
+    animation:jackpotRibbon 1.24s cubic-bezier(.18,1.35,.3,1) forwards;}
+  @keyframes jackpotRibbon{0%{opacity:0;transform:translate(-50%,-30%) scale(.62) rotate(-5deg)}
+    22%{opacity:1;transform:translate(-50%,-50%) scale(1.08) rotate(2deg)}
+    70%{opacity:1;transform:translate(-50%,-54%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-92%) scale(.92)}}
+  .prize-streak{position:fixed;left:50%;top:52%;z-index:85;pointer-events:none;
+    width:3px;height:64px;border-radius:999px;transform-origin:center top;
+    background:linear-gradient(180deg,#fff8c7,#ffd23d 54%,rgba(255,61,127,0));
+    box-shadow:0 0 14px rgba(255,210,61,.84);
+    animation:prizeStreak .72s ease-out forwards;}
+  @keyframes prizeStreak{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--sr)) scaleY(.2)}
+    18%{opacity:1}
+    100%{opacity:0;transform:translate(calc(-50% + var(--sx)),calc(-50% + var(--sy))) rotate(var(--sr)) scaleY(1.25)}}
 
   /* ---------- Cartón Bingo MINI (esquina, Fase 5) ---------- */
   .cartonwrap{position:absolute;top:calc(env(safe-area-inset-top) + 96px);right:10px;
@@ -361,6 +406,10 @@
     background:linear-gradient(180deg,var(--panel-lite),var(--panel));
     border:2px solid rgba(255,200,90,.4);box-shadow:0 20px 60px rgba(0,0,0,.6);
     animation:rise .4s cubic-bezier(.2,1,.3,1);}
+  .card.win{box-shadow:0 20px 60px rgba(0,0,0,.65),0 0 44px rgba(255,210,61,.26),inset 0 0 22px rgba(255,210,61,.08);}
+  .card.win .recaudo{animation:recaudoPulse 1.15s ease-in-out infinite;}
+  @keyframes recaudoPulse{0%,100%{box-shadow:0 0 0 rgba(255,210,61,0)}
+    50%{box-shadow:0 0 28px rgba(255,210,61,.34)}}
   @keyframes rise{from{transform:translateY(30px) scale(.9);opacity:0}to{transform:none;opacity:1}}
   .card h2{font-family:'Pacifico',cursive;font-size:32px;margin-bottom:6px;}
   .card.win h2{color:var(--gold-lite);}
@@ -459,7 +508,7 @@
 </style>
 </head>
 <body>
-<div class="game"><button onclick="window.parent.postMessage({type:'BB_GAME_EXIT'},'*')" style="position:fixed;top:12px;right:12px;z-index:200;background:rgba(0,0,0,.65);border:1.5px solid rgba(255,255,255,.25);color:#fff;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;">✕</button>
+<div class="game"><button class="exitbtn" aria-label="Salir" onclick="window.parent.postMessage({type:'BB_GAME_EXIT'},'*')">✕</button>
 
   <div class="top">
     <div class="logo">Bingo Bolla<small>BALL MATCH</small></div>
@@ -569,6 +618,7 @@
    ============================================================ */
 
 const wait = ms => new Promise(r=>setTimeout(r,ms));
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const N = 8;
 const TYPES = ["ballB","coin","clover","star","diamond","purple"];
@@ -618,6 +668,8 @@ let feverTimer = null;
 let movesStart = 20;     // movimientos iniciales del nivel
 let goalTotal = 20;      // objetivo total (para calcular si se cumplió)
 let combosThisLevel = 0; // combos encadenados acumulados
+let boostersUsedThisLevel = 0;
+let feverActivationsThisLevel = 0;
 let bestStars = {};      // {nivel: estrellas} progreso (memoria de sesión)
 let totalXP = 0;         // XP acumulado (local; se conectará a player_xp después)
 
@@ -1238,6 +1290,7 @@ function updateFeverBar(){
 function activateFever(){
   feverActive = true;
   feverMult = 10;
+  feverActivationsThisLevel++;
   document.body.classList.add("fever");
   updateFeverBar();
   // flash cinematográfico
@@ -1348,7 +1401,23 @@ async function endLevel(win){
     xp: xpWon,
     score,
     level,
-    nextLevel: level + 1
+    nextLevel: level + 1,
+    attempt: {
+      version: 2,
+      game: "ballmatch",
+      level,
+      score,
+      stars,
+      moves_start: movesStart,
+      moves_left: Math.max(0, moves),
+      moves_used: Math.max(0, movesStart - moves),
+      goal_total: goalTotal,
+      goal_left: Math.max(0, goalLeft),
+      bingo_lines: bingoLines.size,
+      combos: combosThisLevel,
+      boosters_used: boostersUsedThisLevel,
+      fever_activations: feverActivationsThisLevel
+    }
   } : null;
 
   // estado inicial UI antes de animar
@@ -1365,6 +1434,7 @@ async function endLevel(win){
   document.querySelectorAll("#starsRow .star").forEach(e=>e.classList.remove("on","off"));
 
   overlay.classList.add("show");
+  if(realWin) runPrizeCelebration(stars);
 
   // ---- SECUENCIA ANIMADA ----
   // 1) contar recaudación (puntos del nivel)
@@ -1463,6 +1533,64 @@ function flashCombo(txt){
   elCombo.classList.add("show");
 }
 function flashStarPing(){ /* hook para sonido futuro */ }
+
+function runPrizeCelebration(stars){
+  document.body.classList.add("celebrating");
+  setTimeout(()=>document.body.classList.remove("celebrating"), 1500);
+  spawnCelebrationFlash();
+  spawnJackpotRibbon(stars);
+  if(!REDUCED_MOTION) spawnPrizeStreaks(stars);
+
+  const count = REDUCED_MOTION ? 12 : stars >= 3 ? 42 : stars === 2 ? 30 : 20;
+  for(let i=0;i<count;i++){
+    setTimeout(()=>{
+      const coin=document.createElement("div");
+      coin.className="coin-pop";
+      coin.textContent="B";
+      const angle=(-130 + Math.random()*260) * Math.PI / 180;
+      const distance=90 + Math.random()*(stars>=3 ? 190 : 135);
+      coin.style.setProperty("--cx", Math.cos(angle)*distance+"px");
+      coin.style.setProperty("--cy", Math.sin(angle)*distance-80+"px");
+      coin.style.setProperty("--cr", (Math.random()*720-360)+"deg");
+      document.body.appendChild(coin);
+      setTimeout(()=>coin.remove(),1120);
+    }, REDUCED_MOTION ? i*18 : i*28);
+  }
+  if(stars>=3 && !REDUCED_MOTION) billRainCustom("💵",1400);
+}
+
+function spawnCelebrationFlash(){
+  const flash=document.createElement("div");
+  flash.className="celebration-flash";
+  document.body.appendChild(flash);
+  setTimeout(()=>flash.remove(),1120);
+}
+
+function spawnJackpotRibbon(stars){
+  const ribbon=document.createElement("div");
+  ribbon.className="jackpot-ribbon";
+  ribbon.textContent=stars>=3?"MEGA BINGO WIN":stars===2?"BOLLA BONUS":"NIVEL CLEAR";
+  document.body.appendChild(ribbon);
+  setTimeout(()=>ribbon.remove(),1280);
+}
+
+function spawnPrizeStreaks(stars){
+  const count=stars>=3?18:12;
+  for(let i=0;i<count;i++){
+    setTimeout(()=>{
+      const streak=document.createElement("div");
+      streak.className="prize-streak";
+      const angle=(-140+Math.random()*280);
+      const distance=130+Math.random()*(stars>=3?180:110);
+      const rad=angle*Math.PI/180;
+      streak.style.setProperty("--sr", angle+"deg");
+      streak.style.setProperty("--sx", Math.cos(rad)*distance+"px");
+      streak.style.setProperty("--sy", Math.sin(rad)*distance-55+"px");
+      document.body.appendChild(streak);
+      setTimeout(()=>streak.remove(),780);
+    },i*34);
+  }
+}
 
 /* ============================================================
    BOOSTERS ESPECIALES — 6 poderes únicos
@@ -1621,6 +1749,7 @@ async function detonateBoosterHit(hit, id){
 
 function useBooster(id){
   boosterCharges[id]--;
+  boostersUsedThisLevel++;
   const el=document.getElementById("bst-"+id);
   if(boosterCharges[id]<=0){ el.classList.add("used"); }
   const ch=el?.querySelector(".charge");
@@ -1729,10 +1858,12 @@ function loadLevel(n){
   movesStart = 18 + Math.floor(n*0.6);           // +2 movimientos de margen
   moves = movesStart;
   combosThisLevel = 0;
+  boostersUsedThisLevel = 0;
+  feverActivationsThisLevel = 0;
   levelOver = false;
   fever = 0; feverActive = false; feverMult = 1;
   clearInterval(feverTimer);
-  document.body.classList.remove("fever");
+  document.body.classList.remove("fever","celebrating");
   if(typeof updateFeverBar==="function") updateFeverBar();
   cancelTargeting();
   initBoosters();

@@ -24,6 +24,7 @@ interface GameResult {
   starDelta?: number;
   level: number;
   score?: number;
+  attempt?: Record<string, unknown>;
 }
 
 interface Props {
@@ -87,6 +88,10 @@ function boundedInt(value: unknown, fallback: number, min: number, max: number) 
   return Math.max(min, Math.min(max, n));
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function normalizeResult(data: Record<string, unknown>, fallbackLevel: number): GameResult {
   const stars = boundedInt(data.stars, 0, 0, 3);
   const xp = boundedInt(data.xp, 0, 0, 10000);
@@ -98,6 +103,7 @@ function normalizeResult(data: Record<string, unknown>, fallbackLevel: number): 
     xp,
     score,
     level: boundedInt(data.level, fallbackLevel, 1, 500),
+    attempt: isRecord(data.attempt) ? data.attempt : undefined,
   };
 }
 
@@ -221,6 +227,7 @@ export default function GameOverlay({
             score: nextResult.score ?? 0,
             level: nextResult.level,
             game,
+            attempt: nextResult.attempt,
             ...(secureRun
               ? {
                   run_id: secureRun.id,
