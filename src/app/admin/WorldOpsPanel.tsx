@@ -4,14 +4,18 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import {
+  Activity,
   AlertTriangle,
+  BarChart3,
   CheckCircle2,
   Clock3,
   Coins,
+  Gauge,
   Gamepad2,
   Loader2,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Target,
   Trophy,
@@ -63,6 +67,41 @@ function postureClass(posture: WorldOpsPayload["health"]["risk_posture"]) {
   if (posture === "hot") return "border-red-400/30 bg-red-500/10 text-red-200";
   if (posture === "watch") return "border-amber-300/30 bg-amber-300/10 text-amber-100";
   return "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
+}
+
+function economyLabel(posture: WorldOpsPayload["balance"]["health"]["economy_posture"]) {
+  if (posture === "generous") return "Generosa";
+  if (posture === "lean") return "Ajustada";
+  if (posture === "volatile") return "Volatil";
+  if (posture === "insufficient_data") return "Sin muestra";
+  return "Balanceada";
+}
+
+function difficultyLabel(posture: WorldOpsPayload["balance"]["health"]["difficulty_posture"]) {
+  if (posture === "spiky") return "Con picos";
+  if (posture === "undertuned") return "Suave";
+  if (posture === "insufficient_data") return "Sin muestra";
+  return "Fluida";
+}
+
+function balanceTone(value: string) {
+  if (value === "volatile" || value === "spiky") return "border-red-400/30 bg-red-500/10 text-red-100";
+  if (value === "generous" || value === "lean" || value === "undertuned") return "border-amber-300/30 bg-amber-300/10 text-amber-100";
+  if (value === "insufficient_data") return "border-white/15 bg-white/[0.06] text-white/60";
+  return "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
+}
+
+function severityClass(severity: WorldOpsPayload["balance"]["recommendations"][number]["severity"]) {
+  if (severity === "critical") return "border-red-400/25 bg-red-500/10 text-red-100";
+  if (severity === "warning") return "border-amber-300/25 bg-amber-300/10 text-amber-100";
+  return "border-cyan-300/20 bg-cyan-300/10 text-cyan-100";
+}
+
+function typeLabel(type: WorldOpsPayload["balance"]["recommendations"][number]["type"]) {
+  if (type === "difficulty") return "Dificultad";
+  if (type === "economy") return "Economia";
+  if (type === "risk") return "Riesgo";
+  return "Retencion";
 }
 
 export default function WorldOpsPanel({ initialOps }: Props) {
@@ -185,6 +224,8 @@ export default function WorldOpsPanel({ initialOps }: Props) {
               detail={`${compactNumber(ops.health.xp_awarded)} XP`}
             />
           </div>
+
+          <BalanceLab ops={ops} />
 
           <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
             <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
@@ -345,6 +386,184 @@ export default function WorldOpsPanel({ initialOps }: Props) {
         </div>
       )}
     </motion.section>
+  );
+}
+
+function BalanceLab({ ops }: { ops: WorldOpsPayload }) {
+  const balance = ops.balance;
+  const maxPressure = Math.max(120, ...balance.reward_curve.map((node) => node.reward_pressure));
+
+  return (
+    <div className="rounded-2xl border border-amber-300/15 bg-[#151107] p-4 shadow-[0_24px_80px_-56px_rgba(245,158,11,.7)] md:p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.22em] text-amber-100/60">
+            <SlidersHorizontal size={14} aria-hidden="true" />
+            Balance Lab
+          </div>
+          <h3 className="mt-2 font-display text-3xl leading-none">Economia, dificultad y retencion</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/[0.58]">
+            Diagnostico read-only: detecta nodos frios, friccion alta, payout relativo y zonas donde conviene ajustar antes de lanzar eventos.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[520px]">
+          <BalancePill
+            icon={<Coins size={15} aria-hidden="true" />}
+            label="Economia"
+            tone={balanceTone(balance.health.economy_posture)}
+            value={economyLabel(balance.health.economy_posture)}
+          />
+          <BalancePill
+            icon={<Gauge size={15} aria-hidden="true" />}
+            label="Dificultad"
+            tone={balanceTone(balance.health.difficulty_posture)}
+            value={difficultyLabel(balance.health.difficulty_posture)}
+          />
+          <BalancePill
+            icon={<Activity size={15} aria-hidden="true" />}
+            label="Senal"
+            tone="border-white/15 bg-white/[0.06] text-white/70"
+            value={`${balance.health.nodes_with_signal}/${balance.health.active_nodes}`}
+          />
+          <BalancePill
+            icon={<BarChart3 size={15} aria-hidden="true" />}
+            label="Reward"
+            tone="border-white/15 bg-white/[0.06] text-white/70"
+            value={`${balance.health.reward_pressure}`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1.05fr]">
+        <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/[0.42]">
+              <Target size={14} aria-hidden="true" />
+              Recomendaciones quirurgicas
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[10px] font-black text-white/[0.52]">
+              {balance.recommendations.length}
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {balance.recommendations.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-400/10 p-3 text-sm font-bold text-emerald-100">
+                <CheckCircle2 size={16} aria-hidden="true" />
+                Sin ajustes urgentes con la muestra actual.
+              </div>
+            ) : (
+              balance.recommendations.map((item) => (
+                <div key={item.id} className={`rounded-xl border p-3 ${severityClass(item.severity)}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black">{item.title}</div>
+                      <div className="mt-0.5 text-[11px] font-mono opacity-70">
+                        {typeLabel(item.type)}{item.node_index ? ` · Nodo ${item.node_index}` : ""} · {item.confidence}% conf.
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em]">
+                      {item.severity}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 opacity-80">{item.detail}</p>
+                  <p className="mt-2 text-xs font-bold leading-5 text-white">{item.action}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/[0.42]">
+            <BarChart3 size={14} aria-hidden="true" />
+            Nodos calientes
+          </div>
+          <div className="mt-4 space-y-2">
+            {balance.node_cards.slice(0, 6).map((node) => (
+              <div key={node.node_id} className="rounded-xl border border-white/[0.08] bg-black/[0.18] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-black">
+                      {node.node_index}. {node.title}
+                    </div>
+                    <div className="mt-0.5 text-[11px] font-mono text-white/[0.38]">
+                      {gameName(node.game)} · {node.node_type} · {node.run_count} runs
+                    </div>
+                  </div>
+                  <div className="rounded-full bg-white text-black px-2 py-1 text-xs font-black">
+                    F{node.friction_score}
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                  <MiniStat label="Conv" value={pct(node.completion_rate_pct)} />
+                  <MiniStat label="Star" value={pct(node.star_rate_pct)} />
+                  <MiniStat label="Risk" value={compactNumber(node.avg_risk)} />
+                  <MiniStat label="Pay" value={`${node.reward_pressure}`} />
+                </div>
+                <div className="mt-3 text-xs font-bold leading-5 text-white/[0.68]">{node.recommendation}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.035] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/[0.42]">
+            <Zap size={14} aria-hidden="true" />
+            Curva de recompensa
+          </div>
+          <div className="text-[11px] font-mono text-white/[0.38]">
+            Gold/XP normalizado contra la mediana del mundo
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {balance.reward_curve.map((node) => (
+            <div key={`${node.node_index}:${node.title}`} className="grid grid-cols-[42px_1fr_56px] items-center gap-3">
+              <div className="font-mono text-[11px] text-white/[0.44]">N{node.node_index}</div>
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span className="truncate text-xs font-bold text-white/70">{node.title}</span>
+                  <span className="shrink-0 text-[11px] font-mono text-white/[0.42]">
+                    {compactNumber(node.reward_gold)}G · {compactNumber(node.reward_xp)}XP
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-300 via-cyan-300 to-emerald-300"
+                    style={{ width: `${Math.min(100, (node.reward_pressure / maxPressure) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="text-right font-mono text-xs font-black text-amber-100">{node.reward_pressure}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BalancePill({
+  icon,
+  label,
+  tone,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  tone: string;
+  value: string;
+}) {
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${tone}`}>
+      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.12em] opacity-70">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-black">{value}</div>
+    </div>
   );
 }
 
