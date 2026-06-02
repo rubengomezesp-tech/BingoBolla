@@ -1,17 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/server/supabase-admin";
+import { isAdminEmail } from "@/lib/server/admin";
+import { loadWorldOps } from "@/lib/server/world-ops";
 import { redirect } from "next/navigation";
 import AdminClient from "./AdminClient";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL = "rubengomezesp@gmail.com";
-
 export default async function AdminPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !isAdminEmail(user.email)) {
     redirect("/lobby");
   }
 
@@ -23,5 +23,14 @@ export default async function AdminPage() {
       ])
     : [{ data: null }, { data: [] }];
 
-  return <AdminClient initialStats={stats} initialCodes={codes ?? []} />;
+  let worldOps = null;
+  if (service) {
+    try {
+      worldOps = await loadWorldOps(service, { window: "24h" });
+    } catch (error) {
+      console.error("[admin.page.world-ops]", error);
+    }
+  }
+
+  return <AdminClient initialStats={stats} initialCodes={codes ?? []} initialWorldOps={worldOps} />;
 }

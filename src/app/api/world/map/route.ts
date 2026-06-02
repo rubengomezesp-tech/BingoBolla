@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { isAdminEmail } from "@/lib/server/admin";
 import { apiError, requireAuthenticatedUser, requireServiceClient } from "@/lib/server/api";
 
 export const dynamic = "force-dynamic";
 
 const WORLD_ID_RE = /^[a-z0-9_-]{1,80}$/i;
-const ADMIN_EMAIL = "rubengomezesp@gmail.com";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -50,6 +50,6 @@ export async function GET(request: Request) {
     xp: xp.data ?? [],
     jackpots: jackpots.data ?? [],
     profile: profile.data ?? null,
-    is_admin: auth.user.email === ADMIN_EMAIL,
+    is_admin: isAdminEmail(auth.user.email),
   });
 }

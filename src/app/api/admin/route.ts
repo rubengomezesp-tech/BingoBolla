@@ -4,28 +4,12 @@ import {
   isRecord,
   readInt,
   readJsonRecord,
-  requireAuthenticatedUser,
-  requireServiceClient,
 } from "@/lib/server/api";
+import { requireAdminContext } from "@/lib/server/admin";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL = "rubengomezesp@gmail.com";
 const CODE_RE = /^[A-Z0-9_-]{3,40}$/;
-
-async function requireAdminContext() {
-  const auth = await requireAuthenticatedUser();
-  if ("error" in auth) return { ok: false, response: auth.error } as const;
-
-  if (auth.user.email !== ADMIN_EMAIL) {
-    return { ok: false, response: apiError("forbidden", 403) } as const;
-  }
-
-  const service = requireServiceClient();
-  if ("error" in service) return { ok: false, response: service.error } as const;
-
-  return { ok: true, user: auth.user, supabase: service.supabase } as const;
-}
 
 function readMoneyAmount(value: unknown, integer = false) {
   const number = Number(value ?? 0);

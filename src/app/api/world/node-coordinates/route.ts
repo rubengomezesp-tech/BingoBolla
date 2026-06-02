@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminEmail } from "@/lib/server/admin";
 import {
   UUID_RE,
   apiError,
@@ -9,8 +10,6 @@ import {
 } from "@/lib/server/api";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAIL = "rubengomezesp@gmail.com";
 
 type CoordinateUpdate = {
   node_id: string;
@@ -47,7 +46,7 @@ export async function POST(request: Request) {
   const auth = await requireAuthenticatedUser();
   if ("error" in auth) return auth.error;
 
-  if (auth.user.email !== ADMIN_EMAIL) {
+  if (!isAdminEmail(auth.user.email)) {
     return apiError("forbidden", 403);
   }
 
