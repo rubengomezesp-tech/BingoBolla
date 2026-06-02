@@ -21,8 +21,13 @@ El smoke valida:
 Para activar el recorrido autenticado:
 
 ```bash
+E2E_USER_EMAIL="usuario@example.com" E2E_USER_PASSWORD="..." npm run test:e2e:seed
 E2E_USER_EMAIL="usuario@example.com" E2E_USER_PASSWORD="..." npm run test:e2e:smoke
 ```
+
+`npm run test:e2e:seed` requiere `NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en el
+entorno local/CI. Crea o repara el usuario de smoke, confirma email, asegura perfil 21+ y ejecuta
+`service_submit_onboarding`; nunca debe ejecutarse desde cliente ni exponer la service role.
 
 Si `E2E_BASE_URL` no está definido, Playwright compila producción y levanta `next start` en el puerto `3102`. Para probar contra una URL ya levantada:
 
@@ -104,3 +109,17 @@ P7 aplicado manualmente en Supabase producción el 2026-06-02:
   `https://www.bingobolla.com`.
 - Smoke contra producción: `E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke`
   terminó con 11 tests OK y 1 omitido por falta de credenciales E2E.
+
+## P8 authenticated launch gate
+
+P8 añade `scripts/ensure-e2e-user.mjs` y el script `npm run test:e2e:seed` para preparar un usuario
+E2E real con service role: email confirmado, perfil 21+, términos persistidos, estado permitido,
+`kyc_status = self_declared` y onboarding ejecutado por RPC.
+
+El smoke autenticado ya no acepta silenciosamente usuarios que caigan en `/onboarding`: si se definen
+`E2E_USER_EMAIL` y `E2E_USER_PASSWORD`, debe llegar a `/lobby` y recorrer `/lobby`, `/mundos` y
+`/account`.
+
+Verificación producción P8:
+- `npm run test:e2e:seed`: OK con usuario E2E de producción.
+- `E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke`: 12 tests OK, 0 omitidos.

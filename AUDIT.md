@@ -93,6 +93,10 @@ Deploy producción `dpl_EyMCuB6NqCQkpDd8oWj9qNbZhgwv` quedó `Ready`; el smoke p
 
 P7 cierra la grieta entre registro y onboarding: el alta, la API BFF y la migración SQL quedan en 21+. El callback de confirmación de email apunta directo a `/onboarding`; `profiles` guarda evidencia de age gate/términos; y el ledger `community_referrals` pasa a `onboarded` cuando el referido completa onboarding. La SQL quedó aplicada en Supabase producción con checks `true,true,true`; deploy `dpl_8wGqTWZ2ftm6HcprCYC8XqgyooLK` quedó `Ready`; y el smoke público contra `https://www.bingobolla.com` pasó con 11 tests OK y 1 omitido por falta de credenciales E2E.
 
+## Compuerta CEO P8
+
+P8 convierte el recorrido autenticado en una compuerta de lanzamiento: `npm run test:e2e:seed` prepara un usuario real de smoke con service role, confirma email, asegura perfil 21+ y ejecuta onboarding. El smoke público contra `https://www.bingobolla.com` pasó con 12 tests OK y 0 omitidos, incluyendo acceso autenticado a `/lobby`, `/mundos` y `/account`.
+
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.

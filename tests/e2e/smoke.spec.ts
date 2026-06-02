@@ -74,7 +74,7 @@ test.describe("BingoBolla smoke", () => {
     expect(serviceWorker.headers()["content-type"]).toContain("application/javascript");
   });
 
-  test("optional authenticated user can reach lobby, worlds, and account", async ({ page }) => {
+  test("authenticated smoke user can reach lobby, worlds, and account", async ({ page }) => {
     test.skip(!e2eEmail || !e2ePassword, "Set E2E_USER_EMAIL and E2E_USER_PASSWORD to run the authenticated smoke.");
 
     await page.goto("/login");
@@ -82,8 +82,7 @@ test.describe("BingoBolla smoke", () => {
     await page.getByLabel(/Contraseña/).fill(e2ePassword ?? "");
     await page.getByRole("button", { name: /iniciar sesión/i }).click();
 
-    await page.waitForURL(/\/(lobby|onboarding)(?:$|\?)/);
-    test.skip(page.url().includes("/onboarding"), "Authenticated user is valid but still needs onboarding.");
+    await page.waitForURL(/\/lobby(?:$|\?)/);
 
     await page.goto("/lobby");
     await expect(page).not.toHaveURL(/\/login$/);

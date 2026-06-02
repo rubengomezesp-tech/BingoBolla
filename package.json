@@ -7,6 +7,7 @@
     "build": "next build",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
+    "test:e2e:seed": "node scripts/ensure-e2e-user.mjs",
     "test:e2e:smoke": "playwright test tests/e2e/smoke.spec.ts --project=chromium",
     "check:world-notifications": "node scripts/check-world-notifications.mjs",
     "start": "next start",
