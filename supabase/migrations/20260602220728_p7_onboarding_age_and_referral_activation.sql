@@ -21,7 +21,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $p7_submit$
 declare
   v_user_id uuid := auth.uid();
   v_age int;
@@ -62,14 +62,14 @@ begin
     'can_use_sweeps', not public.is_state_excluded(p_state)
   );
 end;
-$$;
+$p7_submit$;
 
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $p7_handle$
 declare
   base_username text;
   final_username text;
@@ -135,7 +135,7 @@ begin
 
   return new;
 end;
-$$;
+$p7_handle$;
 
 update public.community_referrals cr
 set status = 'onboarded',
