@@ -50,6 +50,13 @@ P5 aplicado manualmente en Supabase producción el 2026-06-02:
 - `profiles_without_referral_code = 0`.
 - `distinct_referral_codes = 4`.
 - `service_get_community_referral_stats(id)` devuelve `ok: true` con `referral_code`.
+- Deploy producción `dpl_GfWDXAHaeXEJdqGUPuYahQMFHEnB` quedó `Ready` y aliasado a
+  `https://www.bingobolla.com`.
+- Smoke contra producción: `E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke`
+  terminó con 10 tests OK y 1 omitido por falta de credenciales E2E.
+- Check directo: `/signup?ref=codexqa20260602` devuelve 200 y muestra
+  `Invitacion activa codexqa20260602`.
+- Check directo: `/invitar` sin sesión redirige a `/login`.
 
 En esta rama no se pudo ejecutar `supabase db lint --local` porque no hay Postgres local en
 `127.0.0.1:54322`, Docker no está disponible y el repo no está linkeado con un project ref de Supabase.

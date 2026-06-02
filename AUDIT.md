@@ -81,7 +81,7 @@ Los backups `.bak*`, scripts `install_*.sh` y el prototipo legacy USA Puzzle Tou
 
 ## Comunidad P4/P5
 
-La capa social empieza por invitaciones medibles: `/invitar` muestra código, enlace, progreso y últimos registros; `/signup?ref=` conserva el código; la migración P4 registra referidos en Supabase con acceso server-only. P5 aplicó la migración en producción y verificó 4 perfiles con 4 códigos únicos, 0 perfiles sin `referral_code`, tabla `community_referrals` y RPC `service_get_community_referral_stats` operativo.
+La capa social empieza por invitaciones medibles: `/invitar` muestra código, enlace, progreso y últimos registros; `/signup?ref=` conserva el código; la migración P4 registra referidos en Supabase con acceso server-only. P5 aplicó la migración en producción y verificó 4 perfiles con 4 códigos únicos, 0 perfiles sin `referral_code`, tabla `community_referrals` y RPC `service_get_community_referral_stats` operativo. El deploy `dpl_GfWDXAHaeXEJdqGUPuYahQMFHEnB` quedó `Ready` en Vercel y el smoke público pasó contra `https://www.bingobolla.com`.
 
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
