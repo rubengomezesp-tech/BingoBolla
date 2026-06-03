@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-const protectedRoutes = ["/lobby", "/mundos", "/account", "/invitar", "/onboarding"] as const;
+const protectedRoutes = [
+  "/lobby",
+  "/mundos",
+  "/mundomiami",
+  "/play/neural-cascade",
+  "/account",
+  "/invitar",
+  "/onboarding",
+] as const;
 const e2eEmail = process.env.E2E_USER_EMAIL;
 const e2ePassword = process.env.E2E_USER_PASSWORD;
 
@@ -67,11 +75,17 @@ test.describe("BingoBolla smoke", () => {
   test("public app shell assets stay available", async ({ request }) => {
     const manifest = await request.get("/manifest.webmanifest");
     const serviceWorker = await request.get("/sw.js");
+    const neuralCascade = await request.get("/games/neural-cascade.html");
+    const ballmatchToken = await request.get("/game-assets/ballmatch-tokens/bolla-swirl.png");
 
     await expect(manifest).toBeOK();
     await expect(serviceWorker).toBeOK();
+    await expect(neuralCascade).toBeOK();
+    await expect(ballmatchToken).toBeOK();
     expect(manifest.headers()["content-type"]).toContain("application/manifest+json");
     expect(serviceWorker.headers()["content-type"]).toContain("application/javascript");
+    expect(neuralCascade.headers()["content-type"]).toContain("text/html");
+    expect(ballmatchToken.headers()["content-type"]).toContain("image/png");
   });
 
   test("authenticated smoke user can reach lobby, worlds, and account", async ({ page }) => {
@@ -91,6 +105,19 @@ test.describe("BingoBolla smoke", () => {
     await page.goto("/mundos");
     await expect(page).not.toHaveURL(/\/login$/);
     await expect(page.locator("body")).not.toContainText(/iniciar sesión/i);
+
+    await page.goto("/mundomiami");
+    await expect(page).not.toHaveURL(/\/login$/);
+    await expect(page.getByText("Miami Nights")).toBeVisible();
+    await expect(page.locator(".wm-playCta")).toBeVisible();
+    await page.locator(".wm-playCta").click();
+    await expect(page.locator(".go-shell")).toBeVisible();
+    await expect(page.locator(".go-titleBlock")).toContainText(/Ball Match|Neural Cascade/);
+
+    await page.goto("/play/neural-cascade?level=6");
+    await expect(page).not.toHaveURL(/\/login$/);
+    await expect(page.locator("body")).not.toContainText(/Fase 2 pendiente/i);
+    await expect(page.locator('iframe[title^="Neural Cascade"]')).toBeVisible();
 
     await page.goto("/account");
     await expect(page).not.toHaveURL(/\/login$/);

@@ -123,3 +123,18 @@ El smoke autenticado ya no acepta silenciosamente usuarios que caigan en `/onboa
 Verificación producción P8:
 - `npm run test:e2e:seed`: OK con usuario E2E de producción.
 - `E2E_BASE_URL="https://www.bingobolla.com" npm run test:e2e:smoke`: 12 tests OK, 0 omitidos.
+
+## P9 Miami world continuity
+
+P9 cubre la continuidad visual y jugable de `/mundomiami`:
+- el CTA/nodo activo emite estado de lanzamiento antes de abrir el overlay seguro;
+- el mapa refuerza el flujo con path runner, pulso de nodo y feedback de conexión;
+- `/play/neural-cascade` ya no es placeholder: carga el minijuego real con vuelta a `/mundomiami`;
+- Ball Match usa tokens originales generados con imagegen en `public/game-assets/ballmatch-tokens/`;
+- el smoke autenticado entra en `/mundomiami`, verifica `Miami Nights` y abre `.go-shell` desde el CTA.
+
+Para validar P9 en producción:
+
+```bash
+E2E_BASE_URL="https://www.bingobolla.com" E2E_USER_EMAIL="usuario@example.com" E2E_USER_PASSWORD="..." npm run test:e2e:smoke
+```

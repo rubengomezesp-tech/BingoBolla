@@ -97,6 +97,10 @@ P7 cierra la grieta entre registro y onboarding: el alta, la API BFF y la migrac
 
 P8 convierte el recorrido autenticado en una compuerta de lanzamiento: `npm run test:e2e:seed` prepara un usuario real de smoke con service role, confirma email, asegura perfil 21+ y ejecuta onboarding. El smoke público contra `https://www.bingobolla.com` pasó con 12 tests OK y 0 omitidos, incluyendo acceso autenticado a `/lobby`, `/mundos` y `/account`.
 
+## Mundo Miami P9
+
+P9 ataca el problema visual de `/mundomiami`: el mapa ya no depende solo de una pantalla estática. El nodo activo y el CTA muestran un estado de conexión antes de abrir `GameOverlay`, la ruta iluminada añade flujo continuo, y `WorldMap_v9` registra `world.node_start` / `world.node_complete` sin bloquear la partida. La ruta directa `/play/neural-cascade` dejó de ser placeholder y carga el minijuego real protegido por sesión/onboarding. Ball Match reemplaza las bolas genéricas por seis tokens Miami/casino generados con imagegen y servidos desde `public/game-assets/ballmatch-tokens/`. El smoke autenticado ahora debe entrar en `/mundomiami` y abrir `.go-shell` desde el CTA.
+
 ### 🔴 Caller worker no corre
 **Síntoma**: Salas dicen "EMPIEZA PRONTO" pero nunca empiezan, las bolas no salen.
 **Causa**: El caller corre en tu Mac local, no en producción.

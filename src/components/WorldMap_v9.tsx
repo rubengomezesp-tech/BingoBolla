@@ -24,6 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import GameOverlay, { GameType } from "@/components/GameOverlay";
+import { trackGameplayEvent } from "@/lib/telemetry/client";
 
 type WNode = {
   node_id: string; node_index: number; node_type: string;
@@ -104,6 +105,14 @@ const REWARD_SPARKS = [
   { x: "58px", y: "38px", delay: "130ms" },
   { x: "0px", y: "-68px", delay: "165ms" },
   { x: "0px", y: "58px", delay: "210ms" },
+];
+const LAUNCH_SPARKS = [
+  { x: "-92px", y: "-48px", delay: "0ms" },
+  { x: "86px", y: "-55px", delay: "45ms" },
+  { x: "-70px", y: "50px", delay: "90ms" },
+  { x: "76px", y: "42px", delay: "125ms" },
+  { x: "0px", y: "-82px", delay: "160ms" },
+  { x: "0px", y: "72px", delay: "195ms" },
 ];
 
 function normalizeNode(raw: Partial<WNode> & { id?: string }): WNode {
@@ -243,9 +252,11 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
   const [noticeTrayOpen, setNoticeTrayOpen] = useState(false);
   const [serverNotices, setServerNotices] = useState<WorldNoticePayload[] | null>(null);
+  const [launchFx, setLaunchFx] = useState<{ nodeId: string; game: GameType; label: string; level: number; seed: number } | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const imgWrapRef = useRef<HTMLDivElement>(null);
   const rewardToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const launchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadWorldState = useCallback(async () => {
     const response = await fetch(`/api/world/map?worldId=${encodeURIComponent(WORLD_ID)}`, {
@@ -314,7 +325,28 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
     if (editMode) return; // en modo editor no se abren juegos
     if (!n.unlocked) return;
     const nextGame = gameForNode(n);
-    setGame({ game: nextGame.game, nodeId:n.node_id, level:n.node_index });
+    if (launchTimerRef.current) clearTimeout(launchTimerRef.current);
+    setLaunchFx({
+      nodeId: n.node_id,
+      game: nextGame.game,
+      label: nextGame.label,
+      level: n.node_index,
+      seed: Date.now(),
+    });
+    trackGameplayEvent({
+      eventName: "world.node_start",
+      surface: "mundomiami",
+      metadata: {
+        game: nextGame.game,
+        level: n.node_index,
+        node_id: n.node_id,
+        world_id: WORLD_ID,
+      },
+    });
+    launchTimerRef.current = setTimeout(() => {
+      setGame({ game: nextGame.game, nodeId:n.node_id, level:n.node_index });
+      setLaunchFx(null);
+    }, 320);
   }, [editMode]);
 
   const handleDone = useCallback(async (r: {win:boolean;stars:number;xp:number;gold?:number;starDelta?:number}) => {
@@ -340,6 +372,17 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
       }
       const notices = await loadWorldNotifications();
       if (notices) setServerNotices(notices);
+      trackGameplayEvent({
+        eventName: "world.node_complete",
+        surface: "mundomiami",
+        metadata: {
+          gold: goldGain,
+          star_delta: starGain,
+          stars: r.stars,
+          win: r.win,
+          xp: xpGain,
+        },
+      });
     }
     setGame(null);
   }, [loadWorldNotifications, loadWorldState]);
@@ -347,6 +390,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
   useEffect(() => {
     return () => {
       if (rewardToastTimerRef.current) clearTimeout(rewardToastTimerRef.current);
+      if (launchTimerRef.current) clearTimeout(launchTimerRef.current);
     };
   }, []);
 
@@ -674,6 +718,24 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
       </AnimatePresence>
 
       <AnimatePresence>
+        {launchFx && (
+          <motion.div
+            key={`world-launch-${launchFx.nodeId}-${launchFx.seed}`}
+            className="wm-launchToast"
+            role="status"
+            aria-live="polite"
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.96 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <Zap size={15} fill="currentColor" strokeWidth={2.5} aria-hidden="true" />
+            Conectando {launchFx.label}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {rewardToast && (
           <motion.div
             key="world-reward-toast"
@@ -839,7 +901,11 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
       </AnimatePresence>
 
       {/* Mapa scrollable */}
-      <div ref={mapRef} style={{
+      <div
+        ref={mapRef}
+        data-world-ready={!loading && mapReady ? "true" : "false"}
+        data-launching={launchFx ? "true" : "false"}
+        style={{
         height:"100dvh", overflowY: editMode ? "hidden" : "auto", overflowX:"hidden",
         background:"#06010d", position:"relative",
         touchAction: editMode ? "none" : "auto",
@@ -856,7 +922,9 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           {mapPath && (
             <svg className="wm-pathLayer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
               <path className="wm-pathBase" d={mapPath} />
+              {unlockedPath && <path className="wm-pathGlow" d={unlockedPath} />}
               {unlockedPath && <path className="wm-pathUnlocked" d={unlockedPath} />}
+              {unlockedPath && <path className="wm-pathRunner" d={unlockedPath} />}
             </svg>
           )}
 
@@ -869,10 +937,11 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
             const nodeGame = gameForNode(node);
             const nodeGameAsset = assetUrl(nodeGame.assetKey);
             const state = !node.unlocked ? "locked" : node.completed ? "done" : "open";
+            const isLaunching = launchFx?.nodeId === node.node_id;
 
             return (
               <div key={node.node_id}
-                className="wm-nodeMarker"
+                className={`wm-nodeMarker state-${state}${isActive ? " is-active" : ""}${isLaunching ? " is-launching" : ""}`}
                 data-node-id={node.node_id}
                 data-node-index={node.node_index}
                 data-game={nodeGame.game}
@@ -919,11 +988,25 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
                   display:"flex", flexDirection:"column",
                   alignItems:"center", justifyContent:"center",
                   cursor: editMode ? "grab" : node.unlocked ? "pointer" : "default",
-                  animation: (isActive && !editMode) ? "nodePulse 1.8s ease-in-out infinite" : "none",
+                  animation: (isActive && !editMode && !isLaunching) ? "nodePulse 1.8s ease-in-out infinite" : "none",
                   zIndex: isDragging ? 20 : isBoss ? 5 : 3,
                   touchAction:"none",
                 }}>
                 {isActive && !editMode && <span className="wm-nodeHalo" aria-hidden="true" />}
+                {isLaunching && (
+                  <span className="wm-nodeLaunch" aria-hidden="true">
+                    {LAUNCH_SPARKS.map((spark, index) => (
+                      <i
+                        key={`${spark.x}-${spark.y}-${index}`}
+                        style={{
+                          "--spark-x": spark.x,
+                          "--spark-y": spark.y,
+                          "--spark-delay": spark.delay,
+                        } as CSSProperties}
+                      />
+                    ))}
+                  </span>
+                )}
                 {/* Icono según estado */}
                 {state === "locked" ? (
                   lockImg
@@ -956,7 +1039,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
           {/* Mascota */}
           {!editMode && activeNode && (
             <button
-              className="wm-mascotMarker"
+              className={`wm-mascotMarker${launchFx?.nodeId === activeNode.node_id ? " is-launching" : ""}`}
               data-node-id={activeNode.node_id}
               data-node-index={activeNode.node_index}
               data-game={activeGame.game}
@@ -982,6 +1065,7 @@ export default function WorldMap({ playerId: _playerId }: { playerId: string }) 
             data-game={activeGame.game}
             onClick={() => activeNode && openGame(activeNode)}
             disabled={!activeNode}
+            data-launching={launchFx ? "true" : "false"}
             aria-label={activeNode ? `Jugar nivel ${activeNode.node_index}: ${activeGame.label}` : "Sin nivel disponible"}
           >
             <span>JUGAR</span>
@@ -1208,6 +1292,16 @@ const WORLD_UI_CSS = `
   font-size:13px;font-weight:1000;
   pointer-events:none;white-space:nowrap;overflow:visible;
 }
+.wm-launchToast{
+  position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 104px);z-index:83;
+  transform:translateX(-50%);min-height:38px;padding:0 14px;border-radius:999px;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  background:linear-gradient(180deg,rgba(23,11,55,.95),rgba(6,3,20,.98));
+  color:#dffbff;border:1px solid rgba(0,229,255,.48);
+  box-shadow:0 13px 32px rgba(0,0,0,.48),0 0 24px rgba(0,229,255,.28),inset 0 1px 0 rgba(255,255,255,.13);
+  font-size:12px;font-weight:1000;pointer-events:none;white-space:nowrap;
+}
+.wm-launchToast svg{color:#ffd95c;filter:drop-shadow(0 0 8px rgba(255,217,61,.8));}
 .wm-rewardToast span{
   position:relative;z-index:2;min-height:29px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
   background:rgba(255,255,255,.44);box-shadow:inset 0 1px 0 rgba(255,255,255,.45);
@@ -1308,10 +1402,19 @@ const WORLD_UI_CSS = `
   stroke:rgba(19,8,44,.56);stroke-width:8;
   filter:drop-shadow(0 0 7px rgba(0,0,0,.8));
 }
+.wm-pathGlow{
+  stroke:rgba(0,229,255,.18);stroke-width:9;
+  filter:drop-shadow(0 0 13px rgba(0,229,255,.42));
+}
 .wm-pathUnlocked{
   stroke:#b75cff;stroke-width:5;stroke-dasharray:12 10;
   animation:wmPathFlow 2.4s linear infinite;
   filter:drop-shadow(0 0 7px #b75cff) drop-shadow(0 0 14px #ff4dd8);
+}
+.wm-pathRunner{
+  stroke:#fff3a8;stroke-width:2.6;stroke-dasharray:1 34;
+  animation:wmPathRunner 1.55s linear infinite;
+  filter:drop-shadow(0 0 8px rgba(255,217,61,.95)) drop-shadow(0 0 12px rgba(0,229,255,.72));
 }
 .wm-mapEndPad{height:180px;background:linear-gradient(180deg,#06010d,rgba(6,1,13,.96));}
 .wm-mascotMarker{
@@ -1319,6 +1422,7 @@ const WORLD_UI_CSS = `
   transform:translate(-50%,-124%);background:transparent;padding:0;cursor:pointer;
   animation:mascotBob 2s ease-in-out infinite;filter:drop-shadow(0 8px 15px rgba(0,0,0,.8));
 }
+.wm-mascotMarker.is-launching{animation:mascotLaunch .46s cubic-bezier(.18,1.35,.3,1) both;}
 .wm-mascotMarker img{
   position:relative;z-index:2;width:112%;height:112%;object-fit:contain;transform:translate(-5%,-5%);
 }
@@ -1339,12 +1443,31 @@ const WORLD_UI_CSS = `
 }
 .wm-nodeMarker{isolation:isolate;}
 .wm-nodeMarker svg{color:#fff;}
+.wm-nodeMarker.is-launching{
+  animation:wmNodeLaunch .42s cubic-bezier(.18,1.35,.3,1) both!important;
+  box-shadow:0 0 26px rgba(255,217,61,.94),0 0 44px rgba(0,229,255,.58)!important;
+}
 .wm-nodeHalo{
   position:absolute;inset:-10px;border-radius:50%;z-index:-1;pointer-events:none;
   background:radial-gradient(circle,rgba(255,222,78,.52),rgba(255,77,154,.18) 54%,transparent 72%);
   border:1px solid rgba(255,232,121,.48);
   box-shadow:0 0 22px rgba(255,217,61,.54),0 0 34px rgba(255,77,154,.22);
   animation:wmHaloSweep 1.55s ease-in-out infinite;
+}
+.wm-nodeLaunch{
+  position:absolute;inset:-18px;border-radius:50%;z-index:-1;pointer-events:none;
+}
+.wm-nodeLaunch:before,.wm-nodeLaunch:after{
+  content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,232,121,.86);
+  box-shadow:0 0 24px rgba(255,217,61,.7),0 0 38px rgba(0,229,255,.34);
+  animation:wmLaunchRing .54s ease-out forwards;
+}
+.wm-nodeLaunch:after{animation-delay:.12s;border-color:rgba(0,229,255,.72);}
+.wm-nodeLaunch i{
+  position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;
+  background:linear-gradient(180deg,#ffffff,#ffe56e 45%,#00e5ff);
+  box-shadow:0 0 12px rgba(255,231,99,.96);
+  animation:wmSpark .62s cubic-bezier(.16,1,.3,1) var(--spark-delay) both;
 }
 .wm-nodeLetters{font-size:12px;font-weight:1000;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.75);}
 .wm-playCta{
@@ -1354,6 +1477,10 @@ const WORLD_UI_CSS = `
   background:linear-gradient(180deg,#fff07f 0%,#ffc21e 45%,#ca7808 100%);
   box-shadow:0 11px 26px rgba(0,0,0,.55),0 0 32px rgba(255,199,42,.8),inset 0 2px 0 rgba(255,255,255,.72);
   font:inherit;animation:wmPlayBreath 2.1s ease-in-out infinite;
+}
+.wm-playCta[data-launching="true"]{
+  animation:wmPlayLaunch .42s cubic-bezier(.18,1.35,.3,1) infinite alternate;
+  box-shadow:0 13px 34px rgba(0,0,0,.58),0 0 48px rgba(0,229,255,.58),0 0 60px rgba(255,217,61,.8),inset 0 2px 0 rgba(255,255,255,.72);
 }
 .wm-playCta:disabled{opacity:.55;cursor:default;animation:none;}
 .wm-playCta span{grid-column:1;grid-row:1;color:#351600;font-size:34px;font-weight:1000;line-height:1;text-shadow:0 1px 0 rgba(255,255,255,.45);align-self:end;}
@@ -1394,9 +1521,30 @@ const WORLD_UI_CSS = `
 @keyframes wmPathFlow{
   to{stroke-dashoffset:-22}
 }
+@keyframes wmPathRunner{
+  to{stroke-dashoffset:-35}
+}
 @keyframes wmHaloSweep{
   0%,100%{opacity:.72;transform:scale(.96)}
   50%{opacity:1;transform:scale(1.12)}
+}
+@keyframes wmLaunchRing{
+  0%{opacity:1;transform:scale(.42)}
+  100%{opacity:0;transform:scale(1.55)}
+}
+@keyframes wmNodeLaunch{
+  0%{transform:translate(-50%,-50%) scale(1)}
+  48%{transform:translate(-50%,-50%) scale(1.2)}
+  100%{transform:translate(-50%,-50%) scale(1.04)}
+}
+@keyframes mascotLaunch{
+  0%{transform:translate(-50%,-124%) scale(1)}
+  48%{transform:translate(-50%,-148%) scale(1.08)}
+  100%{transform:translate(-50%,-132%) scale(1.02)}
+}
+@keyframes wmPlayLaunch{
+  from{transform:translateX(-50%) scale(1)}
+  to{transform:translateX(-50%) scale(1.035)}
 }
 @media(max-width:900px){
   .wm-topHud{grid-template-columns:58px minmax(0,1fr) 48px;padding-left:10px;padding-right:10px;gap:7px;}
@@ -1457,6 +1605,7 @@ const WORLD_UI_CSS = `
   .wm-noticePeekCopy p{font-size:11px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .wm-noticePeekCopy button{min-height:28px;font-size:11px;}
   .wm-rewardToast{top:calc(env(safe-area-inset-top,0px) + 126px);gap:5px;font-size:12px;}
+  .wm-launchToast{bottom:calc(env(safe-area-inset-bottom,0px) + 72px);font-size:11px;max-width:calc(100vw - 18px);}
   .wm-rewardToast span{padding:0 7px;}
   .wm-missionCard{left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);width:auto;max-width:none;padding:10px;border-radius:14px;}
   .wm-missionCard:before{border-radius:13px;}
@@ -1492,7 +1641,7 @@ const WORLD_UI_CSS = `
   .wm-completed{font-size:11px;}
 }
 @media(prefers-reduced-motion:reduce){
-  .wm-playCta,.wm-mascotMarker,.wm-nodeMarker,.wm-loading i:before,.wm-rewardBurst i,.wm-nodeHalo,.wm-pathUnlocked{animation:none!important;}
+  .wm-playCta,.wm-mascotMarker,.wm-nodeMarker,.wm-loading i:before,.wm-rewardBurst i,.wm-nodeHalo,.wm-pathUnlocked,.wm-pathRunner,.wm-nodeLaunch:before,.wm-nodeLaunch:after,.wm-nodeLaunch i{animation:none!important;}
   .wm-resource,.wm-sideRailIcon{transition:none!important;}
 }
 `;

@@ -223,25 +223,23 @@
     transition:transform .26s cubic-bezier(.2,.9,.3,1);
     font-size:clamp(18px,5.4vw,30px);font-weight:800;
   }
-  .tile .face{width:78%;height:78%;border-radius:50%;display:flex;align-items:center;
-    justify-content:center;box-shadow:inset 0 3px 6px rgba(255,255,255,.35),
-    inset 0 -4px 8px rgba(0,0,0,.35),0 3px 8px rgba(0,0,0,.4);position:relative;}
-  .tile .face::after{content:'';position:absolute;top:14%;left:20%;width:34%;height:26%;
-    border-radius:50%;background:rgba(255,255,255,.5);filter:blur(2px);}
-  /* tipos de ficha */
-  .t-ballB .face{background:radial-gradient(circle at 35% 30%,#ff9ad4,var(--magenta) 60%,var(--magenta-deep));}
-  .t-ballB .sym{color:#fff;font-family:'Pacifico',cursive;font-size:1.05em;
-    text-shadow:0 1px 2px rgba(0,0,0,.4);z-index:1;}
-  .t-coin .face{background:radial-gradient(circle at 35% 30%,#ffe48a,var(--gold) 60%,#8a5e10);}
-  .t-coin .sym{color:#5a3a00;font-weight:800;z-index:1;}
-  .t-clover .face{background:radial-gradient(circle at 35% 30%,#8effb0,#27c46a 60%,#138a40);}
-  .t-clover .sym{filter:drop-shadow(0 1px 1px rgba(0,0,0,.3));z-index:1;}
-  .t-star .face{background:radial-gradient(circle at 35% 30%,#a8e0ff,var(--cyan) 60%,#1a6a9c);}
-  .t-star .sym{color:#fff;z-index:1;text-shadow:0 1px 2px rgba(0,0,0,.4);}
-  .t-diamond .face{background:radial-gradient(circle at 35% 30%,#d8f4ff,#7ad0ff 55%,#3a8fc0);}
-  .t-diamond .sym{z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));}
-  .t-purple .face{background:radial-gradient(circle at 35% 30%,#d9a8ff,#9a4ad0 60%,#5e1f8a);}
-  .t-purple .sym{color:#fff;z-index:1;}
+  .tile .face{width:86%;height:86%;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;position:relative;
+    background-image:var(--token-img),radial-gradient(circle at 50% 50%,rgba(255,255,255,.2),rgba(0,0,0,.2));
+    background-size:118% 118%,100% 100%;background-position:center;background-repeat:no-repeat;
+    filter:drop-shadow(0 5px 8px rgba(0,0,0,.48)) drop-shadow(0 0 8px var(--token-glow,rgba(255,217,138,.28)));
+  }
+  .tile .face::after{content:"";position:absolute;inset:7%;border-radius:50%;
+    background:radial-gradient(ellipse at 32% 20%,rgba(255,255,255,.46),transparent 30%);
+    opacity:.32;mix-blend-mode:screen;pointer-events:none;}
+  .tile .sym{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:transparent;font-size:0;text-indent:-9999px;overflow:hidden;z-index:1;}
+  .t-bolla   {--token-img:url('/game-assets/ballmatch-tokens/bolla-swirl.png');--token-glow:rgba(255,61,127,.62);}
+  .t-sun     {--token-img:url('/game-assets/ballmatch-tokens/sun-coin.png');--token-glow:rgba(255,210,61,.72);}
+  .t-palm    {--token-img:url('/game-assets/ballmatch-tokens/palm-lagoon.png');--token-glow:rgba(0,229,255,.54);}
+  .t-star    {--token-img:url('/game-assets/ballmatch-tokens/artdeco-star.png');--token-glow:rgba(0,229,255,.58);}
+  .t-wave    {--token-img:url('/game-assets/ballmatch-tokens/ocean-diamond.png');--token-glow:rgba(58,168,224,.62);}
+  .t-moon    {--token-img:url('/game-assets/ballmatch-tokens/moon-spark.png');--token-glow:rgba(190,95,255,.62);}
 
   .tile.sel .face{transform:scale(1.12);box-shadow:0 0 0 3px #fff,
     0 0 18px rgba(255,210,80,.9),inset 0 3px 6px rgba(255,255,255,.4);}
@@ -310,6 +308,8 @@
   @keyframes spPulseC{0%,100%{transform:rotate(0)}50%{transform:rotate(8deg)}}
   .rainbowface{background:conic-gradient(#ff4d9a,#ffd23d,#3ddc78,#3de8ff,#7a3ad0,#ff4d9a)!important;
     animation:rbSpin 3s linear infinite;}
+  .rainbowface .sym{color:#fff;font-size:1em;text-indent:0;overflow:visible;
+    text-shadow:0 1px 4px rgba(0,0,0,.55);}
   @keyframes rbSpin{to{transform:rotate(360deg)}}
   .sp-rainbow .sym{animation:rbSpinR 3s linear infinite;}
   @keyframes rbSpinR{to{transform:rotate(-360deg)}}
@@ -505,6 +505,10 @@
     25%{transform:translate(-50%,-50%) scale(1.15);opacity:1}
     70%{transform:translate(-50%,-50%) scale(1);opacity:1}
     100%{transform:translate(-50%,-90%) scale(.8);opacity:0}}
+
+  @media(max-width:640px){
+    .cartonwrap{display:none;}
+  }
 </style>
 </head>
 <body>
@@ -517,10 +521,10 @@
 
   <div class="bars">
     <div class="goalbox">
-      <div class="gi" id="goalIcon">🪙</div>
+      <div class="gi" id="goalIcon"></div>
       <div>
         <div class="gt">OBJETIVO</div>
-        <div class="gv"><span id="goalLeft">20</span> <span id="goalName">fichas oro</span></div>
+        <div class="gv"><span id="goalLeft">20</span> <span id="goalName">soles casino</span></div>
       </div>
     </div>
     <div class="movesbox">
@@ -621,8 +625,23 @@ const wait = ms => new Promise(r=>setTimeout(r,ms));
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const N = 8;
-const TYPES = ["ballB","coin","clover","star","diamond","purple"];
-const SYM = { ballB:"B", coin:"B", clover:"🍀", star:"★", diamond:"💎", purple:"◆" };
+const TYPES = ["bolla","sun","palm","star","wave","moon"];
+const SYM = {
+  bolla:"Bolla swirl",
+  sun:"Sol casino",
+  palm:"Palma lagoon",
+  star:"Estrella art deco",
+  wave:"Ola diamante",
+  moon:"Luna neon",
+};
+const TOKEN_ICON = {
+  bolla:"/game-assets/ballmatch-tokens/bolla-swirl.png",
+  sun:"/game-assets/ballmatch-tokens/sun-coin.png",
+  palm:"/game-assets/ballmatch-tokens/palm-lagoon.png",
+  star:"/game-assets/ballmatch-tokens/artdeco-star.png",
+  wave:"/game-assets/ballmatch-tokens/ocean-diamond.png",
+  moon:"/game-assets/ballmatch-tokens/moon-spark.png",
+};
 
 // Fichas especiales (combinaciones)
 const SPECIAL = { bomb:"💣", cross:"✦", rainbow:"🌈" };
@@ -650,7 +669,7 @@ let grid = [];        // matriz N x N de {type, el, r, c}
 let level = 1;
 let moves = 20;
 let score = 0;
-let goalType = "coin";
+let goalType = "sun";
 let goalLeft = 20;
 let busy = false;     // bloquea input mientras resuelve cascada
 let sel = null;       // tile seleccionada
@@ -1786,7 +1805,7 @@ let bingo = [];           // 5x5 de {num, marked, free}
 let bingoLines = new Set(); // claves de líneas ya premiadas
 
 // cada tipo de ficha apunta a una columna del cartón
-const TYPE_COL = { ballB:0, coin:1, clover:2, star:3, diamond:4, purple:2 };
+const TYPE_COL = { bolla:0, sun:1, palm:2, star:3, wave:4, moon:2 };
 
 function buildBingo(){
   bingo=[]; bingoLines=new Set();
@@ -1851,7 +1870,7 @@ function flashBingo(txt){
 
 function loadLevel(n){
   level=n;
-  goalType = TYPES[1 + ((n-1) % (TYPES.length-1))]; // rota objetivo (no ballB siempre)
+  goalType = TYPES[1 + ((n-1) % (TYPES.length-1))]; // rota objetivo sin pedir siempre el Bolla swirl
 
   // CURVA DE DIFICULTAD · subida media-alta (opción C, calibramos juntos)
   // Más objetivo y menos margen de movimientos -> hay que jugar bien desde el 1.
@@ -1872,10 +1891,19 @@ function loadLevel(n){
   initBoosters();
 
   elLvl.textContent = "NIVEL " + n;
-  elGoalIcon.textContent = SYM[goalType]==="B" ? "🪙" :
-    goalType==="clover"?"🍀":goalType==="star"?"★":goalType==="diamond"?"💎":"◆";
-  const names={ballB:"bolas B",coin:"fichas oro",clover:"tréboles",
-    star:"estrellas",diamond:"diamantes",purple:"moradas"};
+  elGoalIcon.textContent = "";
+  elGoalIcon.style.backgroundImage = `url('${TOKEN_ICON[goalType]}')`;
+  elGoalIcon.style.backgroundSize = "122% 122%";
+  elGoalIcon.style.backgroundPosition = "center";
+  elGoalIcon.style.backgroundRepeat = "no-repeat";
+  const names={
+    bolla:"Bolla swirl",
+    sun:"soles casino",
+    palm:"palmas lagoon",
+    star:"estrellas art deco",
+    wave:"olas diamante",
+    moon:"lunas neon",
+  };
   elGoalName.textContent = names[goalType];
   buildBingo();
   updateHUD();
