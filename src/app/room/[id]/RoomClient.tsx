@@ -34,6 +34,7 @@ import {
   Ticket,
   Timer,
   Trophy,
+  Users,
   Volume2,
   VolumeX,
   type LucideIcon,
@@ -44,6 +45,7 @@ type MyCard = { id: string; game_id: string; card_data: CardType; currency: "gol
 type ChatMsg = { id: string; player_id: string | null; is_mc: boolean; message: string; created_at: string; username?: string };
 type PrizeTone = "idle" | "near" | "ready" | "won" | "closed";
 type RoomDockView = "game" | "cards" | "buy" | "chat";
+type RoomMode = "live" | "spectator-queue" | "spectator-locked" | "buy" | "wait-with-cards";
 type CardPrizeState = {
   pattern: Pattern | null;
   label: string;
@@ -311,7 +313,7 @@ export default function RoomClient({
   });
   const PurchaseStatusIcon = purchaseStatus.Icon;
 
-  let mode: "live" | "spectator-queue" | "spectator-locked" | "buy" | "wait-with-cards";
+  let mode: RoomMode;
   if (playing && hasPlayingCards) mode = "live";
   else if (playing && waiting && purchaseOpen) mode = "spectator-queue";
   else if (playing && (!waiting || !purchaseOpen)) mode = "spectator-locked";
@@ -502,6 +504,43 @@ export default function RoomClient({
   const totalCardsInRoom = (state.my_cards_playing?.length ?? 0) + waitingCardsCount;
   const lastChatCount = state.chat?.length ?? 0;
   const potSweeps = Number(state.playing_game?.pot_sweeps ?? state.waiting_game?.pot_sweeps ?? 0);
+  const featuredPlayingCard = state.my_cards_playing?.[0] ?? null;
+  const featuredWaitingCard = state.my_cards_waiting?.[0] ?? null;
+  const featuredCard = featuredPlayingCard ?? featuredWaitingCard;
+  const featuredPrizeState = featuredPlayingCard
+    ? getCardPrizeState(cardStatuses[featuredPlayingCard.id], isB90, state.playing_game, userId)
+    : queuedPrizeState();
+  const stageCopy = getStageCopy({
+    ballsCalled: balls.length,
+    countdownClose,
+    countdownPlay,
+    hasPlayingCards,
+    hasWaitingCards,
+    mode,
+    purchaseOpen,
+    totalBalls,
+    waitingCardsCount,
+  });
+  const stageEmptyCopy = getStageEmptyCopy({
+    cardsRemaining,
+    countdownPlay,
+    playing,
+    purchaseOpen,
+  });
+  const stageActionView: RoomDockView = featuredCard ? "cards" : stageEmptyCopy.view;
+  const stageActionLabel = featuredPlayingCard
+    ? "Ver todos los cartones"
+    : featuredWaitingCard
+      ? "Revisar cartones listos"
+      : stageEmptyCopy.buttonLabel;
+  const bottomAction = getBottomAction({
+    activeView,
+    buyingAny,
+    hasPlayingCards,
+    hasWaitingCards,
+    purchaseOpen,
+  });
+  const BottomActionIcon = bottomAction.Icon;
   const roomViews: Array<{
     id: RoomDockView;
     label: string;
@@ -632,45 +671,110 @@ export default function RoomClient({
             </div>
           )}
 
-          {playing && lastBall && (
-            <div className="rm-nextball" key={lastBall.sequence}>
-              <div className="rm-nbL">ÚLTIMA BOLA</div>
-              <div className="rm-nbBall" style={{ "--bc": getBallColor(lastBall.ball_number, isB90) } as any}>
-                {!isB90 && <span className="rm-nbLetter">{ballLetter(lastBall.ball_number)}</span>}
-                {lastBall.ball_number}
-              </div>
-            </div>
-          )}
-
-          <div className="rm-stage">
+          <div className={`rm-stage rm-stage-${mode}`} data-room-stage="live">
             <div className="rm-stageGlow" />
-            <div className="rm-arch" />
-            <div className="rm-stageLogo">
-              <div className="rm-cr"><Crown size={26} aria-hidden="true" /></div>
-              <div className="rm-l1">BINGO</div>
-              <div className="rm-l2">BOLLA</div>
-            </div>
-            <div className="rm-stageFloor" />
-            <div className="rm-booth" />
+            <div className="rm-stageGrid">
+              <section className="rm-stageBrief" aria-labelledby="room-stage-title">
+                <div className={`rm-stageBadge rm-stageBadge-${mode}`}>
+                  {stageCopy.kicker}
+                </div>
+                <h1 id="room-stage-title" className="rm-stageTitle">{stageCopy.title}</h1>
+                <p className="rm-stageText">{stageCopy.text}</p>
 
-            <div className="rm-players">
-              <div className="rm-pHd">
-                <div className="rm-pT">JUGADORES</div>
-                <div className="rm-pC">{onlineCount}</div>
-                <div className="rm-pS">en sala</div>
-              </div>
-              {chatPlayers.length === 0 && (
-                <div className="rm-pEmpty">Sé el primero en entrar</div>
-              )}
-              {chatPlayers.slice(0, 5).map((p, i) => (
-                <div className="rm-pl" key={i}>
-                  <div className="rm-plAv">{p.name?.[0]?.toUpperCase() ?? "?"}</div>
-                  <div className="rm-plInfo">
-                    <div className="rm-plNm">{p.name}</div>
-                    <div className="rm-plSt">jugando</div>
+                <div className="rm-stageStats" aria-label="Resumen de partida">
+                  <div className="rm-stageStat rm-stageStatBall">
+                    <span>Última bola</span>
+                    <b>
+                      {lastBall ? (
+                        <>
+                          {!isB90 && <small>{ballLetter(lastBall.ball_number)}</small>}
+                          {lastBall.ball_number}
+                        </>
+                      ) : "—"}
+                    </b>
+                  </div>
+                  <div className="rm-stageStat">
+                    <span>Progreso</span>
+                    <b>{balls.length}/{totalBalls}</b>
+                  </div>
+                  <div className="rm-stageStat">
+                    <span>Tus cartones</span>
+                    <b>{totalCardsInRoom}</b>
                   </div>
                 </div>
-              ))}
+
+                <div className="rm-stagePlayers">
+                  <div className="rm-stagePlayersHead">
+                    <Users size={14} aria-hidden="true" />
+                    <span>{onlineCount} en sala</span>
+                  </div>
+                  {chatPlayers.length === 0 ? (
+                    <div className="rm-stagePlayersEmpty">Sin chat todavía. La sala ya está lista para jugar.</div>
+                  ) : (
+                    <div className="rm-stagePlayerList">
+                      {chatPlayers.slice(0, 4).map((p, i) => (
+                        <div className="rm-stagePlayer" key={`${p.name}-${i}`}>
+                          <span>{p.name?.[0]?.toUpperCase() ?? "?"}</span>
+                          <b>{p.name}</b>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {featuredCard && (
+                  <button
+                    type="button"
+                    className="rm-stageCta"
+                    onClick={() => setActiveView(stageActionView)}
+                  >
+                    {stageActionLabel}
+                  </button>
+                )}
+              </section>
+
+              <section className="rm-stageCards" aria-label="Cartón destacado">
+                {featuredCard ? (
+                  isB90 ? (
+                    <Card90
+                      card={featuredCard}
+                      status={featuredPlayingCard ? cardStatuses[featuredCard.id] : undefined}
+                      calledSet={featuredPlayingCard ? calledSet : new Set()}
+                      index={0}
+                      justMarked={featuredPlayingCard ? justMarked : new Set()}
+                      prizeState={featuredPrizeState}
+                      claiming={featuredPlayingCard ? claimingCardId === featuredCard.id : false}
+                      onClaim={featuredPlayingCard ? () => handlePrizeClaim(featuredCard, featuredPrizeState) : undefined}
+                    />
+                  ) : (
+                    <Card75
+                      card={featuredCard}
+                      status={featuredPlayingCard ? cardStatuses[featuredCard.id] : undefined}
+                      calledSet={featuredPlayingCard ? calledSet : new Set()}
+                      index={0}
+                      justMarked={featuredPlayingCard ? justMarked : new Set()}
+                      prizeState={featuredPrizeState}
+                      claiming={featuredPlayingCard ? claimingCardId === featuredCard.id : false}
+                      onClaim={featuredPlayingCard ? () => handlePrizeClaim(featuredCard, featuredPrizeState) : undefined}
+                    />
+                  )
+                ) : (
+                  <div className="rm-stageCallout">
+                    <div className="rm-stageCallIcon"><Ticket size={26} aria-hidden="true" /></div>
+                    <div className="rm-stageCallTitle">{stageEmptyCopy.title}</div>
+                    <div className="rm-stageCallText">
+                      {stageEmptyCopy.text}
+                    </div>
+                    <button
+                      type="button"
+                      className="rm-inlinePrimary"
+                      onClick={() => setActiveView(stageEmptyCopy.view)}
+                    >
+                      {stageEmptyCopy.buttonLabel}
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
           </div>
 
@@ -690,6 +794,7 @@ export default function RoomClient({
             mode={mode}
             countdownPlay={countdownPlay}
             countdownClose={countdownClose}
+            purchaseOpen={purchaseOpen}
             myCardsWaiting={state.my_cards_waiting?.length ?? 0}
           />
         </div>
@@ -789,6 +894,7 @@ export default function RoomClient({
             mode={mode}
             countdownPlay={countdownPlay}
             countdownClose={countdownClose}
+            purchaseOpen={purchaseOpen}
             myCardsWaiting={state.my_cards_waiting?.length ?? 0}
           />
 
@@ -928,7 +1034,7 @@ export default function RoomClient({
           className="rm-buybig"
           onClick={() => {
             if (activeView !== "buy") {
-              setActiveView("buy");
+              setActiveView(hasPlayingCards || hasWaitingCards ? "cards" : "buy");
               return;
             }
             if (!purchaseOpen) showToast(false, purchaseStatus.title);
@@ -939,8 +1045,8 @@ export default function RoomClient({
           disabled={buyingAny}
         >
           <span className="rm-bbSh" />
-          {buying ? <Loader2 size={20} aria-hidden="true" className="rm-spin" /> : <ShoppingCart size={20} aria-hidden="true" />}
-          <div>{buying ? "COMPRANDO" : activeView !== "buy" ? "COMPRA" : purchaseOpen ? "COMPRAR" : "CERRADO"}<div className="rm-bbSub">MÁS CARTONES</div></div>
+          <BottomActionIcon size={20} aria-hidden="true" className={buyingAny ? "rm-spin" : undefined} />
+          <div>{bottomAction.label}<div className="rm-bbSub">{bottomAction.sub}</div></div>
         </button>
         <button type="button" onClick={() => setActiveView("cards")} className="rm-abtn">
           <BarChart3 size={18} aria-hidden="true" />CARTONES
@@ -950,14 +1056,16 @@ export default function RoomClient({
   );
 }
 
-function ModeBanner({ mode, countdownPlay, countdownClose, myCardsWaiting }: any) {
+function ModeBanner({ mode, countdownPlay, countdownClose, purchaseOpen, myCardsWaiting }: any) {
   const content = (() => {
     switch (mode) {
       case "live": return { Icon: Target, title: "Tu partida está en curso", subtitle: "Las bolas se marcan automáticamente", color: "emerald" };
       case "spectator-queue": return { Icon: Eye, title: "Mirando partida en curso", subtitle: `Compra para la siguiente · Ventana cierra en ${countdownClose ?? "?"}s`, color: "cyan" };
       case "spectator-locked": return { Icon: Clock3, title: "Ventana cerrada", subtitle: `Próxima ronda en ${formatCountdown(countdownPlay)}`, color: "gold" };
       case "wait-with-cards": return { Icon: Timer, title: `${myCardsWaiting} cartones listos`, subtitle: `Empieza en ${formatCountdown(countdownPlay)}`, color: "cyan" };
-      default: return { Icon: Ticket, title: "Compra tu cartón", subtitle: `La ronda empieza en ${formatCountdown(countdownPlay)}`, color: "magenta" };
+      default: return purchaseOpen
+        ? { Icon: Ticket, title: "Compra tu cartón", subtitle: `La ronda empieza en ${formatCountdown(countdownPlay)}`, color: "magenta" }
+        : { Icon: Clock3, title: "Compra cerrada", subtitle: `La próxima ventana abre en ${formatCountdown(countdownPlay)}`, color: "gold" };
     }
   })();
   const Icon = content.Icon as LucideIcon;
@@ -970,6 +1078,129 @@ function ModeBanner({ mode, countdownPlay, countdownClose, myCardsWaiting }: any
       </div>
     </div>
   );
+}
+
+function getStageCopy({
+  ballsCalled,
+  countdownClose,
+  countdownPlay,
+  hasPlayingCards,
+  hasWaitingCards,
+  mode,
+  purchaseOpen,
+  totalBalls,
+  waitingCardsCount,
+}: {
+  ballsCalled: number;
+  countdownClose: number | null;
+  countdownPlay: number | null;
+  hasPlayingCards: boolean;
+  hasWaitingCards: boolean;
+  mode: RoomMode;
+  purchaseOpen: boolean;
+  totalBalls: number;
+  waitingCardsCount: number;
+}) {
+  if (mode === "live" && hasPlayingCards) {
+    return {
+      kicker: "EN JUEGO",
+      title: "Tus cartones estan en directo",
+      text: `La ronda va por ${ballsCalled}/${totalBalls}. Revisa marcas, progreso y valida premios desde Cartones.`,
+    };
+  }
+
+  if (mode === "spectator-queue") {
+    return {
+      kicker: "RONDA EN CURSO",
+      title: "Prepara la siguiente entrada",
+      text: `Esta partida ya empezo. La compra sigue abierta ${countdownClose == null ? "" : `por ${countdownClose}s `}para la proxima ronda.`,
+    };
+  }
+
+  if (mode === "spectator-locked") {
+    return {
+      kicker: "MIRANDO SALA",
+      title: "La compra esta cerrada",
+      text: `La partida sigue en vivo. La siguiente ventana abrira en ${formatCountdown(countdownPlay)}.`,
+    };
+  }
+
+  if (mode === "wait-with-cards" || hasWaitingCards) {
+    return {
+      kicker: "EN COLA",
+      title: `${waitingCardsCount} cartones preparados`,
+      text: `Tu entrada esta lista. La ronda empieza en ${formatCountdown(countdownPlay)}.`,
+    };
+  }
+
+  return {
+    kicker: purchaseOpen ? "COMPRA ABIERTA" : "SALA LISTA",
+    title: purchaseOpen ? "Entra en la proxima ronda" : "Esperando proxima ventana",
+    text: purchaseOpen
+      ? `Compra cartones antes de que cierre la ventana y vuelve aqui para seguir la partida.`
+      : `La siguiente ronda se prepara en ${formatCountdown(countdownPlay)}.`,
+  };
+}
+
+function getStageEmptyCopy({
+  cardsRemaining,
+  countdownPlay,
+  playing,
+  purchaseOpen,
+}: {
+  cardsRemaining: number;
+  countdownPlay: number | null;
+  playing: boolean;
+  purchaseOpen: boolean;
+}): { title: string; text: string; buttonLabel: string; view: RoomDockView } {
+  if (purchaseOpen) {
+    return {
+      title: "Entra en la próxima ronda",
+      text: `Quedan ${cardsRemaining} espacios. Compra antes de que cierre la ventana.`,
+      buttonLabel: "Comprar cartón",
+      view: "buy",
+    };
+  }
+
+  if (playing) {
+    return {
+      title: "Mirando la sala",
+      text: "La ronda está en vivo. Cuando abra la compra, prepara tus cartones para la siguiente.",
+      buttonLabel: "Ver chat",
+      view: "chat",
+    };
+  }
+
+  return {
+    title: "Siguiente ronda en preparación",
+    text: `La compra abrirá cuando el servidor active la próxima ventana. Tiempo estimado: ${formatCountdown(countdownPlay)}.`,
+    buttonLabel: "Ver chat",
+    view: "chat",
+  };
+}
+
+function getBottomAction({
+  activeView,
+  buyingAny,
+  hasPlayingCards,
+  hasWaitingCards,
+  purchaseOpen,
+}: {
+  activeView: RoomDockView;
+  buyingAny: boolean;
+  hasPlayingCards: boolean;
+  hasWaitingCards: boolean;
+  purchaseOpen: boolean;
+}): { label: string; sub: string; Icon: LucideIcon } {
+  if (buyingAny) return { label: "COMPRANDO", sub: "ESPERA", Icon: Loader2 };
+  if (activeView !== "buy") {
+    if (hasPlayingCards) return { label: "CARTONES", sub: "VALIDA PREMIOS", Icon: Ticket };
+    if (hasWaitingCards) return { label: "CARTONES", sub: "LISTOS", Icon: Ticket };
+    return { label: "COMPRA", sub: "ENTRAR RONDA", Icon: ShoppingCart };
+  }
+  return purchaseOpen
+    ? { label: "COMPRAR", sub: "CARTON SWEEPS", Icon: ShoppingCart }
+    : { label: "CERRADO", sub: "PROXIMA RONDA", Icon: LockKeyhole };
 }
 
 function PrizeIndicator({ label, won, active }: any) {
@@ -1321,52 +1552,64 @@ const RM_CSS = `
   animation:rmPulse 2s ease-in-out infinite;}
 .rm-nbLetter{font-size:13px;opacity:.7;margin-bottom:-4px;}
 @keyframes rmPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-.rm-stage{margin:0 12px 10px;border-radius:14px;height:300px;position:relative;
-  overflow:hidden;
+.rm-stage{margin:0 12px 10px;border-radius:14px;position:relative;
+  overflow:hidden;padding:14px;
   background:
-  radial-gradient(60% 50% at 50% 35%,rgba(255,217,61,.16),transparent),
-  radial-gradient(40% 40% at 50% 60%,rgba(255,61,127,.20),transparent),
-  linear-gradient(180deg,#171722,#101018 50%,#09090d);
+  radial-gradient(60% 50% at 22% 12%,rgba(0,229,255,.13),transparent 58%),
+  radial-gradient(48% 50% at 82% 24%,rgba(255,61,127,.18),transparent 58%),
+  linear-gradient(180deg,#171722,#101018 58%,#09090d);
   border:1px solid rgba(255,255,255,.12);}
-.rm-stageGlow{position:absolute;inset:0;
-  background:radial-gradient(circle at 20% 30%,rgba(0,200,255,.18),transparent 40%),
-  radial-gradient(circle at 80% 30%,rgba(255,60,180,.2),transparent 40%),
-  radial-gradient(circle at 50% 75%,rgba(255,170,40,.15),transparent 50%);}
-.rm-arch{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);
-  width:180px;height:160px;border-radius:50% 50% 0 0;
-  border:3px solid rgba(255,200,80,.22);
-  box-shadow:0 0 40px rgba(255,180,60,.2),inset 0 0 30px rgba(255,180,60,.1);}
-.rm-stageLogo{position:absolute;left:50%;top:26%;transform:translateX(-50%);
-  text-align:center;z-index:3;}
-.rm-cr{display:flex;justify-content:center;color:#ffd93d;filter:drop-shadow(0 2px 6px rgba(255,180,40,.35));}
-.rm-l1{font-weight:800;font-size:24px;line-height:.9;
-  color:#fff;}
-.rm-l2{font-weight:800;font-size:24px;
-  color:#ffd93d;}
-.rm-stageFloor{position:absolute;bottom:0;left:0;right:0;height:70px;
-  background:linear-gradient(180deg,transparent,rgba(120,60,200,.3));
-  border-top:1px solid rgba(170,120,255,.3);}
-.rm-booth{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-  width:110px;height:42px;border-radius:10px;
-  background:linear-gradient(180deg,#3a1a6e,#1a0a36);
-  border:1px solid rgba(170,120,255,.3);}
-.rm-players{position:absolute;left:18px;top:98px;width:min(42vw,150px);z-index:4;
-  border-radius:14px;padding:11px;
-  background:rgba(12,12,18,.9);
-  border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);max-height:174px;overflow:hidden;}
-.rm-pHd{text-align:center;margin-bottom:9px;}
-.rm-pT{font-size:9px;letter-spacing:.1em;color:#b9a0e0;}
-.rm-pC{font-weight:800;font-size:24px;line-height:1;}
-.rm-pS{font-size:8px;color:#9a7ac8;}
-.rm-pEmpty{font-size:10px;color:#9a7ac8;text-align:center;padding:8px 0;}
-.rm-pl{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
-.rm-plAv{width:24px;height:24px;border-radius:50%;flex-shrink:0;
-  background:linear-gradient(135deg,#ff5a8a,#7a3ad0);display:flex;
-  align-items:center;justify-content:center;font-size:11px;font-weight:700;}
-.rm-plInfo{flex:1;min-width:0;}
-.rm-plNm{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;}
-.rm-plSt{font-size:8px;color:#9a7ac8;}
+.rm-stageGlow{position:absolute;inset:0;pointer-events:none;
+  background:
+  linear-gradient(90deg,rgba(255,255,255,.05),transparent 18%,transparent 82%,rgba(255,255,255,.04)),
+  radial-gradient(circle at 50% 100%,rgba(255,217,61,.12),transparent 48%);}
+.rm-stageGrid{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,.9fr) minmax(300px,1.1fr);gap:14px;align-items:stretch;}
+.rm-stageBrief{min-width:0;border-radius:14px;padding:15px;
+  background:rgba(12,12,18,.72);border:1px solid rgba(255,255,255,.12);
+  display:flex;flex-direction:column;gap:10px;}
+.rm-stageBadge{align-self:flex-start;border-radius:999px;padding:5px 9px;
+  font-size:10px;font-weight:800;letter-spacing:.08em;color:#fff;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);}
+.rm-stageBadge-live{color:#73f2a1;border-color:rgba(60,220,106,.28);background:rgba(60,220,106,.1);}
+.rm-stageBadge-spectator-queue,.rm-stageBadge-wait-with-cards{color:#67eaff;border-color:rgba(0,229,255,.28);background:rgba(0,229,255,.09);}
+.rm-stageBadge-spectator-locked,.rm-stageBadge-buy{color:#ffd869;border-color:rgba(255,217,61,.28);background:rgba(255,217,61,.09);}
+.rm-stageTitle{margin:0;font-size:clamp(22px,4vw,34px);line-height:1.02;font-weight:900;color:#fff;}
+.rm-stageText{margin:0;font-size:13px;line-height:1.4;color:#c9b8e8;}
+.rm-stageStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.rm-stageStat{min-width:0;border-radius:12px;padding:10px;
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);}
+.rm-stageStat span{display:block;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:#a995c7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rm-stageStat b{display:flex;align-items:baseline;gap:3px;margin-top:5px;font-size:19px;line-height:1;font-weight:900;color:#fff;}
+.rm-stageStat b small{font-size:11px;color:#ff9ac6;}
+.rm-stageStatBall b{color:#ffd23d;}
+.rm-stagePlayers{border-radius:12px;padding:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08);}
+.rm-stagePlayersHead{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:#d9d0ee;margin-bottom:8px;}
+.rm-stagePlayersHead svg{color:#73f2a1;}
+.rm-stagePlayersEmpty{font-size:11px;line-height:1.32;color:#9a7ac8;}
+.rm-stagePlayerList{display:flex;flex-wrap:wrap;gap:6px;}
+.rm-stagePlayer{min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;border-radius:999px;
+  padding:5px 8px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08);}
+.rm-stagePlayer span{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+  background:linear-gradient(135deg,#ff5a8a,#7a3ad0);font-size:10px;font-weight:800;}
+.rm-stagePlayer b{min-width:0;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;}
+.rm-stageCta{margin-top:auto;min-height:42px;border:none;border-radius:12px;padding:10px 12px;
+  background:linear-gradient(180deg,#ff4d9a,#c8264f);color:#fff;font-weight:900;font-family:inherit;cursor:pointer;
+  box-shadow:0 0 18px rgba(255,80,160,.28);}
+.rm-stageCards{min-width:0;display:flex;align-items:center;justify-content:center;}
+.rm-stageCards .rm-card{width:100%;max-width:430px;padding:11px;
+  background:linear-gradient(180deg,rgba(36,20,68,.92),rgba(18,10,38,.96));
+  border-color:rgba(255,217,61,.18);box-shadow:0 18px 40px rgba(0,0,0,.35);}
+.rm-stageCards .rm-cardGrid{gap:4px;}
+.rm-stageCards .rm-gn{font-size:15px;}
+.rm-stageCards .rm-card90 .rm-gn{font-size:11px;}
+.rm-stageCallout{width:100%;max-width:430px;border-radius:16px;padding:18px;text-align:center;
+  background:linear-gradient(180deg,rgba(36,20,68,.9),rgba(16,10,32,.96));
+  border:1px solid rgba(170,120,255,.25);}
+.rm-stageCallIcon{width:56px;height:56px;margin:0 auto 10px;border-radius:16px;display:grid;place-items:center;
+  background:rgba(255,217,61,.1);color:#ffd23d;border:1px solid rgba(255,217,61,.2);}
+.rm-stageCallTitle{font-size:18px;font-weight:900;}
+.rm-stageCallText{font-size:12px;line-height:1.4;color:#b9a0e0;margin:5px 0 13px;}
+.rm-stageCallout .rm-inlinePrimary{width:100%;}
 .rm-chat{position:absolute;right:18px;top:98px;width:min(44vw,176px);z-index:4;
   height:188px;border-radius:14px;padding:11px;display:flex;flex-direction:column;
   background:rgba(12,12,18,.9);
@@ -1626,8 +1869,9 @@ const RM_CSS = `
   .rm-dockBtn{grid-template-columns:28px minmax(0,1fr) auto;padding:10px 12px;}
   .rm-dockIcon{grid-row:auto;width:28px;height:28px;}
   .rm-dockValue{grid-column:auto;font-size:15px;}
-  .rm-stage{height:360px;}
-  .rm-players,.rm-chat{width:200px;}
+  .rm-stage{padding:16px;}
+  .rm-stageGrid{grid-template-columns:minmax(320px,.88fr) minmax(360px,1.12fr);}
+  .rm-chat{width:200px;}
   .rm-chat{height:280px;}
   .rm-chatDock{min-height:520px;}
   .rm-cards{grid-template-columns:repeat(4,minmax(0,1fr));}
@@ -1635,7 +1879,6 @@ const RM_CSS = `
     width:calc(100% - 24px);max-width:1076px;margin:12px auto 0;
     border-radius:18px;background:rgba(10,4,24,.92);
     border:1px solid rgba(170,120,255,.22);backdrop-filter:blur(14px);}
-  .rm-l1,.rm-l2{font-size:34px;}
   .rm-n{font-size:24px;}
 }
 @media(max-width:620px){
@@ -1662,14 +1905,21 @@ const RM_CSS = `
   .rm-status{gap:7px;padding:8px 10px 10px;}
   .rm-pill{padding:9px 8px;font-size:11px;justify-content:center;text-align:center;}
   .rm-jp{align-items:center;}
-  .rm-stageLogo{display:none;}
   .rm-buyHd{flex-direction:column;}
   .rm-buyState{width:100%;}
-  .rm-players{left:14px;top:74px;width:min(42vw,148px);}
   .rm-chat{right:14px;top:102px;width:min(45vw,174px);height:184px;}
   .rm-chatDock{margin-left:10px;margin-right:10px;min-height:calc(100dvh - 250px);}
   .rm-chatDock .rm-chatBody{min-height:220px;}
-  .rm-stage{height:248px;}
+  .rm-stage{padding:12px;margin-left:10px;margin-right:10px;}
+  .rm-stageGrid{grid-template-columns:1fr;gap:11px;}
+  .rm-stageBrief{padding:12px;}
+  .rm-stageStats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+  .rm-stageStat{padding:8px 7px;}
+  .rm-stageStat span{font-size:8px;}
+  .rm-stageStat b{font-size:16px;}
+  .rm-stageTitle{font-size:24px;}
+  .rm-stageText{font-size:12px;}
+  .rm-stageCards .rm-card{max-width:none;}
   .rm-toast{top:auto;bottom:calc(98px + env(safe-area-inset-bottom,0px));}
 }
 @media(max-width:520px){
@@ -1691,8 +1941,8 @@ const RM_CSS = `
   .rm-dock{gap:5px;}
   .rm-dockBtn{padding:7px 5px;}
   .rm-dockMeta{display:none;}
-  .rm-players{width:132px;}
   .rm-chat{width:158px;}
+  .rm-stageStats{grid-template-columns:1fr;}
   .rm-gn{font-size:18px;}
   .rm-buybig{font-size:14px;}
 }

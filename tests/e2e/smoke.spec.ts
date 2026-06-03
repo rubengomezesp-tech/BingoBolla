@@ -102,6 +102,15 @@ test.describe("BingoBolla smoke", () => {
     await expect(page).not.toHaveURL(/\/login$/);
     await expect(page.locator("body")).not.toContainText(/iniciar sesión/i);
 
+    await page.getByRole("button", { name: /jugar bingo/i }).click();
+    await page.waitForURL(/\/room\/[0-9a-f-]+$/i);
+    await expect(page).not.toHaveURL(/\/login$/);
+    await expect(page.locator('[data-room-stage="live"]')).toBeVisible();
+    await expect(page.locator(".rm-stageCards .rm-card, .rm-stageCallout")).toBeVisible();
+    await expect(page.locator(".rm-stageCta, .rm-stageCallout .rm-inlinePrimary")).toBeVisible();
+    await expect(page.locator(".rm-booth")).toHaveCount(0);
+    await expect(page.locator(".rm-buybig")).not.toContainText(/MÁS CARTONES/i);
+
     await page.goto("/mundos");
     await expect(page).not.toHaveURL(/\/login$/);
     await expect(page.locator("body")).not.toContainText(/iniciar sesión/i);
