@@ -234,6 +234,11 @@
     opacity:.32;mix-blend-mode:screen;pointer-events:none;}
   .tile .sym{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:transparent;font-size:0;text-indent:-9999px;overflow:hidden;z-index:1;}
+  /* Glifo temático (mundos sin imagen PNG): emoji centrado sobre el disco */
+  .tile .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:min(6.2vw,30px);line-height:1;z-index:2;pointer-events:none;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));}
+  .tile .glyph:empty{display:none;}
   .t-bolla   {--token-img:url('/game-assets/ballmatch-tokens/bolla-swirl.png');--token-glow:rgba(255,61,127,.62);}
   .t-sun     {--token-img:url('/game-assets/ballmatch-tokens/sun-coin.png');--token-glow:rgba(255,210,61,.72);}
   .t-palm    {--token-img:url('/game-assets/ballmatch-tokens/palm-lagoon.png');--token-glow:rgba(0,229,255,.54);}
@@ -512,10 +517,10 @@
 </style>
 </head>
 <body>
-<div class="game"><button class="exitbtn" aria-label="Salir" onclick="window.parent.postMessage({type:'BB_GAME_EXIT'},'*')">✕</button>
+<div class="game"><button class="exitbtn" aria-label="Salir" onclick="exitGame()">✕</button>
 
   <div class="top">
-    <div class="logo">Bingo Bolla<small>BALL MATCH</small></div>
+    <div class="logo">Bingo Bolla<small id="logoSub">BALL MATCH</small></div>
     <div class="lvlchip" id="lvlchip">NIVEL 1</div>
   </div>
 
@@ -652,6 +657,140 @@ const SPECIAL = { bomb:"💣", cross:"✦", rainbow:"🌈" };
 const OBS_ICON = { ice:"❄️", box:"📦", chain:"⛓️" };
 const OBS_HITS = { ice:1, box:2, chain:1 };
 
+/* ============================================================
+   MUNDOS Y TEMÁTICAS · 5 mundos × 20 niveles = 100 niveles
+   Cada mundo reutiliza los 6 tipos de ficha (mismas claves de
+   lógica) pero cambia su aspecto: fondo, paleta, glifos y nombres.
+   Mundo 1 (Miami) usa los tokens PNG existentes; el resto usa
+   glifos sobre discos degradados (sin assets binarios nuevos).
+   ============================================================ */
+const WORLDS = [
+  {
+    id:"miami_nights", name:"Miami Nights", short:"MIAMI", from:1, to:20,
+    bg:"radial-gradient(circle at 20% 10%,rgba(255,61,127,.18),transparent 45%),radial-gradient(circle at 85% 90%,rgba(58,168,224,.16),transparent 45%),linear-gradient(180deg,#150a2e 0%,#0a0418 60%,#08080C 100%)",
+    accent:"#ff3d7f", accent2:"#00e5ff", useImg:true,
+    tokens:{
+      bolla:{ name:"Bolla swirl",      glow:"rgba(255,61,127,.62)" },
+      sun:  { name:"Sol casino",       glow:"rgba(255,210,61,.72)" },
+      palm: { name:"Palma lagoon",     glow:"rgba(0,229,255,.54)" },
+      star: { name:"Estrella art deco",glow:"rgba(0,229,255,.58)" },
+      wave: { name:"Ola diamante",     glow:"rgba(58,168,224,.62)" },
+      moon: { name:"Luna neon",        glow:"rgba(190,95,255,.62)" },
+    },
+  },
+  {
+    id:"vegas_lights", name:"Vegas Lights", short:"VEGAS", from:21, to:40,
+    bg:"radial-gradient(circle at 18% 12%,rgba(255,201,61,.20),transparent 46%),radial-gradient(circle at 84% 88%,rgba(214,40,40,.18),transparent 46%),linear-gradient(180deg,#2a1606 0%,#1a0d04 58%,#0c0602 100%)",
+    accent:"#ffd23d", accent2:"#ff4d4d",
+    tokens:{
+      bolla:{ emoji:"🎰", c1:"#ff6b6b", c2:"#b91c1c", name:"Tragaperras" },
+      sun:  { emoji:"7️⃣", c1:"#ffe066", c2:"#d97706", name:"Siete dorado" },
+      palm: { emoji:"💎", c1:"#7dd3fc", c2:"#1d4ed8", name:"Diamante" },
+      star: { emoji:"⭐", c1:"#fde047", c2:"#ca8a04", name:"Estrella VIP" },
+      wave: { emoji:"🍒", c1:"#fb7185", c2:"#9f1239", name:"Cerezas" },
+      moon: { emoji:"🔔", c1:"#fcd34d", c2:"#b45309", name:"Campana" },
+    },
+  },
+  {
+    id:"tokyo_rush", name:"Tokyo Rush", short:"TOKYO", from:41, to:60,
+    bg:"radial-gradient(circle at 20% 10%,rgba(0,229,255,.18),transparent 45%),radial-gradient(circle at 82% 90%,rgba(179,136,255,.20),transparent 46%),linear-gradient(180deg,#0a1430 0%,#0a0a24 60%,#060614 100%)",
+    accent:"#00e5ff", accent2:"#b388ff",
+    tokens:{
+      bolla:{ emoji:"🌸", c1:"#fbcfe8", c2:"#db2777", name:"Sakura" },
+      sun:  { emoji:"🏮", c1:"#fca5a5", c2:"#b91c1c", name:"Farol" },
+      palm: { emoji:"🐉", c1:"#86efac", c2:"#15803d", name:"Dragón" },
+      star: { emoji:"⛩️", c1:"#fda4af", c2:"#9f1239", name:"Torii" },
+      wave: { emoji:"🍣", c1:"#fdba74", c2:"#c2410c", name:"Sushi" },
+      moon: { emoji:"🎌", c1:"#a5b4fc", c2:"#4338ca", name:"Bandera" },
+    },
+  },
+  {
+    id:"rio_carnival", name:"Rio Carnival", short:"RIO", from:61, to:80,
+    bg:"radial-gradient(circle at 18% 12%,rgba(61,220,120,.20),transparent 46%),radial-gradient(circle at 84% 88%,rgba(255,140,0,.20),transparent 46%),linear-gradient(180deg,#06281a 0%,#0a1c10 58%,#06120a 100%)",
+    accent:"#3ddc78", accent2:"#ff8c00",
+    tokens:{
+      bolla:{ emoji:"🦜", c1:"#86efac", c2:"#047857", name:"Tucán" },
+      sun:  { emoji:"🥁", c1:"#fdba74", c2:"#c2410c", name:"Tambor" },
+      palm: { emoji:"🌴", c1:"#6ee7b7", c2:"#065f46", name:"Palmera" },
+      star: { emoji:"🪅", c1:"#fda4af", c2:"#be123c", name:"Piñata" },
+      wave: { emoji:"🍹", c1:"#fcd34d", c2:"#b45309", name:"Cóctel" },
+      moon: { emoji:"🎭", c1:"#c4b5fd", c2:"#6d28d9", name:"Máscara" },
+    },
+  },
+  {
+    id:"aurora_galaxy", name:"Aurora Galaxy", short:"AURORA", from:81, to:100,
+    bg:"radial-gradient(circle at 20% 10%,rgba(99,102,241,.22),transparent 46%),radial-gradient(circle at 82% 90%,rgba(45,212,191,.18),transparent 46%),linear-gradient(180deg,#0b0a2e 0%,#070620 60%,#04030f 100%)",
+    accent:"#818cf8", accent2:"#2dd4bf",
+    tokens:{
+      bolla:{ emoji:"🪐", c1:"#a5b4fc", c2:"#4338ca", name:"Planeta" },
+      sun:  { emoji:"🌟", c1:"#fde68a", c2:"#d97706", name:"Estrella" },
+      palm: { emoji:"☄️", c1:"#5eead4", c2:"#0f766e", name:"Cometa" },
+      star: { emoji:"✨", c1:"#c4b5fd", c2:"#7c3aed", name:"Destello" },
+      wave: { emoji:"🌙", c1:"#bae6fd", c2:"#0369a1", name:"Luna" },
+      moon: { emoji:"🛸", c1:"#99f6e4", c2:"#0d9488", name:"Nave" },
+    },
+  },
+];
+const LEVELS_PER_WORLD = 20;
+const TOTAL_LEVELS = WORLDS.length * LEVELS_PER_WORLD; // 100
+function worldForLevel(n){
+  const idx = Math.min(WORLDS.length - 1, Math.floor((Math.max(1, n) - 1) / LEVELS_PER_WORLD));
+  return WORLDS[idx];
+}
+function isBossLevel(n){ return n % LEVELS_PER_WORLD === 0; } // 20,40,60,80,100
+let currentWorld = WORLDS[0];
+
+// Aplica la temática de un mundo: fondo, paleta y aspecto de cada tipo de ficha.
+function applyTheme(world){
+  currentWorld = world;
+  document.body.style.background = world.bg;
+  const root = document.documentElement.style;
+  root.setProperty("--magenta", world.accent);
+  root.setProperty("--cyan", world.accent2);
+  const logoSub = document.getElementById("logoSub");
+  if(logoSub) logoSub.textContent = world.short;
+}
+
+// Devuelve el aspecto visual (imagen o degradado) para un tipo según el mundo.
+function tokenFaceStyle(type){
+  const t = currentWorld.tokens[type] || {};
+  if(currentWorld.useImg){
+    return { img:`url('${TOKEN_ICON[type]}'),radial-gradient(circle at 50% 50%,rgba(255,255,255,.2),rgba(0,0,0,.2))`, glow:t.glow || "rgba(255,255,255,.5)", glyph:"" };
+  }
+  return {
+    img:`radial-gradient(circle at 32% 26%,rgba(255,255,255,.55),transparent 42%),radial-gradient(circle at 50% 54%,${t.c1||"#fff"},${t.c2||"#333"} 92%)`,
+    glow:t.c1 ? `${t.c1}aa` : "rgba(255,255,255,.5)",
+    glyph:t.emoji || "",
+  };
+}
+function tokenName(type){
+  const t = currentWorld.tokens[type] || {};
+  return t.name || SYM[type] || type;
+}
+
+/* Progreso local (modo standalone): recuerda estrellas por nivel y nivel
+   máximo desbloqueado para que el jugador continúe donde lo dejó. En el
+   flujo de producción el progreso real lo guarda Supabase vía GameOverlay. */
+const PROGRESS_KEY = "bb_ballmatch_progress_v1";
+let maxUnlocked = 1;
+function saveProgress(){
+  try{
+    maxUnlocked = Math.max(maxUnlocked, Math.min(TOTAL_LEVELS, level + 1));
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ bestStars, maxUnlocked }));
+  }catch(_){}
+}
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(data && typeof data==="object"){
+      if(data.bestStars && typeof data.bestStars==="object") bestStars = data.bestStars;
+      if(Number.isFinite(data.maxUnlocked)) maxUnlocked = Math.max(1, Math.min(TOTAL_LEVELS, data.maxUnlocked|0));
+    }
+  }catch(_){}
+}
+
 const board = document.getElementById("board");
 const gameRoot = document.querySelector(".game");
 const gridbg = document.getElementById("gridbg");
@@ -735,21 +874,29 @@ function makeTile(type, r, c, special, obstacle){
   t.className = `tile t-${type} spawn` +
     (special   ? ` sp-${special}` : "") +
     (obstacle  ? ` obs-${obstacle}` : "");
+  const face = tokenFaceStyle(type);
+  const tName = tokenName(type);
   let inner;
   if(obstacle){
     inner = `<div class="face obs-face">
       <span class="obs-icon">${OBS_ICON[obstacle]}</span>
-      <span class="sym obs-sym">${SYM[type]}</span>
+      <span class="sym obs-sym">${tName}</span>
+      <span class="glyph">${face.glyph}</span>
       <span class="obs-hits" id="h${r}_${c}"></span>
     </div>`;
   } else if(special==="rainbow"){
     inner = `<div class="face rainbowface"><span class="sym">🌈</span></div>`;
   } else if(special){
-    inner = `<div class="face"><span class="sym">${SYM[type]}</span><span class="spbadge">${SPECIAL[special]}</span></div>`;
+    inner = `<div class="face"><span class="sym">${tName}</span><span class="glyph">${face.glyph}</span><span class="spbadge">${SPECIAL[special]}</span></div>`;
   } else {
-    inner = `<div class="face"><span class="sym">${SYM[type]}</span></div>`;
+    inner = `<div class="face"><span class="sym">${tName}</span><span class="glyph">${face.glyph}</span></div>`;
   }
   t.innerHTML = inner;
+  // Aspecto temático del mundo activo (imagen PNG en Miami, degradado+emoji en el resto)
+  if(special!=="rainbow"){
+    t.style.setProperty("--token-img", face.img);
+    t.style.setProperty("--token-glow", face.glow);
+  }
   const hits = obstacle ? OBS_HITS[obstacle] : 0;
   const obj = { type, el:t, r, c, special: special||null, obstacle: obstacle||null, hits };
   t.addEventListener("pointerdown", (e)=>startTilePointer(e,obj));
@@ -1408,11 +1555,14 @@ async function endLevel(win){
   const need = starsRequiredToPass(level);
   const canAdvance = stars >= need;
   bestStars[level] = Math.max(bestStars[level]||0, stars);
+  saveProgress();                                   // persiste estrellas + nivel desbloqueado
+  const isFinalLevel = level >= TOTAL_LEVELS;
   const btn = document.getElementById("cardBtn");
   btn.style.visibility = "hidden";  // se muestra al final de la secuencia
   btn.textContent = !realWin ? "Reintentar ↻"
-    : canAdvance ? "Siguiente nivel ▶" : `Necesitas ${need}★ · Reintentar`;
-  card._advance = realWin && canAdvance;
+    : canAdvance ? (isFinalLevel ? "🏆 ¡100 niveles!" : "Siguiente nivel ▶")
+    : `Necesitas ${need}★ · Reintentar`;
+  card._advance = realWin && canAdvance && !isFinalLevel;
   card._worldResult = card._advance ? {
     type: "BB_GAME_RESULT",
     game: "ballmatch",
@@ -1869,14 +2019,17 @@ function flashBingo(txt){
 }
 
 function loadLevel(n){
+  n = Math.max(1, Math.min(TOTAL_LEVELS, n|0));
   level=n;
+  applyTheme(worldForLevel(n));                  // temática del mundo activo
   goalType = TYPES[1 + ((n-1) % (TYPES.length-1))]; // rota objetivo sin pedir siempre el Bolla swirl
 
   // CURVA DE DIFICULTAD · subida media-alta (opción C, calibramos juntos)
   // Más objetivo y menos margen de movimientos -> hay que jugar bien desde el 1.
-  goalTotal = 20 + Math.round(n*3.6);            // un pelín más accesible
+  const boss = isBossLevel(n);
+  goalTotal = 20 + Math.round(n*3.6) + (boss ? 18 : 0); // los boss piden más fichas
   goalLeft  = goalTotal;
-  movesStart = 18 + Math.floor(n*0.6);           // +2 movimientos de margen
+  movesStart = 18 + Math.floor(n*0.6) + (boss ? 4 : 0);  // pero dan algo más de margen
   moves = movesStart;
   combosThisLevel = 0;
   boostersUsedThisLevel = 0;
@@ -1890,21 +2043,26 @@ function loadLevel(n){
   cancelTargeting();
   initBoosters();
 
-  elLvl.textContent = "NIVEL " + n;
-  elGoalIcon.textContent = "";
-  elGoalIcon.style.backgroundImage = `url('${TOKEN_ICON[goalType]}')`;
-  elGoalIcon.style.backgroundSize = "122% 122%";
-  elGoalIcon.style.backgroundPosition = "center";
-  elGoalIcon.style.backgroundRepeat = "no-repeat";
-  const names={
-    bolla:"Bolla swirl",
-    sun:"soles casino",
-    palm:"palmas lagoon",
-    star:"estrellas art deco",
-    wave:"olas diamante",
-    moon:"lunas neon",
-  };
-  elGoalName.textContent = names[goalType];
+  elLvl.textContent = (boss ? "BOSS " : "NIVEL ") + n;
+  const goalFace = tokenFaceStyle(goalType);
+  if(currentWorld.useImg){
+    elGoalIcon.textContent = "";
+    elGoalIcon.style.backgroundImage = `url('${TOKEN_ICON[goalType]}')`;
+    elGoalIcon.style.backgroundSize = "122% 122%";
+    elGoalIcon.style.backgroundPosition = "center";
+    elGoalIcon.style.backgroundRepeat = "no-repeat";
+    elGoalIcon.style.fontSize = "";
+  } else {
+    elGoalIcon.style.backgroundImage = goalFace.img;
+    elGoalIcon.style.backgroundSize = "cover";
+    elGoalIcon.style.backgroundPosition = "center";
+    elGoalIcon.style.display = "flex";
+    elGoalIcon.style.alignItems = "center";
+    elGoalIcon.style.justifyContent = "center";
+    elGoalIcon.style.fontSize = "17px";
+    elGoalIcon.textContent = goalFace.glyph;
+  }
+  elGoalName.textContent = tokenName(goalType);
   buildBingo();
   updateHUD();
   build();
@@ -1924,9 +2082,20 @@ document.getElementById("cardBtn").addEventListener("click",()=>{
   loadLevel(card._advance ? level+1 : level);
 });
 
-// Arranque: leer nivel desde URL param ?level=N (producción) o nivel 1 por defecto
-const _urlLevel = parseInt(new URLSearchParams(location.search).get("level") || "1") || 1;
-loadLevel(_urlLevel);
+// Salir del juego: si se entró desde el mapa standalone vuelve al mapa;
+// si está embebido en GameOverlay avisa al contenedor; si no, no hace nada.
+const FROM_MAP = new URLSearchParams(location.search).get("map") === "1";
+function exitGame(){
+  if(FROM_MAP){ location.href = "worldmap.html"; return; }
+  if(window.parent !== window){ window.parent.postMessage({type:"BB_GAME_EXIT"}, "*"); }
+}
+
+// Arranque: leer nivel desde URL param ?level=N (producción/GameOverlay).
+// Sin parámetro (modo standalone) continúa en el nivel más alto desbloqueado.
+loadProgress();
+const _param = new URLSearchParams(location.search).get("level");
+const _urlLevel = _param != null ? (parseInt(_param) || 1) : maxUnlocked;
+loadLevel(Math.max(1, Math.min(TOTAL_LEVELS, _urlLevel)));
 </script>
 </body>
 </html>

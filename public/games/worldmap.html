@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>Bingo Bolla World · Mapa de 100 niveles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --accent:#ff3d7f; --accent2:#00e5ff; }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+    user-select:none;-webkit-user-select:none;}
+  html,body{height:100%;}
+  body{font-family:'Fredoka',system-ui,sans-serif;color:#fff;background:#06010d;
+    overflow-x:hidden;}
+  #scroll{height:100dvh;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;}
+
+  /* HUD superior fijo */
+  .hud{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+    padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;
+    background:linear-gradient(180deg,rgba(6,1,13,.96),rgba(6,1,13,.78) 70%,transparent);
+    backdrop-filter:blur(8px);}
+  .hud .logo{font-size:19px;font-weight:800;line-height:1;
+    background:linear-gradient(180deg,#ff8fd0,var(--accent));-webkit-background-clip:text;
+    background-clip:text;color:transparent;flex:1;}
+  .hud .logo small{display:block;font-size:9px;font-weight:700;letter-spacing:2px;
+    color:var(--accent2);-webkit-text-fill-color:var(--accent2);margin-top:2px;}
+  .pill{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    font-size:13px;font-weight:700;}
+  .pill b{color:#ffd23d;}
+  .resetbtn{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14);color:#cbb8e8;font:inherit;font-size:12px;
+    font-weight:700;cursor:pointer;}
+
+  /* Banda de cada mundo */
+  .world{position:relative;padding:0 0 34px;}
+  .worldhead{position:relative;z-index:2;margin:0 14px 6px;padding:16px 18px;border-radius:18px;
+    background:linear-gradient(135deg,var(--w1),var(--w2));overflow:hidden;
+    box-shadow:0 14px 30px rgba(0,0,0,.4);}
+  .worldhead:before{content:"";position:absolute;inset:0;
+    background:radial-gradient(120% 100% at 100% 0,rgba(255,255,255,.22),transparent 55%);}
+  .worldhead .wt{position:relative;font-size:23px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,.4);}
+  .worldhead .ws{position:relative;font-size:12px;font-weight:600;opacity:.92;margin-top:2px;}
+  .worldhead .wnums{position:relative;float:right;text-align:right;font-size:12px;font-weight:700;opacity:.95;}
+  .worldhead .wstars{font-size:15px;}
+  .world.locked .worldhead{filter:saturate(.5) brightness(.7);}
+
+  /* Camino de niveles (zig-zag) */
+  .path{position:relative;padding:14px 0 0;}
+  .lane{display:flex;justify-content:center;position:relative;height:74px;}
+  .lane.l{justify-content:flex-start;padding-left:18%;}
+  .lane.c{justify-content:center;}
+  .lane.r{justify-content:flex-end;padding-right:18%;}
+
+  /* Nodo de nivel */
+  .node{position:relative;width:58px;height:58px;border-radius:50%;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;
+    color:#3a1f00;border:3px solid rgba(255,255,255,.85);
+    background:radial-gradient(circle at 32% 26%,#fff,var(--nd1) 38%,var(--nd2) 100%);
+    box-shadow:0 8px 16px rgba(0,0,0,.45);transition:transform .15s ease;}
+  .node:active{transform:scale(.92);}
+  .node .glyph{position:absolute;top:-9px;right:-9px;font-size:17px;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+  .node .stars{position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);
+    white-space:nowrap;font-size:11px;letter-spacing:-1px;line-height:1;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  .node.boss{width:70px;height:70px;font-size:16px;border-color:#ffd23d;
+    box-shadow:0 10px 22px rgba(0,0,0,.5),0 0 18px rgba(255,210,61,.55);}
+  .node.boss .crown{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:18px;}
+  .node.current{animation:bob 1.1s ease-in-out infinite;}
+  .node.current:after{content:"";position:absolute;inset:-7px;border-radius:50%;
+    border:3px solid #fff;opacity:.5;animation:ring 1.4s ease-out infinite;}
+  .node.locked{cursor:not-allowed;color:#9a8fb5;border-color:rgba(255,255,255,.25);
+    background:radial-gradient(circle at 50% 40%,#2a2440,#15101f);box-shadow:0 6px 12px rgba(0,0,0,.4);}
+  .node.locked .lock{font-size:20px;color:#cbb8e8;}
+  .node.shake{animation:shake .35s ease;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  @keyframes ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.5);opacity:0}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  /* línea punteada entre lanes */
+  .path:before{content:"";position:absolute;top:30px;bottom:30px;left:50%;width:0;
+    border-left:4px dotted rgba(255,255,255,.16);transform:translateX(-50%);z-index:0;}
+
+  .footer{padding:8px 18px calc(env(safe-area-inset-bottom) + 28px);text-align:center;
+    color:#8d83a8;font-size:12px;font-weight:600;}
+  @media (prefers-reduced-motion:reduce){
+    .node.current,.node.current:after{animation:none;}
+    #scroll{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+<div id="scroll">
+  <div class="hud">
+    <div class="logo">Bingo Bolla<small>WORLD · 100 NIVELES</small></div>
+    <div class="pill"><span>⭐</span> <b id="totalStars">0</b>/300</div>
+    <div class="pill">🗺️ <b id="lvlReached">1</b>/100</div>
+    <button class="resetbtn" id="resetBtn" title="Reiniciar progreso">↺</button>
+  </div>
+  <div id="map"></div>
+  <div class="footer">Bingo Bolla World · Juego +18 · Gold Coins sin valor monetario</div>
+</div>
+
+<script>
+"use strict";
+const LEVELS_PER_WORLD = 20;
+const TOTAL_LEVELS = 100;
+const PROGRESS_KEY = "bb_ballmatch_progress_v1";
+
+// Mismas temáticas que el motor (ballmatch.html)
+const WORLDS = [
+  { id:"miami_nights",  name:"Miami Nights",  short:"South Beach",  w1:"#ff3d7f", w2:"#00b3c4", nd1:"#ff8fc2", nd2:"#ff3d7f", emoji:"🌴" },
+  { id:"vegas_lights",  name:"Vegas Lights",  short:"The Strip",    w1:"#ffd23d", w2:"#d62828", nd1:"#ffe066", nd2:"#d97706", emoji:"🎰" },
+  { id:"tokyo_rush",    name:"Tokyo Rush",    short:"Shibuya",      w1:"#00e5ff", w2:"#7c3aed", nd1:"#a5b4fc", nd2:"#4338ca", emoji:"🌸" },
+  { id:"rio_carnival",  name:"Rio Carnival",  short:"Copacabana",   w1:"#3ddc78", w2:"#ff8c00", nd1:"#6ee7b7", nd2:"#c2410c", emoji:"🦜" },
+  { id:"aurora_galaxy", name:"Aurora Galaxy", short:"Cosmos",       w1:"#818cf8", w2:"#2dd4bf", nd1:"#a5b4fc", nd2:"#0d9488", emoji:"🪐" },
+];
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if(!raw) return { bestStars:{}, maxUnlocked:1 };
+    const d = JSON.parse(raw) || {};
+    return {
+      bestStars: (d.bestStars && typeof d.bestStars==="object") ? d.bestStars : {},
+      maxUnlocked: Math.max(1, Math.min(TOTAL_LEVELS, (d.maxUnlocked|0) || 1)),
+    };
+  }catch(_){ return { bestStars:{}, maxUnlocked:1 }; }
+}
+
+const prog = loadProgress();
+const bestStars = prog.bestStars;
+const maxUnlocked = prog.maxUnlocked;
+
+// HUD
+let totalStars = 0;
+for(const k in bestStars) totalStars += Math.max(0, Math.min(3, bestStars[k]|0));
+document.getElementById("totalStars").textContent = totalStars;
+document.getElementById("lvlReached").textContent = Math.min(TOTAL_LEVELS, maxUnlocked);
+
+function starStr(n){ return "★".repeat(n) + "☆".repeat(3-n); }
+
+const mapEl = document.getElementById("map");
+const lanes = ["c","r","c","l"]; // patrón zig-zag
+
+WORLDS.forEach((w, wi) => {
+  const from = wi*LEVELS_PER_WORLD + 1;
+  const to = from + LEVELS_PER_WORLD - 1;
+  const worldUnlocked = maxUnlocked >= from;
+  // estrellas del mundo
+  let ws = 0, wc = 0;
+  for(let n=from;n<=to;n++){ const s=Math.max(0,Math.min(3,bestStars[n]|0)); ws+=s; if(s>0)wc++; }
+
+  const section = document.createElement("section");
+  section.className = "world" + (worldUnlocked ? "" : " locked");
+  section.style.setProperty("--w1", w.w1);
+  section.style.setProperty("--w2", w.w2);
+  section.id = "world-"+w.id;
+
+  const head = document.createElement("div");
+  head.className = "worldhead";
+  head.innerHTML =
+    `<div class="wnums"><div class="wstars">⭐ ${ws}/60</div><div>${wc}/${LEVELS_PER_WORLD} niveles</div></div>` +
+    `<div class="wt">${w.emoji} ${w.name}</div>` +
+    `<div class="ws">Mundo ${wi+1} · ${w.short} · niveles ${from}–${to}</div>`;
+  section.appendChild(head);
+
+  const path = document.createElement("div");
+  path.className = "path";
+
+  for(let n=from;n<=to;n++){
+    const lane = document.createElement("div");
+    lane.className = "lane " + lanes[(n-from) % lanes.length];
+
+    const node = document.createElement("button");
+    const s = Math.max(0, Math.min(3, bestStars[n]|0));
+    const completed = s > 0;
+    const locked = n > maxUnlocked;
+    const isBoss = n % LEVELS_PER_WORLD === 0;
+    const isCurrent = n === maxUnlocked && !completed;
+
+    node.className = "node" + (isBoss?" boss":"") + (locked?" locked":"") + (isCurrent?" current":"");
+    node.style.setProperty("--nd1", w.nd1);
+    node.style.setProperty("--nd2", w.nd2);
+    node.setAttribute("aria-label",
+      locked ? `Nivel ${n} bloqueado`
+             : completed ? `Nivel ${n}, ${s} de 3 estrellas`
+             : `Jugar nivel ${n}`);
+
+    let inner = locked ? `<span class="lock">🔒</span>` : `${n}`;
+    if(isBoss && !locked) inner = `<span class="crown">👑</span>${n}`;
+    if(!locked) inner += `<span class="glyph">${w.emoji}</span>`;
+    if(completed) inner += `<span class="stars">${starStr(s)}</span>`;
+    node.innerHTML = inner;
+
+    if(locked){
+      node.addEventListener("click", ()=>{ node.classList.remove("shake"); void node.offsetWidth; node.classList.add("shake"); });
+    } else {
+      node.addEventListener("click", ()=>{ location.href = `ballmatch.html?level=${n}&map=1`; });
+    }
+    lane.appendChild(node);
+    path.appendChild(lane);
+  }
+  section.appendChild(path);
+  mapEl.appendChild(section);
+});
+
+// Aplicar acento del mundo actual al HUD
+const curWorldIdx = Math.min(WORLDS.length-1, Math.floor((maxUnlocked-1)/LEVELS_PER_WORLD));
+document.documentElement.style.setProperty("--accent", WORLDS[curWorldIdx].w1);
+document.documentElement.style.setProperty("--accent2", WORLDS[curWorldIdx].w2);
+
+// Auto-scroll al nivel actual
+requestAnimationFrame(()=>{
+  const cur = document.querySelector(".node.current") || document.querySelector("#world-"+WORLDS[curWorldIdx].id);
+  if(cur) cur.scrollIntoView({ block:"center", behavior:"auto" });
+});
+
+// Reiniciar progreso
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  if(confirm("¿Reiniciar todo el progreso de los 100 niveles?")){
+    try{ localStorage.removeItem(PROGRESS_KEY); }catch(_){}
+    location.reload();
+  }
+});
+</script>
+</body>
+</html>

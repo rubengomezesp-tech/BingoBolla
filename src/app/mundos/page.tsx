@@ -81,11 +81,18 @@ type WorldCard = {
   tag: string;
 };
 
+const LEVELS_PER_WORLD = 20;
+
 const FALLBACK_WORLDS: WorldRow[] = [
-  { id: "miami_nights", name: "Miami Nights", ordinal: 1, theme: "miami", unlock_level: 1, total_nodes: 8, active: true },
-  { id: "vegas_lights", name: "Vegas Lights", ordinal: 2, theme: "vegas", unlock_level: 5, total_nodes: 10, active: true },
-  { id: "tokyo_rush", name: "Tokyo Rush", ordinal: 3, theme: "tokyo", unlock_level: 10, total_nodes: 10, active: true },
+  { id: "miami_nights", name: "Miami Nights", ordinal: 1, theme: "miami", unlock_level: 1, total_nodes: 20, active: true },
+  { id: "vegas_lights", name: "Vegas Lights", ordinal: 2, theme: "vegas", unlock_level: 4, total_nodes: 20, active: true },
+  { id: "tokyo_rush", name: "Tokyo Rush", ordinal: 3, theme: "tokyo", unlock_level: 8, total_nodes: 20, active: true },
+  { id: "rio_carnival", name: "Rio Carnival", ordinal: 4, theme: "rio", unlock_level: 12, total_nodes: 20, active: true },
+  { id: "aurora_galaxy", name: "Aurora Galaxy", ordinal: 5, theme: "aurora", unlock_level: 16, total_nodes: 20, active: true },
 ];
+
+// Nivel global del minijuego (1..100) en el que arranca cada mundo-capítulo.
+const worldStartLevel = (ordinal: number) => (Math.max(1, ordinal) - 1) * LEVELS_PER_WORLD + 1;
 
 const WORLD_VISUALS: Record<string, {
   accent: string;
@@ -114,6 +121,20 @@ const WORLD_VISUALS: Record<string, {
     city: "Shibuya",
     subtitle: "Combos, ritmo alto y premios de precisión.",
     tag: "Avanzado",
+  },
+  rio_carnival: {
+    accent: "#3ddc78",
+    accent2: "#ff8c00",
+    city: "Copacabana",
+    subtitle: "Ritmo de carnaval, tucanes y cócteles tropicales.",
+    tag: "Experto",
+  },
+  aurora_galaxy: {
+    accent: "#818cf8",
+    accent2: "#2dd4bf",
+    city: "Cosmos",
+    subtitle: "El reto final entre planetas, cometas y auroras.",
+    tag: "Final",
   },
 };
 
@@ -268,10 +289,16 @@ export default async function MundosPage() {
       tag: "Mundo",
     };
     const isMiami = world.id === "miami_nights";
-    const totalNodes = Math.max(world.total_nodes || 0, isMiami ? miamiNodes.length || 8 : 0);
+    const totalNodes = Math.max(world.total_nodes || 0, LEVELS_PER_WORLD, isMiami ? miamiNodes.length || 8 : 0);
     const maxStars = isMiami ? miamiMaxStars : Math.max(30, totalNodes * 3 || 30);
     const unlocked = xp.level >= world.unlock_level;
-    const playable = isMiami && unlocked && miamiNodes.length > 0;
+    const playable = unlocked;
+    // Miami abre el mapa interactivo; el resto entra al juego temático en su nivel inicial.
+    const href = !unlocked
+      ? "#"
+      : isMiami
+        ? "/mundomiami"
+        : `/play/ballmatch?level=${worldStartLevel(world.ordinal)}`;
     return {
       id: world.id,
       name: displayName(world.name),
@@ -284,8 +311,8 @@ export default async function MundosPage() {
       maxStars,
       unlocked,
       playable,
-      comingSoon: unlocked && !playable,
-      href: playable ? "/mundomiami" : "#",
+      comingSoon: false,
+      href,
       ...visual,
     };
   });
@@ -440,7 +467,7 @@ export default async function MundosPage() {
             </div>
 
             <div className="mw-taskList">
-              <ActionRow href="/mundomiami" icon={MapPin} title="Mapa Miami" detail="Nodos, estrellas y recompensas" enabled={!!playableWorld} />
+              <ActionRow href="/games/worldmap.html" icon={MapPin} title="Campaña · 100 niveles" detail="Mapa completo de los 5 mundos" enabled />
               <ActionRow href="/play/ballmatch?level=1" icon={Sparkles} title="Bolla Blast" detail="Minijuego rápido para entrenar" enabled />
               <ActionRow href="/lobby#salas" icon={Users} title="Bingo en vivo" detail="Salas reales con cartones" enabled />
               <ActionRow href="/store" icon={Store} title="Tienda" detail="Recarga monedas y energía" enabled />
@@ -613,6 +640,12 @@ function ActionRow({
 
   if (!enabled) {
     return <div className="mw-action disabled" aria-disabled="true">{body}</div>;
+  }
+
+  // Archivos estáticos en /public (p.ej. el mapa de la campaña) requieren
+  // navegación completa, no el router de Next.
+  if (href.startsWith("/games/")) {
+    return <a className="mw-action" href={href}>{body}</a>;
   }
 
   return <Link className="mw-action" href={href}>{body}</Link>;
