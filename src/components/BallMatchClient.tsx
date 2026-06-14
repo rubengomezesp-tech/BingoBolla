@@ -1,30 +1,103 @@
 "use client";
 
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import BallMatchGame, { type GameResult } from "./ballmatch/BallMatchGame";
+import BallMatchMap from "./ballmatch/BallMatchMap";
+import { loadProgress, saveStars, type Progress } from "./ballmatch/progress";
 
-export default function BallMatchClient({ level }: { level: number }) {
+export default function BallMatchClient({
+  level,
+  nodeId,
+}: {
+  level?: number | null;
+  nodeId?: string | null;
+}) {
   const router = useRouter();
+  // Si llega un nivel por la URL (p.ej. enlace directo o nodo del mundo) vamos
+  // directos al juego; si no, mostramos el mapa de niveles.
+  const fromUrl = useRef<boolean>(level != null);
+  const [selected, setSelected] = useState<number | null>(level ?? null);
+  const [progress, setProgress] = useState<Progress>(() => loadProgress());
+  const [saving, setSaving] = useState(false);
+  const savedRef = useRef(false);
+
+  const backToMundo = useCallback(() => router.push("/mundo"), [router]);
+
+  // Salir del juego: si vino por URL -> al mundo; si vino del mapa -> al mapa.
+  const exitGame = useCallback(() => {
+    if (fromUrl.current) {
+      backToMundo();
+    } else {
+      setProgress(loadProgress());
+      setSelected(null);
+    }
+  }, [backToMundo]);
+
+  const complete = useCallback(
+    async (r: GameResult) => {
+      // Guarda siempre el progreso local del nivel.
+      if (r.win && r.level) setProgress(saveStars(r.level, r.stars));
+
+      // Flujo del mundo (enlace con node): persiste en Supabase y vuelve al mundo.
+      if (r.win && nodeId && !savedRef.current) {
+        savedRef.current = true;
+        setSaving(true);
+        try {
+          const res = await fetch("/api/world/complete-node", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ node_id: nodeId, stars: r.stars, score: r.score, level: r.level }),
+          });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || payload?.error) {
+            savedRef.current = false;
+            setSaving(false);
+            window.alert("No se pudo guardar el avance. Revisa la conexión e inténtalo de nuevo.");
+            return;
+          }
+        } catch {
+          savedRef.current = false;
+          setSaving(false);
+          window.alert("No se pudo guardar el avance. Revisa la conexión e inténtalo de nuevo.");
+          return;
+        }
+        backToMundo();
+        return;
+      }
+
+      // Flujo del mapa: vuelve al mapa (con el siguiente nivel ya desbloqueado).
+      if (fromUrl.current) backToMundo();
+      else setSelected(null);
+    },
+    [nodeId, backToMundo]
+  );
+
+  if (selected == null) {
+    return <BallMatchMap progress={progress} onSelect={(lvl) => setSelected(lvl)} onExit={backToMundo} />;
+  }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"#08080C", zIndex:50 }}>
-      <button
-        onClick={() => router.push("/mundomiami")}
-        style={{
-          position:"absolute", top:"env(safe-area-inset-top, 12px)", left:12,
-          zIndex:60, background:"rgba(20,8,40,.92)", border:"1.5px solid rgba(255,200,90,.4)",
-          borderRadius:14, color:"#FFD98A", fontFamily:"'Fredoka',system-ui",
-          fontWeight:700, fontSize:13, padding:"8px 14px", cursor:"pointer",
-          backdropFilter:"blur(6px)", boxShadow:"0 4px 12px rgba(0,0,0,.5)",
-        }}
-      >
-        ← Mundo
-      </button>
-      <iframe
-        src={`/ballmatch/index.html?level=${level}`}
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:"none" }}
-        allow="autoplay"
-        title={`Ball Match — Nivel ${level}`}
-      />
-    </div>
+    <>
+      <BallMatchGame key={selected} level={selected} onExit={exitGame} onComplete={complete} />
+      {saving && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(6,1,13,.6)",
+            color: "#ffd98a",
+            fontFamily: "'Fredoka',system-ui",
+            fontWeight: 700,
+          }}
+        >
+          Guardando avance…
+        </div>
+      )}
+    </>
   );
 }

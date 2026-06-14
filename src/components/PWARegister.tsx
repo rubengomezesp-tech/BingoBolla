@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { initAudio } from "@/lib/sound";
-import { unlockAudio } from "@/lib/sounds";
 
 /**
  * Tipo del evento `beforeinstallprompt` (no incluido en lib.dom estándar).
@@ -30,7 +29,6 @@ export default function PWARegister() {
   useEffect(() => {
     const unlock = () => {
       initAudio();
-      unlockAudio();
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       window.removeEventListener("touchstart", unlock);

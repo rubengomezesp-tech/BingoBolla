@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function BallMatchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string }>;
+  searchParams: Promise<{ level?: string; node?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,7 +19,9 @@ export default async function BallMatchPage({
   if (!profile?.kyc_status || profile.kyc_status === "unverified") redirect("/onboarding");
 
   const params = await searchParams;
-  const level = Math.max(1, parseInt(params.level || "1") || 1);
+  // Sin ?level= mostramos el mapa de niveles; con él, vamos directos a ese nivel.
+  const level = params.level ? Math.max(1, parseInt(params.level) || 1) : null;
+  const nodeId = params.node || null;
 
-  return <BallMatchClient level={level} />;
+  return <BallMatchClient level={level} nodeId={nodeId} />;
 }

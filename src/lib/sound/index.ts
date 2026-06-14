@@ -161,4 +161,84 @@ export const sounds = {
     tone(200, 0.15, "sawtooth", 0.1);
     tone(150, 0.2, "sawtooth", 0.1, 0.12);
   },
+
+  // ===== Match-3 (Ball Match) =====
+  // Intercambio de fichas
+  swap() {
+    tone(520, 0.05, "triangle", 0.08);
+  },
+  // Pop de bolas: sube de tono con la profundidad de cascada (semitonos)
+  pop(depth = 0) {
+    const base = 440 * Math.pow(2, Math.min(depth, 10) / 12);
+    tone(base, 0.07, "sine", 0.11);
+    tone(base * 1.5, 0.06, "sine", 0.07, 0.03);
+  },
+  // Especial creado / detonado
+  special() {
+    sweep(300, 1100, 0.18, 0.12);
+    tone(1320, 0.1, "square", 0.1, 0.06);
+  },
+  // Entra modo fever / combo
+  fever() {
+    sweep(500, 1400, 0.4, 0.12);
+    [784, 988, 1319].forEach((f, i) => tone(f, 0.16, "square", 0.12, i * 0.08));
+  },
+  // Derrota (sin movimientos)
+  lose() {
+    [440, 349, 262].forEach((f, i) => tone(f, 0.22, "sawtooth", 0.1, i * 0.12));
+  },
 };
+
+// ============================================================================
+// Compatibilidad con la antigua lib/sounds (bingo). Mismo nombre de funciones,
+// ahora con un único AudioContext y un único estado de mute (bb_sound).
+// ============================================================================
+export const isMuted = () => !isSoundEnabled();
+export function setMuted(m: boolean) {
+  setSoundEnabled(!m);
+}
+
+export function playBallCalled(ballNumber: number) {
+  const base = 440 + (ballNumber / 75) * 220; // bolas altas = tono más agudo
+  tone(base, 0.18, "sine", 0.12);
+  tone(base * 1.5, 0.12, "sine", 0.08, 0.08);
+}
+
+export function playOneToGo() {
+  tone(660, 0.08, "square", 0.1);
+  tone(880, 0.12, "square", 0.1, 0.09);
+}
+
+export function playWin() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.3, "triangle", 0.18, i * 0.1));
+  tone(1046.5, 0.5, "sine", 0.15, 0.45);
+}
+
+export function playClick() {
+  tone(800, 0.04, "sine", 0.08);
+}
+
+export function playPurchase() {
+  tone(440, 0.1, "sine", 0.12);
+  tone(660, 0.15, "sine", 0.12, 0.08);
+}
+
+export function playGameStart() {
+  for (let i = 0; i < 6; i++) tone(200 - i * 10, 0.05, "square", 0.06, i * 0.06);
+  tone(800, 0.3, "sine", 0.15, 0.38);
+}
+
+export function playJackpot() {
+  sweep(220, 1760, 0.6, 0.12);
+  [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98].forEach((f, i) =>
+    tone(f, 0.35, "square", 0.16, 0.5 + i * 0.12)
+  );
+  for (let i = 0; i < 12; i++) tone(1800 + Math.random() * 800, 0.1, "sine", 0.07, 1.2 + i * 0.07);
+  tone(1046.5, 0.7, "triangle", 0.2, 1.3);
+}
+
+export function playWinnerAnnounce() {
+  tone(659.25, 0.15, "triangle", 0.14);
+  tone(880, 0.15, "triangle", 0.14, 0.12);
+  tone(1046.5, 0.25, "triangle", 0.16, 0.24);
+}

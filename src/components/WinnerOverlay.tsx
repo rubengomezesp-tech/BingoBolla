@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { playJackpot, playWinnerAnnounce } from "@/lib/sounds";
+import { playJackpot, playWinnerAnnounce } from "@/lib/sound";
 
 type Winner = {
   pattern: string;

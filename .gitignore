@@ -52,3 +52,6 @@ next-env.d.ts
 *.keystore
 *.jks
 /ios/App/App/GoogleService-Info.plist
+
+# editor
+.obsidian/

@@ -119,7 +119,8 @@ export default function SlotMachineClient({
         : [[1,1,1,1,1],[0,0,0,0,0],[2,2,2,2,2],[0,1,2,1,0],[2,1,0,1,2],[0,0,1,2,2],[2,2,1,0,0],[1,0,0,0,1],[1,2,2,2,1],[0,1,0,1,0],[2,1,2,1,2],[1,1,0,1,1],[1,1,2,1,1],[0,1,1,1,0],[2,1,1,1,2],[1,0,1,0,1],[1,2,1,2,1],[0,2,0,2,0],[2,0,2,0,2],[0,0,2,0,0],[2,2,0,2,2],[1,0,2,0,1],[1,2,0,2,1],[0,2,2,2,0],[2,0,0,0,2]];
       const line = lines5[wl.line];
       if (!line) continue;
-      for (let r = 0; r < wl.count; r++) set.add(`${r}-${line[r]}`);
+      // clave = `${row}-${reel}` para coincidir con la consulta del render (estaba transpuesta)
+      for (let reel = 0; reel < wl.count; reel++) set.add(`${line[reel]}-${reel}`);
     }
     return set;
   }, [winLines, M.id, cfg.paylines]);

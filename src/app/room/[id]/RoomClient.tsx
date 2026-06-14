@@ -6,7 +6,7 @@ import {
   COLS_75, ballClass, ballLetter, ball90Class, checkCardStatus,
   type Card as CardType,
 } from "@/lib/game/engine";
-import { isMuted, setMuted, playBallCalled, playOneToGo, playWin, playPurchase } from "@/lib/sounds";
+import { isMuted, setMuted, playBallCalled, playOneToGo, playWin, playPurchase } from "@/lib/sound";
 import type { Profile } from "@/lib/supabase/types";
 import { NumberMarker, Confetti } from "@/components/Marker";
 import Link from "next/link";
